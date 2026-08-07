@@ -1,6 +1,6 @@
 # @zooclaw-agents/sdk
 
-TypeScript SDK for the [ZooClaw Managed Agents](https://github.com/SerendipityOneInc/zooclaw-docs) API. Developer Preview.
+TypeScript SDK for the [ZooClaw Managed Agents](https://github.com/SerendipityOneInc/zooclaw-agents-docs) API. Developer Preview.
 
 Zero runtime dependencies — it uses the platform `fetch`, which you can override for edge runtimes and tests. ESM only, Node 20+.
 
@@ -85,7 +85,7 @@ Three things worth knowing before you write that loop:
 
 ## Documentation
 
-Full guides, the capability matrix, and a porting guide for developers coming from Claude Managed Agents: **[zooclaw-docs](https://github.com/SerendipityOneInc/zooclaw-docs)**.
+Full guides, the capability matrix, and a porting guide for developers coming from Claude Managed Agents: **[zooclaw-docs](https://github.com/SerendipityOneInc/zooclaw-agents-docs)**.
 
 Runnable examples in [`examples/`](examples):
 
