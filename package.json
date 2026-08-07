@@ -1,0 +1,52 @@
+{
+  "name": "@zooclaw-agents/sdk",
+  "version": "0.0.3",
+  "description": "TypeScript SDK for the ZooClaw Managed Agents API (Developer Preview)",
+  "keywords": [
+    "zooclaw",
+    "agents",
+    "sdk",
+    "llm",
+    "sse",
+    "streaming"
+  ],
+  "homepage": "https://github.com/SerendipityOneInc/zooclaw-sdk-typescript#readme",
+  "bugs": "https://github.com/SerendipityOneInc/zooclaw-sdk-typescript/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SerendipityOneInc/zooclaw-sdk-typescript.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "prepublishOnly": "pnpm run typecheck && pnpm run build"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.7",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

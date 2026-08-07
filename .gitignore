@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.DS_Store
+
+# capability-probe output (staging observations, regenerated per run)
+probe-report.json
+
+# Never commit local credentials or agent tool state
+.env
+.env.*
+!.env.example
+.dev.vars
+!.dev.vars.example
+.claude/
