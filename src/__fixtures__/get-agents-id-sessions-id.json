@@ -1,0 +1,25 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions/SESSION2000000000000000000000000",
+  "status": 200,
+  "body": {
+    "session_id": "SESSION2000000000000000000000000",
+    "session_key": "api:SESSION2000000000000000000000000",
+    "channel": "api",
+    "run_status": "succeeded",
+    "updated_at": "2026-08-07T14:42:00.158Z",
+    "metadata": {
+      "source": "sdk-surface-probe"
+    },
+    "archived": true,
+    "status": null,
+    "pending_approvals": 0,
+    "entry": {
+      "channel": "api",
+      "sessionId": "SESSION2000000000000000000000000",
+      "updatedAt": 1786113714677,
+      "lastChannel": "api",
+      "lastAccountId": "agt_AGENT100000000000000000000"
+    }
+  }
+}

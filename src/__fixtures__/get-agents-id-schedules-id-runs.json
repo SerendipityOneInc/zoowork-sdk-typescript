@@ -1,0 +1,23 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/schedules/surface-probe-schedule/runs?limit=20",
+  "status": 200,
+  "body": {
+    "runs": [
+      {
+        "source": "run_projection",
+        "schedule_id": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule",
+        "fired_at": "2026-08-07T14:41:47.000Z",
+        "status": "skipped",
+        "consecutive_errors": 0
+      },
+      {
+        "source": "temporal",
+        "scheduled_at": "2026-08-07T14:41:47.777Z",
+        "taken_at": "2026-08-07T14:41:47.814Z",
+        "workflow_id": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule-workflow-2026-08-07T14:41:47Z",
+        "temporal_run_id": "019fdcac-4f1c-7056-bbce-f7d3f6359c99"
+      }
+    ]
+  }
+}

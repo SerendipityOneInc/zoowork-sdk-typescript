@@ -2,8 +2,10 @@ node_modules/
 dist/
 .DS_Store
 
-# capability-probe output (staging observations, regenerated per run)
+# Probe output (staging observations, regenerated per run). These hold UNSCRUBBED real ids —
+# only the recorded fixtures under src/__fixtures__/ are safe to commit.
 probe-report.json
+surface-probe-report.json
 
 # Never commit local credentials or agent tool state
 .env

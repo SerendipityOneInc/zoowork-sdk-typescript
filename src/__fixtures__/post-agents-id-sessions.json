@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions",
+  "status": 201,
+  "body": {
+    "session_id": "SESSION3000000000000000000000000",
+    "session_key": "api:SESSION3000000000000000000000000",
+    "status": "running",
+    "created_at": "2026-08-07T14:42:01.232Z"
+  }
+}

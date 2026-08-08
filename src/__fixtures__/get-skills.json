@@ -1,0 +1,28 @@
+{
+  "method": "GET",
+  "path": "/skills?q=sdk-surface-probe-skill",
+  "status": 200,
+  "body": {
+    "skills": [
+      {
+        "skill_id": "skl_SKILL190000000000000000000",
+        "scope": "org",
+        "pack_id": null,
+        "name": "sdk-surface-probe-skill",
+        "description": "Throwaway skill uploaded by examples/surface-probe.ts to verify the skill registry surface. Safe to delete.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER2000000000",
+        "created_at": "2026-08-07T14:41:39.734Z",
+        "updated_at": "2026-08-07T14:41:40.287Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": "ORG10000000000000000000000000000"
+        }
+      }
+    ],
+    "page": 1,
+    "page_size": 100,
+    "total": 1
+  }
+}

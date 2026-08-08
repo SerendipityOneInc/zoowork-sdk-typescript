@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions/SESSION2000000000000000000000000/archive",
+  "status": 200,
+  "body": {
+    "session_id": "SESSION2000000000000000000000000",
+    "archived": true
+  }
+}

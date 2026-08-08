@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/exec",
+  "status": 200,
+  "body": {
+    "exit_code": 7,
+    "stdout": "",
+    "stderr": ""
+  }
+}

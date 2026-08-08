@@ -1,0 +1,8 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/approvals?status=pending",
+  "status": 200,
+  "body": {
+    "approvals": []
+  }
+}

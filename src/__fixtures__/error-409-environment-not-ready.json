@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/agents",
+  "status": 409,
+  "body": {
+    "error": {
+      "type": "environment_not_ready",
+      "message": "environment version is not ready"
+    }
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions/SESSION2000000000000000000000000/events",
+  "status": 200,
+  "body": {
+    "events": [
+      {
+        "seq": 1,
+        "run_id": "run-51e5257e-0",
+        "turn": 0,
+        "event_type": "run.started",
+        "payload": {
+          "agentId": "agt_AGENT100000000000000000000",
+          "trigger": "user_message",
+          "inboundMessageId": "803a8c35-d13a-46f9-845c-5860897b73b8"
+        },
+        "created_at": "2026-08-07T14:41:55.012Z"
+      },
+      {
+        "seq": 2,
+        "run_id": "run-51e5257e-0",
+        "turn": 0,
+        "event_type": "agent.lifecycle",
+        "payload": {
+          "phase": "start"
+        },
+        "created_at": "2026-08-07T14:41:55.012Z"
+      },
+      {
+        "seq": 3,
+        "run_id": "run-51e5257e-0",
+        "turn": 0,
+        "event_type": "agent.item",
+        "payload": {
+          "kind": "assistant_segment",
+          "phase": "start",
+          "segment": 1
+        },
+        "created_at": "2026-08-07T14:41:55.082Z"
+      },
+      {
+        "seq": 4,
+        "run_id": "run-51e5257e-0",
+        "turn": 0,
+        "event_type": "agent.thinking",
+        "payload": {
+          "text": "The user is asking me to reply with exactly \"SURFACE-PROBE-MARKER\" and nothing else. This appears to be a simple text response request. I should comply with this direct instruction.",
+          "contentIndex": 1
+        },
+        "created_at": "2026-08-07T14:41:56.318Z"
+      },
+      {
+        "seq": 5,
+        "run_id": "run-51e5257e-0",
+        "turn": 0,
+        "event_type": "agent.assistant",
+        "payload": {
+          "message": {
+            "api": "anthropic-messages",
+            "role": "assistant",
+            "model": "claude-fable-5",
+            "usage": {
+              "cost": {
+                "input": 0,
+                "total": 0,
+                "output": 0,
+                "cacheRead": 0,
+                "cacheWrite": 0
+              },
+              "input": 14889,
+              "output": 75,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 14964
+            },
+            "content": [
+              {
+                "text": "",
+                "type": "text"
+              },
+              {
+                "type": "thinking",
+                "thinking": "The user is asking me to reply with exactly \"SURFACE-PROBE-MARKER\" and nothing else. This appears to be a simple text response request. I should comply with this direct instruction.\n"
+              },
+              {
+                "text": "\n\nSURFACE-PROBE-MARKER",
+                "type": "text"
+              }
+            ],
+            "provider": "litellm",
+            "timestamp": 1786113716316,
+            "responseId": "msg_7d520115-764d-44ce-8f55-b9b74cc76363",
+            "stopReason": "stop",
+            "responseModel": "qwen35-122B"
+          },
+          "segment": 1
+        },
+        "created_at": "2026-08-07T14:41:56.318Z"
+      },
+      {
+        "seq": 6,
+        "run_id": "run-51e5257e-0",
+        "turn": 0,
+        "event_type": "agent.lifecycle",
+        "payload": {
+          "phase": "end"
+        },
+        "created_at": "2026-08-07T14:41:56.386Z"
+      },
+      {
+        "seq": 7,
+        "run_id": "run-51e5257e-0",
+        "turn": 0,
+        "event_type": "run.finished",
+        "payload": {
+          "status": "succeeded"
+        },
+        "created_at": "2026-08-07T14:41:56.442Z"
+      }
+    ]
+  }
+}

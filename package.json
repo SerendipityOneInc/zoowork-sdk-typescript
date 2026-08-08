@@ -1,6 +1,6 @@
 {
   "name": "@zooclaw-agents/sdk",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "TypeScript SDK for the ZooClaw Managed Agents API (Developer Preview)",
   "keywords": [
     "zooclaw",
@@ -29,6 +29,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
@@ -39,9 +40,10 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "tsc --noEmit && vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "pnpm run typecheck && pnpm run build"
   },
   "devDependencies": {

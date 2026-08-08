@@ -1,0 +1,6 @@
+{
+  // The published build. Identical to tsconfig.json except that the committed tests are not
+  // shipped: `tsc --noEmit` (the typecheck gate) still covers them through tsconfig.json.
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts"]
+}

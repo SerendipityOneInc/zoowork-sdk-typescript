@@ -1,0 +1,39 @@
+# Everything that has to be true before a change to this SDK is trusted.
+#
+# `pnpm test` is the whole gate on purpose: it runs the type checker AND the suite, because a good
+# half of what this SDK guarantees is type-level. Reintroducing a wrong response type — the class of
+# bug that shipped in 0.0.3 — fails `tsc`, not an assertion, so a workflow that only ran vitest would
+# be green on exactly the bugs the suite was written to catch.
+#
+# Note what is NOT here: nothing runs `examples/`. Those are staging probes — they need a real
+# ZOOCLAW_API_KEY and they create, drive and delete real agents, skills, schedules and Environments
+# in a live tenant. `vitest.config.ts` restricts the test glob to `src/**/*.test.ts` so they cannot
+# be picked up by accident, and no API key is ever exposed to this workflow.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Type checker and suite. Offline: every response is replayed from a recorded fixture.
+      - run: pnpm test
+
+      # The published artifact must still build, and must not carry tests or fixtures.
+      - run: pnpm run build

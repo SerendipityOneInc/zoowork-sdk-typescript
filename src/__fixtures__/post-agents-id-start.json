@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/start",
+  "status": 200,
+  "body": {
+    "warnings": [
+      "channel_routes_reload_failed: routes reload returned 404"
+    ]
+  }
+}
