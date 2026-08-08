@@ -1,0 +1,26 @@
+{
+  "method": "POST",
+  "path": "/agents",
+  "status": 201,
+  "body": {
+    "agent_id": "agt_AGENT200000000000000000000",
+    "computer_id": "cmp_COMPUTER200000000000000000",
+    "resolved_skills": [],
+    "config_version": 1,
+    "ownership": {
+      "owner_uid": "USER100000000000000",
+      "org_id": "ORG10000000000000000000000000000"
+    },
+    "resolved_environment": {
+      "environment_id": "env_ENVIRONMENT1",
+      "version": 6,
+      "provider": "e2b",
+      "template_ref": "zc-env-zooclaw-base:00000000-0000-4000-8000-000000000001",
+      "build_id": "00000000-0000-4000-8000-000000000001",
+      "spec_hash": "sha256:d368169c8581400457ce54a9fe3a667cf143d149d7a1391d18873e6d76a42cf5",
+      "networking": {
+        "type": "unrestricted"
+      }
+    }
+  }
+}

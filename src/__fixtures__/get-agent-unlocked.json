@@ -1,0 +1,178 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT200000000000000000000",
+  "status": 200,
+  "body": {
+    "agent_id": "agt_AGENT200000000000000000000",
+    "computer_id": "cmp_COMPUTER200000000000000000",
+    "ownership": {
+      "owner_uid": "USER100000000000000",
+      "org_id": "ORG10000000000000000000000000000"
+    },
+    "declared": {
+      "mcp": [],
+      "name": "sdk-surface-probe-cold",
+      "model": {
+        "primary": "litellm/claude-fable-5"
+      },
+      "labels": {},
+      "persona": {
+        "docs": []
+      },
+      "plugins": {
+        "enabled": []
+      },
+      "sandbox": {
+        "scope": "agent"
+      },
+      "pdfModel": {
+        "primary": "litellm/claude-sonnet-5"
+      },
+      "imageModel": {
+        "primary": "litellm/claude-sonnet-5"
+      },
+      "tool_policy": {},
+      "imageGenerationModel": {
+        "primary": "litellm/gemini-2.5-flash-image"
+      }
+    },
+    "labels": {},
+    "resolved_skills": [
+      {
+        "skill_id": "skl_SKILL100000000000000000000",
+        "name": "bot-mailbox",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL200000000000000000000",
+        "name": "browser-skill",
+        "version": "2",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL300000000000000000000",
+        "name": "chameleon-seedance",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL400000000000000000000",
+        "name": "council",
+        "version": "4",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL500000000000000000000",
+        "name": "deep-research",
+        "version": "2",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL600000000000000000000",
+        "name": "designer",
+        "version": "2",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL700000000000000000000",
+        "name": "docx",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL800000000000000000000",
+        "name": "glossary",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL900000000000000000000",
+        "name": "humanizer",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL100000000000000000000",
+        "name": "knowledge-base",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL110000000000000000000",
+        "name": "meeting-notes",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL120000000000000000000",
+        "name": "pdf",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL130000000000000000000",
+        "name": "pptx",
+        "version": "2",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL140000000000000000000",
+        "name": "video-generator",
+        "version": "2",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL150000000000000000000",
+        "name": "web-designer",
+        "version": "1",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL160000000000000000000",
+        "name": "xlsx",
+        "version": "2",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL170000000000000000000",
+        "name": "zooclaw-asr",
+        "version": "2",
+        "eligible": true
+      },
+      {
+        "skill_id": "skl_SKILL180000000000000000000",
+        "name": "zooclaw-tts",
+        "version": "2",
+        "eligible": true
+      }
+    ],
+    "resolved_environment": {
+      "version": 6,
+      "build_id": "00000000-0000-4000-8000-000000000001",
+      "provider": "e2b",
+      "spec_hash": "sha256:d368169c8581400457ce54a9fe3a667cf143d149d7a1391d18873e6d76a42cf5",
+      "template_ref": "zc-env-zooclaw-base:00000000-0000-4000-8000-000000000001",
+      "environment_id": "env_ENVIRONMENT1"
+    },
+    "environment_locked": false,
+    "environment_locked_at": null,
+    "bootstrap_state": "skipped",
+    "status": {
+      "desired_state": "stopped",
+      "actual_state": "stopped",
+      "config_version": 3,
+      "render_state": "ready",
+      "status_message": null,
+      "render": {
+        "ok": true,
+        "error": null
+      },
+      "channels": {
+        "expected": 0,
+        "connected": 0,
+        "degraded_since": null
+      }
+    }
+  }
+}

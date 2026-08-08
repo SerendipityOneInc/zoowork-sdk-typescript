@@ -1,0 +1,40 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/schedules/surface-probe-schedule",
+  "status": 200,
+  "body": {
+    "scheduleId": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule",
+    "computerId": "cmp_COMPUTER100000000000000000",
+    "agentId": "agt_AGENT100000000000000000000",
+    "apiAgentId": "agt_AGENT100000000000000000000",
+    "name": "surface-probe-schedule",
+    "jobKind": "cron",
+    "execution": {
+      "kind": "isolated"
+    },
+    "originMetadata": {
+      "kind": "management"
+    },
+    "contextSnapshot": [],
+    "scheduleSpec": {
+      "timezoneName": "Asia/Singapore",
+      "catchupWindowMs": 3600000,
+      "cronExpressions": [
+        "30 9 * * *"
+      ]
+    },
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Reply with exactly: SURFACE-PROBE-MARKER"
+    },
+    "delivery": {
+      "mode": "none"
+    },
+    "origin": "management",
+    "enabled": true,
+    "deleteAfterRun": false,
+    "consecutiveErrors": 0,
+    "createdAt": "2026-08-07T14:41:43.448Z",
+    "updatedAt": "2026-08-07T14:41:44.634Z"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "method": "DELETE",
+  "path": "/agents/agt_AGENT100000000000000000000/schedules/surface-probe-schedule",
+  "status": 204,
+  "body": null
+}

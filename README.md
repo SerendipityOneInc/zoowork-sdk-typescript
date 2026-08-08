@@ -56,6 +56,7 @@ An explicit option always beats the environment variable.
 > `actual_state` reports chat-channel connectivity. An API-only agent has no channels,
 > so it stays at `activating` forever and `active` is unreachable — a readiness loop
 > that polls it never returns. `desired_state` flips to `running` in well under a second.
+> `await zc.waitUntilRunning(agentId)` is that loop, written correctly.
 
 ## Streaming a turn
 
@@ -82,6 +83,73 @@ Three things worth knowing before you write that loop:
 - **The stream is session-scoped and does not close when a turn ends.** The server closes it after an idle period. Break on `isRunFinished(ev)` yourself, or you block until that timeout.
 - **It resumes.** Every frame carries a durable `seq`. After a dropped connection, restart with `{ after: lastSeq }` and the server replays from there — nothing lost, nothing duplicated.
 - **REST and SSE spell the same event differently** (`event_type` vs `eventType`, and neither has a top-level `type`). The SDK normalizes both into one `SessionEvent`; you only ever read `eventType`.
+
+## Bring your own skill
+
+A skill is a zip. One upload creates the skill *and* its first version; `putAgentSkill` attaches it.
+
+```ts
+import { readFile } from 'node:fs/promises'
+
+const skill = await zc.uploadSkill(await readFile('market-research.zip'), { scope: 'org' })
+await zc.putAgentSkill(agent.agent_id, skill.skill_id)
+```
+
+The zip's single top-level directory must be named exactly like the `name` in its `SKILL.md`
+frontmatter — `market-research/SKILL.md` declaring `name: market-research`. A mismatch is a 400,
+and it is the first one nearly everyone gets. `scope` is `org` or `personal`; the preinstalled
+`global` skills are listable but not installable with an API key, so this is the only way to
+control what a skill says. `uploadSkillVersion` publishes an update, and agents that installed it
+unpinned follow along without another `putAgentSkill`.
+
+## Schedules, wake and exec
+
+```ts
+await zc.createSchedule(agent.agent_id, {
+  schedule_id: 'daily-report',
+  schedule: { kind: 'cron', expr: '0 9 * * *', tz: 'Asia/Singapore' },
+  payload: { kind: 'agentTurn', message: 'Generate the daily report.' },
+})
+
+await zc.wake(agent.agent_id, { text: 'Review the pending deployment.' }) // at the next heartbeat
+
+const { exit_code, stdout } = await zc.exec(agent.agent_id, ['bash', '-lc', 'pwd'])
+```
+
+- **Schedules outlive their agent.** `stopAgent` and `deleteAgent` leave them running; list and
+  delete them yourself. Also available: `getSchedule`, `updateSchedule`, `triggerSchedule`,
+  `listScheduleRuns`.
+- **`updateSchedule` must omit `sessionTarget`.** It is immutable, and echoing it back from a
+  `getSchedule` result — the obvious thing to do — is a 400. The types refuse it for you.
+- **`exec` resolves on a failed command.** A non-zero exit is still HTTP 200: check `exit_code`,
+  don't wait for a rejection. It runs in `/workspace` and needs an agent-scope sandbox.
+
+## Sessions, approvals, environments
+
+`listSessions`, `archiveSession` and `deleteSession` round out the session surface. There is no
+`patchSession`: the gateway does not proxy `PATCH` at all (405), so session `metadata` is fixed at
+creation time.
+
+`listApprovals` / `resolveApproval` expose the approvals resource — `decision` is one of
+`allow-once`, `allow-always`, `deny`. Note that human-in-the-loop is not usable end to end yet: an
+agent parked on an approval spends its whole turn budget waiting.
+
+`listEnvironments`, `getEnvironment`, `createEnvironment`, `createEnvironmentVersion`,
+`getEnvironmentVersion` and `archiveEnvironment` manage prebuilt sandbox images (apt/npm/pip
+packages, files, a build script, and an outbound allowlist). Two facts worth having before you
+start: an agent's Environment **freezes on its first sandbox creation** — after that every change
+is `409 environment_locked`, and stopping the agent does not clear it — and sandbox networking
+defaults to unrestricted unless the Environment declares `networking: { type: 'limited' }`.
+
+## Two helpers
+
+```ts
+const agent = await zc.waitUntilRunning(agentId)          // polls desired_state, not actual_state
+const events = await zc.listAllEvents(agentId, sessionId) // pages past the silent 500 cap
+```
+
+Each wraps a trap that is invisible from the outside: readiness lives in `status.desired_state`,
+and `listEvents` truncates at 500 events with nothing in the response to say it did.
 
 ## Documentation
 

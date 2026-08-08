@@ -1,0 +1,2866 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/skills",
+  "status": 200,
+  "body": {
+    "skills": [
+      {
+        "name": "bot-mailbox",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 220,
+            "sha256": "81a23ff46a4b60c267c2962ff13b8494e7287174f824da785d3be0330a916f74"
+          },
+          {
+            "path": "scripts/agent_email_cli.py",
+            "size": 11046,
+            "sha256": "f52fb8f8c0c908db1bc452fe05db7dc2349f468602e1acf88259328e98cb6e24"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 10182,
+            "sha256": "598f147d1ea9fbbbcf4f630cb02826ea8c87ab56591ff34c44bb52a09a4894f8"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/bot-mailbox/1",
+        "eligible": true,
+        "location": "/skills/bot-mailbox/SKILL.md",
+        "skill_id": "skl_SKILL100000000000000000000",
+        "contentHash": "sha256:abfaae4cc373f5570d53e38beab171544222513c33f7a445fde60178c7d486c0",
+        "description": "Bot's own dedicated email mailbox — send, reply, forward, check inbox using the agent's OWN address. Use only when bot acts as itself; do NOT use to manage a user's personal email.",
+        "promptVersion": "sha256:598f147d1ea9fbbb"
+      },
+      {
+        "name": "browser-skill",
+        "files": [
+          {
+            "path": ".gitignore",
+            "size": 12,
+            "sha256": "ebc294b4868ae73f969fbcb4512b756236d9942e682e641077f8f9973dd7f88d"
+          },
+          {
+            "path": "assets/state.example.json",
+            "size": 343,
+            "sha256": "fdf766ec1c267ae7b6ede290e030b63713447b9badaf57f27dabd5673df4aa5f"
+          },
+          {
+            "path": "scripts/mcp_request.js",
+            "size": 24460,
+            "sha256": "9b44fbdb3c3afd20a70695693d76a2cd1762be8dbdae00a756e9a57f5289b1eb"
+          },
+          {
+            "path": "scripts/state.js",
+            "size": 8484,
+            "sha256": "30eda4c8496d59691da95a324d2fc5fc0b02818e28d2e2f2264c6395617a10e3"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 13073,
+            "sha256": "829c70291be096b1730ed1ced374de478b663710a060ab439d9a872447959651"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/browser-skill/2",
+        "eligible": true,
+        "location": "/skills/browser-skill/SKILL.md",
+        "skill_id": "skl_SKILL200000000000000000000",
+        "contentHash": "sha256:2cabcde04b21117325a26fc2fd4ab692d8b42f3f0b90f71e0a4c6886f973b362",
+        "description": "Default skill for all browser operations in OpenClaw — navigate, click, type, scrape, screenshot, login, inspect — via remote Browserbase MCP. Default agent for complex tasks.",
+        "promptVersion": "sha256:829c70291be096b1"
+      },
+      {
+        "name": "chameleon-seedance",
+        "files": [
+          {
+            "path": "_dev/byteplus-asset-library-console-guide.md",
+            "size": 4159,
+            "sha256": "5c70a78bf62e5af4486844a86db9247a5599b3ec378f48286958f1025f091191"
+          },
+          {
+            "path": "_dev/official-prompt-guide-full.md",
+            "size": 36876,
+            "sha256": "0772cf16b8df366f12a7ee2398141616e9dcde882e5bd441caa5961fa32ad4dd"
+          },
+          {
+            "path": "_dev/official-tutorial-full.md",
+            "size": 97548,
+            "sha256": "289a738b704f5fc7a76449473aae7c352f5961adf21583c49dade2a665bb1535"
+          },
+          {
+            "path": "_dev/script-roadmap.md",
+            "size": 6064,
+            "sha256": "bb4ee4d8723699245bae2060316b8735dd805684ebd6669ed1b35e4e67228081"
+          },
+          {
+            "path": ".env.example",
+            "size": 615,
+            "sha256": "f21da23c74630bf7d461e91725a38b7167c9c2c55cf40576c9bba79d6aba40ef"
+          },
+          {
+            "path": "references/byteplus-assets-api-reference.md",
+            "size": 5049,
+            "sha256": "9ee474833ebe31862e76197c1c00f0b89e3dbc7edebe83cb5911fb316c152591"
+          },
+          {
+            "path": "references/byteplus-dreamina-seedance-2.0-api.md",
+            "size": 11506,
+            "sha256": "50c88e2b9fdc7865b44fb65cbfcb11e5dfc93dbe96f786374240ecd2478cd2f1"
+          },
+          {
+            "path": "references/chameleon-kb-summary.md",
+            "size": 11689,
+            "sha256": "36712f42620f4b0f2d86b7058fc3c66cb08ba27a49a54efe12b76036c26e870b"
+          },
+          {
+            "path": "references/ideation-guidance.md",
+            "size": 5737,
+            "sha256": "f2b40fe4ea4aeb454cefcf8ddc4a62da5d3b019066b1904c226d8357b957a93f"
+          },
+          {
+            "path": "references/prompt-guide-foundations.md",
+            "size": 2502,
+            "sha256": "c34299d0b74cbb67ce8cd5f21a38fd84151cdeb46534b3ac1d97fe82d6c64711"
+          },
+          {
+            "path": "references/prompt-guide-image.md",
+            "size": 2412,
+            "sha256": "0ef00a50b77effe8258e58e2261fa76db1671714de6134f1a2114967f5daf118"
+          },
+          {
+            "path": "references/prompt-guide-text.md",
+            "size": 2147,
+            "sha256": "6c0a9bb8f7173a2199bcf2b72be790f0b56145d45783c7ca40f70568fefab961"
+          },
+          {
+            "path": "references/prompt-guide-video.md",
+            "size": 2836,
+            "sha256": "34a981a56e0ec6eb8cb13eb39333e8cf4d56565a1e5aafa6a3879fc28e747230"
+          },
+          {
+            "path": "references/prompt-recipes.md",
+            "size": 13330,
+            "sha256": "8b04e8da19ec16d6ce2fd2ba9aba44e15b7154299c70561540002fc731d43074"
+          },
+          {
+            "path": "references/subtitle-erasure-flow.md",
+            "size": 5212,
+            "sha256": "87df256f6dd45a5501e55cf9b7183f9a12f24a84c352fe25bafaddc2b81bf3fd"
+          },
+          {
+            "path": "scripts/_upload.py",
+            "size": 3865,
+            "sha256": "cda608f60d29271ce8e7291706b0d55c7518cad55761278b9e3b4949e51b512f"
+          },
+          {
+            "path": "scripts/asset_register.py",
+            "size": 19831,
+            "sha256": "037dd0604eb48c0353905523384f1951db973d5fe1f3d3dbf0f0e76107ef189a"
+          },
+          {
+            "path": "scripts/chameleon_generate.py",
+            "size": 50396,
+            "sha256": "c6933a075e150b7aa2fc737595af04dd614287a3516e9ac5060c43a5d2565f63"
+          },
+          {
+            "path": "scripts/erase_subtitles.py",
+            "size": 11120,
+            "sha256": "5085f5bf90e9c0f2007b84da41434178cc7f72888ea968d0961bb28682e60693"
+          },
+          {
+            "path": "scripts/prepare_reference_video.py",
+            "size": 1701,
+            "sha256": "ef9c5346ef60809062c8b81fd2fcd38e6253913e7c774d4dddad34b9c95f0463"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 11077,
+            "sha256": "9ba382ab67a526d911b71227a94d42e3000faa57faa43c3291efd662ad842134"
+          },
+          {
+            "path": "tests/test_chameleon_generate.py",
+            "size": 5574,
+            "sha256": "ace7a995741523877db2a2517ed19ab978a2b7ee71c7cd62e8721501fe876f3d"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/chameleon-seedance/1",
+        "eligible": true,
+        "location": "/skills/chameleon-seedance/SKILL.md",
+        "skill_id": "skl_SKILL300000000000000000000",
+        "contentHash": "sha256:5f92a0d489a3ec66bda4592f155da35ddc8b2231f2722c95bc99a37702feb5a8",
+        "description": "ByteDance Seedance / Dreamina video generation — text/image/video/audio input, image-to-video, edit, extend, segment chain. Use for seedance, Dreamina, ByteDance or Volcengine video generation.",
+        "promptVersion": "sha256:9ba382ab67a526d9"
+      },
+      {
+        "name": "council",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 226,
+            "sha256": "f0121a6e12703f1bf308f24e5a8ce9d83e639f181ce4cf9ec6a558fa52d69c14"
+          },
+          {
+            "path": "README.md",
+            "size": 3244,
+            "sha256": "57a5ea4ca266f58eed30fe36c5ff5ed15f600ada69386a172a163e5d62ab3369"
+          },
+          {
+            "path": "references/fallback-synthesis.md",
+            "size": 1641,
+            "sha256": "6fed10dda93b468563be10a5ec0721146e5fe249be67985f0389a6f4eaf68907"
+          },
+          {
+            "path": "references/member-prompt.md",
+            "size": 2328,
+            "sha256": "ec59a316cf2860a11aa31186bd8dcd5617b5533585e75ed25d89b1931c18c0d3"
+          },
+          {
+            "path": "references/synthesis-prompts.md",
+            "size": 4334,
+            "sha256": "1b160804af75506a867c6b09e687359c22d947c11e4e9f4cfdb67167fb643e6f"
+          },
+          {
+            "path": "scripts/cast_pricing.py",
+            "size": 3272,
+            "sha256": "6b20d0c084b93a6e5c686ad3cc8bb0eb6a99d08f7797a641f7c3991ce02dbb20"
+          },
+          {
+            "path": "scripts/estimate_band.py",
+            "size": 10848,
+            "sha256": "e42b9b2e9a93f0fe1685108b9f3fa257c07b7f9138389ba441ea6dcabc2c4e24"
+          },
+          {
+            "path": "scripts/final_synthesis.py",
+            "size": 12494,
+            "sha256": "2f9180437e869f6111af158175a0a41d3ffaf622358c7b48162ee27cc88a8b0c"
+          },
+          {
+            "path": "scripts/llm_client.py",
+            "size": 14879,
+            "sha256": "25cf6b36cadc2af88cdb0f6fbb092e22a1e21043bf758a26bdf1c9b1fbb2a527"
+          },
+          {
+            "path": "scripts/price_snapshot.json",
+            "size": 1833,
+            "sha256": "3fa163283b378cf89c73579fccdbc4694e841cc708819bfa884aed6415e09927"
+          },
+          {
+            "path": "scripts/roster.py",
+            "size": 31715,
+            "sha256": "8b0a97439309ebe9199137f34fc878e2564ea005084a828f77c962c67db25c28"
+          },
+          {
+            "path": "scripts/run_status.py",
+            "size": 41664,
+            "sha256": "202cd702d4691ec69b500a12f8f1770a6389123e1b5ee7fee44b4c9b79bd6c0f"
+          },
+          {
+            "path": "scripts/scrub_reports.py",
+            "size": 11114,
+            "sha256": "73a13d7a75649bc7e33cd4a117412e67d21857fc0eeadf493a7944773b07f368"
+          },
+          {
+            "path": "scripts/status_schema.json",
+            "size": 4167,
+            "sha256": "5ec72d77b6cd4ae25dea0b176439f53daf46458858d2f8860d8bab379fccca31"
+          },
+          {
+            "path": "scripts/swarm_usage.py",
+            "size": 11987,
+            "sha256": "eb0c144c42a43dcb7c8b25977fdb0c4327800750f815f44c523cfce13dfe4fb9"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 15857,
+            "sha256": "66b98422b5a14fded355b6b9d77578c52ea43bf238169480fb27582c0a8d9df2"
+          },
+          {
+            "path": "tests/conftest.py",
+            "size": 2453,
+            "sha256": "7a2810dc49dd6cbaf1253176295a8c6b200b113c593247e1edf4d4ea94b3e9fc"
+          },
+          {
+            "path": "tests/fixtures/status-run/status.json",
+            "size": 1884,
+            "sha256": "299d02338821c0c8d3d745735b6f647a509ec73ba2a4d688c349aed6541046b6"
+          },
+          {
+            "path": "tests/test_estimate_band.py",
+            "size": 23925,
+            "sha256": "8224d720857ff6039ca3d318cfc27f6dfdfa1462dd21510fa4c573ea5cf67f98"
+          },
+          {
+            "path": "tests/test_final_synthesis.py",
+            "size": 11887,
+            "sha256": "67cec5484a371e87ae80ab265dcbd0a0ddb0825680a99d218813cd63574d4b9d"
+          },
+          {
+            "path": "tests/test_llm_client.py",
+            "size": 16004,
+            "sha256": "7dd236e0129a28c23c00d393655b6489b5848e75cecaa929ac112a90673de80a"
+          },
+          {
+            "path": "tests/test_roster.py",
+            "size": 31722,
+            "sha256": "3fdb746b369800189b270f7485f117d0f63c47ead34a0c5e6ae5eeb36af7a887"
+          },
+          {
+            "path": "tests/test_run_modes.py",
+            "size": 1287,
+            "sha256": "857220814b7c2b1b634a4a3822b2a78903a5c3bcc93c6621e981393da5962975"
+          },
+          {
+            "path": "tests/test_run_status.py",
+            "size": 56319,
+            "sha256": "f7e8b4472d0e9505903025b4c91378e707e298288bd3e426bac8a086db141a06"
+          },
+          {
+            "path": "tests/test_scrub_reports.py",
+            "size": 15349,
+            "sha256": "d7eee4e423784bb4bfe87631a00a751f0533cddffa68e89d7c98103d72a01c97"
+          },
+          {
+            "path": "tests/test_status_replay.py",
+            "size": 3952,
+            "sha256": "56bb9aa0c7d069a1ae374886350e49aa3a1278ba342885d9bcf399fd7385105b"
+          },
+          {
+            "path": "tests/test_swarm_usage.py",
+            "size": 28041,
+            "sha256": "e3a493b15a5e9ac327cda8be34f9f4a7e09de8082a91b16d57f4c5ae5f2ed9c6"
+          }
+        ],
+        "scope": "global",
+        "version": "4",
+        "basePath": "/opt/zooclaw/skills/global/council/4",
+        "eligible": true,
+        "location": "/skills/council/SKILL.md",
+        "skill_id": "skl_SKILL400000000000000000000",
+        "contentHash": "sha256:98375c53e90a76c4230e5030b2fec6fe0dc610851ccf5d61482ebb4f75bee740",
+        "description": "Convene a council of LLMs on one topic — independent multi-vendor positions, one report preserving disagreement. Cross-model review, second opinion, high-stakes verification (any language).",
+        "promptVersion": "sha256:66b98422b5a14fde"
+      },
+      {
+        "name": "deep-research",
+        "files": [
+          {
+            "path": "SKILL.md",
+            "size": 11986,
+            "sha256": "7756ee06f411cae89b912a1ba8352e06a1e65be735ae48234f0adb57aae54b74"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/deep-research/2",
+        "eligible": true,
+        "location": "/skills/deep-research/SKILL.md",
+        "skill_id": "skl_SKILL500000000000000000000",
+        "contentHash": "sha256:224cf908b507cb87708978b1992e6ecfa51519a5260e8c99906ec4afcd1ebd5e",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:7756ee06f411cae8"
+      },
+      {
+        "name": "designer",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 752,
+            "sha256": "62f3a9954aff474bb45e2e5ddb067edf27e603416506b6020e554bf26bfa5e4e"
+          },
+          {
+            "path": "preference.md",
+            "size": 1391,
+            "sha256": "c4fa66b0c70f8930544ecb0946ed347e88451d45907891c45ad6239d291cdc15"
+          },
+          {
+            "path": "references/decision-rules.md",
+            "size": 9266,
+            "sha256": "90f9baaaaa050dd546cb9190e39b4d1b2315e82f8601d5303a7e67bdb20505f3"
+          },
+          {
+            "path": "references/enhance.md",
+            "size": 5125,
+            "sha256": "3b2abdb8c55f6fff50e79eddd971396c6d1953e82c3f1a544f122e9c80333452"
+          },
+          {
+            "path": "references/models.md",
+            "size": 9642,
+            "sha256": "bf0a2fc93664db1a5047fe5f01a9cf6cc48b51189349b1a5a8e12a829f01b312"
+          },
+          {
+            "path": "scripts/generate_text_cli.py",
+            "size": 4767,
+            "sha256": "9641a45410459b09296a3bd0141eae473738deb7af05885f6924ed3497334736"
+          },
+          {
+            "path": "scripts/image_generation_cli.py",
+            "size": 38935,
+            "sha256": "abf36be86a07ace5da2244d609a8010f492af770a4f6e53e152ddbd578f5ebd0"
+          },
+          {
+            "path": "scripts/requirements.txt",
+            "size": 60,
+            "sha256": "5704745a590be37f2174b10b21d649353742f4aba226a6d10c6b19d55c19bec1"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 17036,
+            "sha256": "fd4172437688f0c5dcb193bd73a606657b42fa6ecaa2d43580743febfd08d9a5"
+          },
+          {
+            "path": "tests/test_designer_creem_moderation.py",
+            "size": 4432,
+            "sha256": "8cdb507dacb451f482fe14d03c3cd59b0d1a3ea244ececc814b1ff6526bf3611"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/designer/2",
+        "eligible": true,
+        "location": "/skills/designer/SKILL.md",
+        "skill_id": "skl_SKILL600000000000000000000",
+        "contentHash": "sha256:ddfcbb437ae329dbb8401e7be7859cd0422fcc9501101cd17b765ebbe85d70cc",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:fd4172437688f0c5"
+      },
+      {
+        "name": "docx",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 120,
+            "sha256": "7377f130424c6e2b96c5765311963c3f70f3f80ed618dba458a9133ae645f044"
+          },
+          {
+            "path": "assets/styles/academic_styles.xml",
+            "size": 7408,
+            "sha256": "367341503b9ff77c8f8809f4a1eb3e351b654cbaea2209b4fe305d734f714d9b"
+          },
+          {
+            "path": "assets/styles/corporate_styles.xml",
+            "size": 8524,
+            "sha256": "d6216dce62323e626049172ea9c77447dfca2eb518fdf17c64d4f2239f1ef2b5"
+          },
+          {
+            "path": "assets/styles/default_styles.xml",
+            "size": 12324,
+            "sha256": "f77d90d5c9a255a4adc351e655d2248da76c1bc01e1af6b7323e3d0e37fcddfc"
+          },
+          {
+            "path": "assets/xsd/aesthetic-rules.xsd",
+            "size": 25215,
+            "sha256": "896ebda8d272d53bdaa8a4ac3528711ef22d0d7a594fb177478675b17932d280"
+          },
+          {
+            "path": "assets/xsd/business-rules.xsd",
+            "size": 5589,
+            "sha256": "937ac2ed06ecadbf1192af6b4f0625c75b67f1c8bbb8de44061819b4f61e0e4a"
+          },
+          {
+            "path": "assets/xsd/common-types.xsd",
+            "size": 5173,
+            "sha256": "22f697b9193849cf339e7fe4d64241101caf8794ea66adc61b84ee54791f6c71"
+          },
+          {
+            "path": "assets/xsd/wml-subset.xsd",
+            "size": 25747,
+            "sha256": "982ba78d30c5e78284f5a3c6b9cc5fe6023e3947850aa22c9197dadfecc51a4a"
+          },
+          {
+            "path": "CREDITS",
+            "size": 393,
+            "sha256": "6aef42d1406ef7658ff6ac962988fd3904453b6238f43d57149f98ee7bb82fc8"
+          },
+          {
+            "path": "references/cjk_typography.md",
+            "size": 12288,
+            "sha256": "bf295793089fffd8955c74a2e6cd5e9e4a58c345d0525970210bbfb4b86ad3f9"
+          },
+          {
+            "path": "references/comments_guide.md",
+            "size": 6512,
+            "sha256": "38440c126d1f7052e8552c18bcbbd2f1b7a0765aa774ea9739b646a3bda177f1"
+          },
+          {
+            "path": "references/critical_rules.md",
+            "size": 6536,
+            "sha256": "a150e0d5caec2b74a51f3179019792c34882bab9f456ee18ea8d416b2de50b65"
+          },
+          {
+            "path": "references/design_good_bad_examples.md",
+            "size": 30831,
+            "sha256": "e2c9331ed35b211f1239ed283abbac444c2a15347c710f01a97c33d0e952a079"
+          },
+          {
+            "path": "references/design_principles.md",
+            "size": 17657,
+            "sha256": "805a11d9974fdec5a9d66de11999e17e1de9628fc92856a5b8c06b9a18521a3c"
+          },
+          {
+            "path": "references/docxjs_api_guide.md",
+            "size": 17198,
+            "sha256": "aba2577c9f228b520afe7242a372952ded1c47df61e753b7d168fa11cf557dfb"
+          },
+          {
+            "path": "references/openxml_element_order.md",
+            "size": 10930,
+            "sha256": "d9ab673ca87ffb2fc0586b77702bf339cdb3283edc540c2f450732746afe8ca1"
+          },
+          {
+            "path": "references/openxml_encyclopedia_part1.md",
+            "size": 140456,
+            "sha256": "598c5fbf357f536fd9f3bd1a1307be536f533495631981d9f7518751019490c9"
+          },
+          {
+            "path": "references/openxml_encyclopedia_part2.md",
+            "size": 94244,
+            "sha256": "8a6b66a2b8501c21b470957da3483027d0c86047f426e2820c83e85deb5fa046"
+          },
+          {
+            "path": "references/openxml_encyclopedia_part3.md",
+            "size": 121596,
+            "sha256": "13c951c9f1e55744043a8058832199d44baab29aab3ad71bb178c8cd01b4f132"
+          },
+          {
+            "path": "references/openxml_namespaces.md",
+            "size": 5561,
+            "sha256": "be2ecd2f84e02b2ba492d9c68fb4cf6cac3d016cc583425b73d4105c5464d02d"
+          },
+          {
+            "path": "references/openxml_units.md",
+            "size": 2369,
+            "sha256": "ce480ab62cf78c045a04b0c8f9ef6400a5efaa33233ace8eb666f9cbe1f9acde"
+          },
+          {
+            "path": "references/scenario_a_create.md",
+            "size": 7328,
+            "sha256": "6e288eda911d1fdcb6b0ffc7f006b0864376bb3c8399a0bb9673080f19c03d12"
+          },
+          {
+            "path": "references/scenario_b_edit_content.md",
+            "size": 8235,
+            "sha256": "46ce989bf0e672120003fa9c201b41a68baa88d67cdf03e911fe2d6772f86e0f"
+          },
+          {
+            "path": "references/scenario_c_apply_template.md",
+            "size": 12823,
+            "sha256": "2178df8ec1f998d2fe4d1c281819412cca4a519e41eb377c649c3fce7dc9ed62"
+          },
+          {
+            "path": "references/track_changes_guide.md",
+            "size": 5284,
+            "sha256": "44c988fb46adbdf3046af1878bdf280b3a1088e5d3bf16c4c04ab09edd106649"
+          },
+          {
+            "path": "references/troubleshooting.md",
+            "size": 18963,
+            "sha256": "70382108dcd419fd46b7c66cee4dfad7da82d378afe4f3bed74c60ffdb9d1caa"
+          },
+          {
+            "path": "references/typography_guide.md",
+            "size": 10097,
+            "sha256": "835f3549972f24b94b89eb08a86df932e5f957f322337fcd75e24cb3b06c0738"
+          },
+          {
+            "path": "references/xml_editing_guide.md",
+            "size": 8023,
+            "sha256": "c8bacbbb70a2a252f1316f43af8196c5214bd58d3248a2ca93fb6e54d116834f"
+          },
+          {
+            "path": "requirements.txt",
+            "size": 30,
+            "sha256": "43538b8af583c03d8052bc25b39389e3af430f7faa68e3d7ff5135b17082e72a"
+          },
+          {
+            "path": "scripts/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "scripts/accept_changes.py",
+            "size": 4051,
+            "sha256": "0c991d2bc7304a1248e9f3bf9b1498f0b6e76641fc457e7cbd73c99b4eef3a74"
+          },
+          {
+            "path": "scripts/comment.py",
+            "size": 14178,
+            "sha256": "a225bd6866eebb4c331312732c1e3c7102942de78244e13993712a10054e1885"
+          },
+          {
+            "path": "scripts/doc_to_docx.sh",
+            "size": 872,
+            "sha256": "9966b21215c82094efdd07cbeb36975307ebc5e15170c4694e9fa2a0f3645e8f"
+          },
+          {
+            "path": "scripts/docx_preview.sh",
+            "size": 836,
+            "sha256": "3960b1a02b73aad32efaca316f98239079caf7993307540ed4cf4b8039e70ccd"
+          },
+          {
+            "path": "scripts/docx_read.sh",
+            "size": 3618,
+            "sha256": "df0283e9816329073e256c997cd50734f1915ea54cd616d9a1992238627197ef"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/AestheticRecipeSamples_Batch1.cs",
+            "size": 38793,
+            "sha256": "8b000e50cc88486eae1564ab2531bf59cb8afe2acbd93448787b98fe4ce7e426"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/AestheticRecipeSamples_Batch2.cs",
+            "size": 43399,
+            "sha256": "84e89ce76db3a36fefe4072ad5874709a5a3a90845b914f7e629b8e86241045f"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/AestheticRecipeSamples_Batch3.cs",
+            "size": 45315,
+            "sha256": "eee6b7a8d23b56b0bf729e2d788de5f8ad652e986361d4bc62c629e91c648c2c"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/AestheticRecipeSamples_Batch4.cs",
+            "size": 48191,
+            "sha256": "60fac5c14837d46f01cf603e3f0f8e4c86f40f7e5cb2bcbad4488d06b63c17ae"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/AestheticRecipeSamples.cs",
+            "size": 77367,
+            "sha256": "2aaa93577cae55c0347990c0ce0e88846effed54b33ab5d1c921eeb15609f193"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/CharacterFormattingSamples.cs",
+            "size": 47167,
+            "sha256": "c3e7787839c7e45a4b20963296d349a1d434c2c610bbdcbd19abd2c9d5737876"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/DocumentCreationSamples.cs",
+            "size": 53347,
+            "sha256": "de19dc149834dd2789d1d123806922d890ae885ae30c9873fe5fbfc7154bf826"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/FieldAndTocSamples.cs",
+            "size": 26929,
+            "sha256": "8cb4c7520fab4b6907a8735a1dcad0d3af0063621582ca1372b085fe1d4048c6"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/FootnoteAndCommentSamples.cs",
+            "size": 30834,
+            "sha256": "d6ad4f4a938ddcc16cf7f37b74890c4a43ebff90d8d3f5c9fde62fa5a16f29cf"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/HeaderFooterSamples.cs",
+            "size": 36267,
+            "sha256": "c92a80a2827cb67a9c98305c7bc31f89721d79b7940e4bbce3f8f78928d463a4"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/ImageSamples.cs",
+            "size": 40187,
+            "sha256": "640ae1ed4639d6b20f43e91146f7d4f7d862a06209cb6014d854fc178a29fb62"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/ListAndNumberingSamples.cs",
+            "size": 35148,
+            "sha256": "e17c71262c6975da86c685514a65ba2d1d2663b1aea8fda1577f69e2a3f22afd"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/ParagraphFormattingSamples.cs",
+            "size": 56833,
+            "sha256": "6bf6ae4ca8bb791a5acff1dd66f8b4462db5b2c0c87dc98e4400fa417bdbafce"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/StyleSystemSamples.cs",
+            "size": 65573,
+            "sha256": "ac057839f9bc369322cf69b9a6e95138b650806abda08d3f661985df36f37a1d"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/TableSamples.cs",
+            "size": 51767,
+            "sha256": "79b25c00a7d23155abcc7052aa373fbde1a7499a4610f96bf063fe0e819737b5"
+          },
+          {
+            "path": "scripts/dotnet/DocxSkill.Core/Samples/TrackChangesSamples.cs",
+            "size": 26776,
+            "sha256": "a2f7849104cb0c7a26a394a73bd2a307c64e5e48c3f2d23989a5094409552cc3"
+          },
+          {
+            "path": "scripts/office/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "scripts/office/analyze.py",
+            "size": 5993,
+            "sha256": "7a669035ff0fee876c351fae47f85631dad02ccc904b3ad2bc4545c686810959"
+          },
+          {
+            "path": "scripts/office/apply_template.py",
+            "size": 101669,
+            "sha256": "83926ca8e70e17fcd1cbfade7377481bf577659c3363a8bc34fc70046ff6cd4f"
+          },
+          {
+            "path": "scripts/office/business_rules.py",
+            "size": 13448,
+            "sha256": "ee59b4c88859bd919d6f5015da8aa12899d559d79ca77b77ca4c473ca4d48d08"
+          },
+          {
+            "path": "scripts/office/diff_docx.py",
+            "size": 5849,
+            "sha256": "d0e3c4a0892321e34ed912cc4780c638a6e68c14779aee2429b2ba6721748308"
+          },
+          {
+            "path": "scripts/office/edit_content.py",
+            "size": 23736,
+            "sha256": "043142f34f4b3fd294cd283f19cff9f0256370503ef741e61683d3cecee7599f"
+          },
+          {
+            "path": "scripts/office/fix_order.py",
+            "size": 8378,
+            "sha256": "2409914619256c30bbe53145140fa8d5e50cbd7d6b3a01004e8142e57ec5b8bd"
+          },
+          {
+            "path": "scripts/office/gate_check.py",
+            "size": 10485,
+            "sha256": "0a777eb800e1e32a940d5a37ce64dbc4ee36aca01077d9380571e8845a57027f"
+          },
+          {
+            "path": "scripts/office/helpers/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "scripts/office/helpers/merge_runs.py",
+            "size": 5567,
+            "sha256": "7c40ed838b88639c51f9ffdcfd564b568f26832b78fe44008c0e01b742669ca7"
+          },
+          {
+            "path": "scripts/office/helpers/simplify_redlines.py",
+            "size": 5754,
+            "sha256": "560cb55978a834c505406eb18e2c61f62f998fc7a2d8e9721b9c563b42597896"
+          },
+          {
+            "path": "scripts/office/merge_runs_cmd.py",
+            "size": 5922,
+            "sha256": "b25e12cb74b023fd59c2f98250429f000fd9fffff7e5130807123083d9714afe"
+          },
+          {
+            "path": "scripts/office/pack.py",
+            "size": 5131,
+            "sha256": "ae149fece6407129f5ad136d22d4023ac389bab10a7d534eba76a963198cb9a9"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-contentTypes.xsd",
+            "size": 1963,
+            "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-coreProperties.xsd",
+            "size": 2515,
+            "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-digSig.xsd",
+            "size": 2856,
+            "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-relationships.xsd",
+            "size": 1344,
+            "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
+            "size": 74984,
+            "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
+            "size": 6956,
+            "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
+            "size": 51302,
+            "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
+            "size": 624,
+            "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd",
+            "size": 152039,
+            "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
+            "size": 1231,
+            "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
+            "size": 8862,
+            "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
+            "size": 14795,
+            "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd",
+            "size": 83612,
+            "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
+            "size": 1269,
+            "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
+            "size": 7328,
+            "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
+            "size": 6382,
+            "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
+            "size": 1248,
+            "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
+            "size": 880,
+            "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
+            "size": 2608,
+            "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
+            "size": 3507,
+            "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
+            "size": 7507,
+            "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd",
+            "size": 23313,
+            "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
+            "size": 1367,
+            "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd",
+            "size": 242277,
+            "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd",
+            "size": 26148,
+            "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
+            "size": 25279,
+            "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
+            "size": 535,
+            "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
+            "size": 5712,
+            "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
+            "size": 4010,
+            "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd",
+            "size": 171367,
+            "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd",
+            "size": 4646,
+            "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2"
+          },
+          {
+            "path": "scripts/office/schemas/mce/mc.xsd",
+            "size": 3127,
+            "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-2010.xsd",
+            "size": 26549,
+            "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-2012.xsd",
+            "size": 3745,
+            "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-2018.xsd",
+            "size": 901,
+            "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-cex-2018.xsd",
+            "size": 1778,
+            "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-cid-2016.xsd",
+            "size": 1002,
+            "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd",
+            "size": 600,
+            "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-symex-2015.xsd",
+            "size": 745,
+            "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b"
+          },
+          {
+            "path": "scripts/office/soffice.py",
+            "size": 5301,
+            "sha256": "a3e21840e29e32f947d5286028931b96eaf2dee63f75d883b8eb19c943c80aa0"
+          },
+          {
+            "path": "scripts/office/style_analyzer.py",
+            "size": 8538,
+            "sha256": "2dd2c1074e4fdbae32df075646d92e50f8c7e5a13e76bc3a8ffec832532e67e1"
+          },
+          {
+            "path": "scripts/office/track_changes.py",
+            "size": 14176,
+            "sha256": "b2a6165be3ce9c74b0a75f4eda8985882be8e83173f32ad4a131278085087c4b"
+          },
+          {
+            "path": "scripts/office/unpack.py",
+            "size": 4229,
+            "sha256": "d4eddaac7d65632bfa9fbe821d5d168e1e963d857a84f99829e9b1b0e62e71a3"
+          },
+          {
+            "path": "scripts/office/validate.py",
+            "size": 3668,
+            "sha256": "1aef24f8e316965a0584c30859776bd2c82a9fb69f72d79cfed041119cf95514"
+          },
+          {
+            "path": "scripts/office/validators/__init__.py",
+            "size": 336,
+            "sha256": "83e0f035c5abea238d3f2c3968afbd511ed022b527b7c9cb60a9434cc34ff987"
+          },
+          {
+            "path": "scripts/office/validators/base.py",
+            "size": 32651,
+            "sha256": "d6358b67252df4dbfe4fa6647423a765960c949346ef6a8c4eb8722bb1108d25"
+          },
+          {
+            "path": "scripts/office/validators/docx.py",
+            "size": 16339,
+            "sha256": "a269e722fed2063f26442d00dfb49a73cddd357371e0f92422734784cf19711a"
+          },
+          {
+            "path": "scripts/office/validators/pptx.py",
+            "size": 9824,
+            "sha256": "f937961e62a5fa0d002b8dc51a4c4e2cd8fcd59fe65853fa54edaca3fe99eccc"
+          },
+          {
+            "path": "scripts/office/validators/redlining.py",
+            "size": 8918,
+            "sha256": "f4c33fdb9da0651d1d9aa76f0d5294cc9955869339ae131b2f75f3b2e366cb40"
+          },
+          {
+            "path": "scripts/smoke_test.sh",
+            "size": 11358,
+            "sha256": "c7062952de059d14f9c7b47f51ea996b3bb2d7e14abbf6d4c057baf1c1d6b426"
+          },
+          {
+            "path": "scripts/templates/comments.xml",
+            "size": 2603,
+            "sha256": "a08ba83ee8790ac9e3dc61921f4988f19edd7e06ac09d6f1897a877c1581818d"
+          },
+          {
+            "path": "scripts/templates/commentsExtended.xml",
+            "size": 2611,
+            "sha256": "544eeecfeceed4b468fff163cd9c366d33641c8b8ab691ce002576197846afe8"
+          },
+          {
+            "path": "scripts/templates/commentsExtensible.xml",
+            "size": 2707,
+            "sha256": "bad10b3283e6ad6e7ef6d1ca5169683721ed690ee331282c65df04017e080631"
+          },
+          {
+            "path": "scripts/templates/commentsIds.xml",
+            "size": 2619,
+            "sha256": "db20f9616e004ec42ef736e80c2384e45db0f8d1194d31dc8b37c7d6ecdd6420"
+          },
+          {
+            "path": "scripts/templates/people.xml",
+            "size": 115,
+            "sha256": "056f63aa1197fd8c9dda980c9f1b9ff016fd5fa4a462df8aec5f384f39d23e37"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 11926,
+            "sha256": "efe6ebeb55d964c26928ac23b1327a36d6092c24735304f9637d1ca2a795573d"
+          },
+          {
+            "path": "tests/create_fixtures.js",
+            "size": 17917,
+            "sha256": "910e0dd5ed495c9263425bdd95b1384d81fd26b186cf08e756b3c87d5a1eca25"
+          },
+          {
+            "path": "tests/create_mismatch_fixture.py",
+            "size": 2121,
+            "sha256": "46bab63eaf708ebaa7ce5f3802d06c6eecd75be55fd709253caf611cc4db0a33"
+          },
+          {
+            "path": "tests/fixtures/margin_variant_template.docx",
+            "size": 10527,
+            "sha256": "7eb032ed28ff66a0d14f76069be62a0be4a76376f0e0eb462055cf49a80ef94f"
+          },
+          {
+            "path": "tests/fixtures/mismatch_template.docx",
+            "size": 9919,
+            "sha256": "9878cbde8268c353dbbcbe78bf4ad632306abfbc57f892e8abe7e34842d56895"
+          },
+          {
+            "path": "tests/fixtures/multisection_template.docx",
+            "size": 12118,
+            "sha256": "d3d3f3546837f1b8308fb8d900a399287346eff955c558f21b1e4b027da8cc62"
+          },
+          {
+            "path": "tests/fixtures/source.docx",
+            "size": 9663,
+            "sha256": "84c32b29f0cb15afa281cedf040e2d33bc7882ea4be27d9f6cef3d789edd3c09"
+          },
+          {
+            "path": "tests/fixtures/structured_template.docx",
+            "size": 8826,
+            "sha256": "286e9fc338aae2b69ff2ec73ec04604f44a4a96421d87ec46b1410119e1cd5e8"
+          },
+          {
+            "path": "tests/fixtures/style_template.docx",
+            "size": 10281,
+            "sha256": "e421b7eb4fc518fd730f2db915391ca5caf0fa6a6e4dcd45ad809a78b13fe325"
+          },
+          {
+            "path": "tests/test_scenario_c.sh",
+            "size": 15409,
+            "sha256": "977221492849a8311fdaac6d71487cb8a282ca6e5b5a4fce2dfb670e2867633e"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/docx/1",
+        "eligible": true,
+        "location": "/skills/docx/SKILL.md",
+        "skill_id": "skl_SKILL700000000000000000000",
+        "contentHash": "sha256:85e9a33343e7289c114a439aeff61c039bda6c9d0a92184d85d1a256c4a36dac",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:efe6ebeb55d964c2"
+      },
+      {
+        "name": "glossary",
+        "files": [
+          {
+            "path": "references/dedup-merge-prompt.md",
+            "size": 2536,
+            "sha256": "9b20368178702e81446bfaa8febe6033a524cd2d57d9f48388ec88be78e3a40e"
+          },
+          {
+            "path": "references/extract-terms-prompt.md",
+            "size": 2090,
+            "sha256": "c52420f0eaeedf986b529b70a047692d6d352113f02f32a34c95e0e0d46acffd"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 5891,
+            "sha256": "bfee06d308f6558ef16ce729efd2a824d6dd89a8aaaac45242a1e1673b905707"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/glossary/1",
+        "eligible": true,
+        "location": "/skills/glossary/SKILL.md",
+        "skill_id": "skl_SKILL800000000000000000000",
+        "contentHash": "sha256:862b0d296bae0615dd9921b7e032c28421aeda902038cfcd39471c3560a3fa5b",
+        "description": "Pack-level terminology — people, companies, abbreviations, jargon, banned words. Supports auto-scan, correction learning, and manual edit; shared across Transcription, Humanizer, Weekly Report.",
+        "promptVersion": "sha256:bfee06d308f6558e"
+      },
+      {
+        "name": "humanizer",
+        "files": [
+          {
+            "path": "references/ar-patterns.md",
+            "size": 11263,
+            "sha256": "fcf9a855c993a36e4abed755fcb749cbdd2ed1c733d65c9b4a01da7b740f96a2"
+          },
+          {
+            "path": "references/cs-patterns.md",
+            "size": 7967,
+            "sha256": "7fdd859a95180119399f066bc3a8571ef1f8eb74b0c38c964a4f98d13017a47c"
+          },
+          {
+            "path": "references/de-patterns.md",
+            "size": 7840,
+            "sha256": "b06fb331d6e21524dfbe319b315bc4ed4bd7d9e2655d157338169b6df05b67a3"
+          },
+          {
+            "path": "references/en-patterns.md",
+            "size": 12218,
+            "sha256": "03848bf7fd117d0fc36d63379b18e813c0d83e6a61b93b36e94c0ca8c7d5b0a8"
+          },
+          {
+            "path": "references/es-patterns.md",
+            "size": 7893,
+            "sha256": "2a5bebfdf86806d98bc12b9afa680e26faef73c6911c9c65cd1f0e3228d7ca90"
+          },
+          {
+            "path": "references/examples.md",
+            "size": 10078,
+            "sha256": "f82b27840e5f3592d2574ae34f2fe27b2b09a13079c451ae7da2a06a2d65b713"
+          },
+          {
+            "path": "references/fr-patterns.md",
+            "size": 7600,
+            "sha256": "615b33204c59bb806acee67a0bcf27a7b5ed7453cda015af2164ca89f7c888c9"
+          },
+          {
+            "path": "references/ja-patterns.md",
+            "size": 8308,
+            "sha256": "6248854887e3f887cd1f0759a3e1c3fdb6babc25d6853569f9292a0db15c3c60"
+          },
+          {
+            "path": "references/ko-patterns.md",
+            "size": 7558,
+            "sha256": "020f7725bc3d9f50184a9e28fb89625c5b1bc1c9f9dae2839689078a59e8ec1b"
+          },
+          {
+            "path": "references/pt-patterns.md",
+            "size": 8078,
+            "sha256": "dac10ddb682f9a5743e58f28a5ab4fd0629b56def0ac082e62375ca14bba0a19"
+          },
+          {
+            "path": "references/ru-patterns.md",
+            "size": 10717,
+            "sha256": "4287871c46f4a772d5e05c76f3cae8cf04b575f5c55c5e767ca5d399550a33db"
+          },
+          {
+            "path": "references/zh-patterns.md",
+            "size": 11565,
+            "sha256": "f32c2d96a65e041878e574b7e79200dd0c27c6be1df420bbe5cbb02a49288d07"
+          },
+          {
+            "path": "references/zh-tw-patterns.md",
+            "size": 6616,
+            "sha256": "9c41c6cc572fafa9a231fa2d1cac4183184efdceffb289e4769cbeae5a06f77d"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 6588,
+            "sha256": "0e687a8bc07631ca1f8129ddbfae0afc4f3b6165f669863ea461433e5f441bbc"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/humanizer/1",
+        "eligible": true,
+        "location": "/skills/humanizer/SKILL.md",
+        "skill_id": "skl_SKILL900000000000000000000",
+        "contentHash": "sha256:85465f4d10a9d888f4f0cd7a78c42e448f300ba642d9b40232bdcd42806062b2",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:0e687a8bc07631ca"
+      },
+      {
+        "name": "knowledge-base",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 429,
+            "sha256": "f4f0391253bd1bf4d21b813fa9beb4f06337dfcd1359d07290d1d554731673d8"
+          },
+          {
+            "path": "scripts/_kb_common.py",
+            "size": 4315,
+            "sha256": "27345e26240a788c799e9bea341b2b5185fd355336ea5e2f77935f1828dfdd8f"
+          },
+          {
+            "path": "scripts/kb_documents.py",
+            "size": 4150,
+            "sha256": "fda67840800770239e7f0fa391ee3ac34af02f2294761e290060effbfd393b4c"
+          },
+          {
+            "path": "scripts/kb_search.py",
+            "size": 4700,
+            "sha256": "8d5c0fdd7faf4b8a780481b3999f700c0c65caa80bb858de1665afd63cd1471d"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 11634,
+            "sha256": "2d15fea52723fe07972e6545fb9af2d52c4f55e9332cf6ce777ac2385164fb5b"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/knowledge-base/1",
+        "eligible": true,
+        "location": "/skills/knowledge-base/SKILL.md",
+        "skill_id": "skl_SKILL100000000000000000000",
+        "contentHash": "sha256:239db812bad76eb531e510dfe0063968f0935f6eaf729db7d64dcf8590f53098",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:2d15fea52723fe07"
+      },
+      {
+        "name": "meeting-notes",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 99,
+            "sha256": "3e561ab205b3188474ee73e70d51e6218153067af86388b00f267e1a867cd0b3"
+          },
+          {
+            "path": "prompts/transcript.md",
+            "size": 4470,
+            "sha256": "14663e91d69121cc89876bb8bd42fa3f5252ef6dbbf061aa97821ab4ddf3a310"
+          },
+          {
+            "path": "scripts/speaker_embed.py",
+            "size": 8823,
+            "sha256": "c704594528401757e7d46f97a7b4621b7c4deab32007606ceaf825d74c5a4709"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 9229,
+            "sha256": "dd1c6ad7ecb3fb17b730ad71f39ee107006fad1750fbdb2813338ad403c52334"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/meeting-notes/1",
+        "eligible": true,
+        "location": "/skills/meeting-notes/SKILL.md",
+        "skill_id": "skl_SKILL110000000000000000000",
+        "contentHash": "sha256:0cc923a632739ac1fd114b4f48dc2d0fe365d6281ca7a55d6dbc0a17f4bd217b",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:dd1c6ad7ecb3fb17"
+      },
+      {
+        "name": "pdf",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 781,
+            "sha256": "75966804d34124ecebb189d15509b5fc970926ec864684c0f0551e403abcd9a5"
+          },
+          {
+            "path": "design/design.md",
+            "size": 14379,
+            "sha256": "79004016f076a4933673f88df60388d52dce306efa0b9b41e5eefb3cd2e064f9"
+          },
+          {
+            "path": "references/forms.md",
+            "size": 8759,
+            "sha256": "a3fe22a1b0dfc14c95e63bdfcd899586cdcd5b1ace0c659b398ac1eabd2b8619"
+          },
+          {
+            "path": "references/images.md",
+            "size": 9495,
+            "sha256": "5517dde76e69661ecef6d492f712bf27f7970ec226bf9823c650469f9169af83"
+          },
+          {
+            "path": "scripts/check_bounding_boxes.py",
+            "size": 7027,
+            "sha256": "07192e67daafa9bfcbd9968fcada513925b6b9a49a644da3e8ead25fa1ce5dcd"
+          },
+          {
+            "path": "scripts/cover.py",
+            "size": 49311,
+            "sha256": "7b0a7933a41dcd2c7468b758bd6d17bd691fcb6bbcbbfa5b5aa01f741502d06d"
+          },
+          {
+            "path": "scripts/create_validation_image.py",
+            "size": 6306,
+            "sha256": "680a69634239b678be8985204e5b767cf231909f0778ddb142d45e40ff98b261"
+          },
+          {
+            "path": "scripts/extract_form_structure.py",
+            "size": 5672,
+            "sha256": "fbba6eb88533c2303ae92f0a2486d03176d6c9754d35ee2c63a5e2a44fbbabde"
+          },
+          {
+            "path": "scripts/fill_annotate.py",
+            "size": 10687,
+            "sha256": "7c11a4afd9b1d3923fcb7d1f4afa9c6162618c15a3ee72a122ad65ce11cea930"
+          },
+          {
+            "path": "scripts/fill_inspect.py",
+            "size": 6430,
+            "sha256": "913b405ac06b41641231606f734baacbd9817f0bcc103a89fe4aeeabd94b595a"
+          },
+          {
+            "path": "scripts/fill_write.py",
+            "size": 6743,
+            "sha256": "00977c9cddffe921a616c4067a7a500d1def945b7b47d7923f6d40fa8a255a1d"
+          },
+          {
+            "path": "scripts/fonts.py",
+            "size": 10027,
+            "sha256": "2716a3357222c3986f8d7cb60db912029bcc7b1376e11ea7d5b2ab9e34c0532c"
+          },
+          {
+            "path": "scripts/make.sh",
+            "size": 21637,
+            "sha256": "9448891f23b3d3edee61cc4a8df673581f7f24883fa4cdd0510d6b983048b0d1"
+          },
+          {
+            "path": "scripts/merge.py",
+            "size": 3689,
+            "sha256": "e38d467a14fd9b21740ab094f781730f1964b0fef6d10f0be9ca9cf88d07bb10"
+          },
+          {
+            "path": "scripts/optimize-image.py",
+            "size": 7882,
+            "sha256": "d4757edca52ae076c43a60afd51483cd82627c1ee28abc498779f2498eb8a5a5"
+          },
+          {
+            "path": "scripts/palette.py",
+            "size": 22496,
+            "sha256": "b1f66054e4eaa1f8b1318191e92be3a2f92b35d99b4ee56994f39993c4ff63d9"
+          },
+          {
+            "path": "scripts/pdf_tools.py",
+            "size": 21971,
+            "sha256": "93fcb900b6e9e83b0f096cada50054925a660a464b1ecf56cc42f21e151afe1a"
+          },
+          {
+            "path": "scripts/render_body.py",
+            "size": 52641,
+            "sha256": "9b09bac4dae4d7ee8a6386f68f9765dfc759b4eaf599f842aec3aad2c0d260a9"
+          },
+          {
+            "path": "scripts/render_cover.js",
+            "size": 3853,
+            "sha256": "8f3d6ad566e7f9fbed81ac5178bd4edb5a38ceb61870360fe96e2016c5364662"
+          },
+          {
+            "path": "scripts/setup-noto.sh",
+            "size": 10552,
+            "sha256": "3a85eb4978b86142c42444ea65dd9aa95aa01e6e7765101ba11442b7ac619f6e"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 9258,
+            "sha256": "3c66adcb3aa62eda07a0253bf1711e3197b68f539b99c16364e2df9c1f56729e"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/pdf/1",
+        "eligible": true,
+        "location": "/skills/pdf/SKILL.md",
+        "skill_id": "skl_SKILL120000000000000000000",
+        "contentHash": "sha256:d4f94a7a75df33af7059d72044fafb346a27d593fcbbab6596c2c3944204c767",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:3c66adcb3aa62eda"
+      },
+      {
+        "name": "pptx",
+        "files": [
+          {
+            "path": ".gitignore",
+            "size": 221,
+            "sha256": "d3ce5662323e67cfa8f3ff743b581a264b80b173d3f7fdc45209202cb04155f4"
+          },
+          {
+            "path": "examples/zooclaw-ppt-runtime/raw-competitor-research.deckspec.json",
+            "size": 3461,
+            "sha256": "3b2181ffdeb1e8eae2263194d50d32a1a03af8c613e0c17952a850c4d402d7fa"
+          },
+          {
+            "path": "examples/zooclaw-ppt-runtime/template-competitor-research.deckspec.json",
+            "size": 2349,
+            "sha256": "fff77d61fa66ae5b5c178e1d98db49db0e9962978023ed3f73c89b15dd23b24f"
+          },
+          {
+            "path": "examples/zooclaw-ppt-runtime/template-frame-map.smoke.json",
+            "size": 3561,
+            "sha256": "8f2f40a361a6e3b9dd067752bbcf74563433ddf0106dfa24b05ee95c50a62df1"
+          },
+          {
+            "path": "package.json",
+            "size": 320,
+            "sha256": "e461c064e9af609bc4c2189fde1d32e9774302dab095a56ef2fa6149729f2a70"
+          },
+          {
+            "path": "references/agent-contracts.md",
+            "size": 10843,
+            "sha256": "12d98e72e7bbbed08fae982aa1e3c662a888065e210a088015463c1105098be9"
+          },
+          {
+            "path": "references/color-tokens.md",
+            "size": 1685,
+            "sha256": "4135edd8d5b3e47cab50dd1e2105fe7d39a35409edda53bd48175fefe20978d2"
+          },
+          {
+            "path": "references/deck-audit.md",
+            "size": 4001,
+            "sha256": "15c3d342bae4d0c3f11ee96bf719ef9429d972d0c7c8a4db738431dc0b4b044b"
+          },
+          {
+            "path": "references/design-system.md",
+            "size": 6619,
+            "sha256": "7dab35bfaa3887a03f8529b06180e2c2a557f48a6705d6f5c5d9ce7564c3cf8e"
+          },
+          {
+            "path": "references/editing.md",
+            "size": 5173,
+            "sha256": "fd160570c0075cb2f2e5551e72682e40c5b71811b9e8fc152be64869102ee1a2"
+          },
+          {
+            "path": "references/execution-router.md",
+            "size": 1434,
+            "sha256": "36dcbe593c3e4f62c867d51924e9b1f5e30111018c84e177a2ee0f4a68e15fd0"
+          },
+          {
+            "path": "references/images.md",
+            "size": 19784,
+            "sha256": "98b1fd0fdd1d98dbbe00542f6a06ea71bba195ef8cf3c0167aac54f84b1a9c87"
+          },
+          {
+            "path": "references/pitfalls-editing.md",
+            "size": 2607,
+            "sha256": "a92ae2c557c2c9644eb0269e9c0a1086623999a0b9d23eaeb56ce8dd449f1361"
+          },
+          {
+            "path": "references/pitfalls-pptxgenjs.md",
+            "size": 4222,
+            "sha256": "c603763e6a35c819cf8cdd1afe668282fd6f7e9261bd7d386fee567eedf4aa4a"
+          },
+          {
+            "path": "references/pitfalls-qa.md",
+            "size": 4702,
+            "sha256": "517de7ab201b989543771bf660955a1b6909f89a17547beee0b3118706e9a76b"
+          },
+          {
+            "path": "references/pptxgenjs-charts-tables.md",
+            "size": 2607,
+            "sha256": "4219dd16bc6eb80828331727707a51082bcba847c95cd15ed7e76f880999ce50"
+          },
+          {
+            "path": "references/pptxgenjs-cjk.md",
+            "size": 2784,
+            "sha256": "ad0a59063c5bed116ce7f97a08868f76601301f35c3d6382b065073c93cc3d79"
+          },
+          {
+            "path": "references/pptxgenjs-images-icons.md",
+            "size": 3109,
+            "sha256": "a2100964b1c82a5c5491eeeb15b8c3183d739a9e9e655097bf33bc37a5b38071"
+          },
+          {
+            "path": "references/pptxgenjs.md",
+            "size": 4710,
+            "sha256": "df0839e7f3e55d390eef74da4c2421b1d7b0d3135ab30611e334bc6f6d9814cd"
+          },
+          {
+            "path": "references/profile-gates.md",
+            "size": 2812,
+            "sha256": "d46872f98531e04c707b12bf496055d691b7d3241855a72351f545f0dca2bd99"
+          },
+          {
+            "path": "references/shape-batch.md",
+            "size": 6847,
+            "sha256": "b6bdf7ddf70d8a1d8a17f43ac2a167fefce29a0f98f9a4915bdb17df2fe46e8c"
+          },
+          {
+            "path": "references/shape-cli.md",
+            "size": 9475,
+            "sha256": "973ac59fbd9dfde655f80ceb8e7e444618fbd1a8b9f6020fc68b5d6a9050ad2f"
+          },
+          {
+            "path": "references/slide-types.md",
+            "size": 6088,
+            "sha256": "25aa0facac535f1fa6c9883fbe8a8f7df4de599fbfaa42ced37592b360a07d1e"
+          },
+          {
+            "path": "references/style-recipes.md",
+            "size": 1843,
+            "sha256": "4d8274dd30491fe293adff2fa240037665efcf00deb59d3daf0135cfff817085"
+          },
+          {
+            "path": "references/typography.md",
+            "size": 1309,
+            "sha256": "b93cb665fdc7e70278391640f12eeda5373a87120cffbc1c8f289eeadbf0f1d2"
+          },
+          {
+            "path": "references/zooclaw-ppt-runtime.md",
+            "size": 14629,
+            "sha256": "7151e444c27f413c30c41f3d5ee9c6ad0259830b6fac86911dd6d7fb73b492c7"
+          },
+          {
+            "path": "requirements.txt",
+            "size": 425,
+            "sha256": "d7dcf118f443425d1a02e5d20153524f2ac9b4cfded58d8e73d177317e78bc26"
+          },
+          {
+            "path": "scripts/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "scripts/_shape_common.py",
+            "size": 24885,
+            "sha256": "80f8199002d7c568f32fe76d880a25dcfc288a10dc180e9e5ea74a248aec6e55"
+          },
+          {
+            "path": "scripts/add_slide.py",
+            "size": 6635,
+            "sha256": "f684925c884b933ab5f90c9112d9ae0916118f44299f87b15b0948ba10ea327d"
+          },
+          {
+            "path": "scripts/clean.py",
+            "size": 9314,
+            "sha256": "973c5ca11d549e4293edda78489924a2c50140d6ef63d0bcb6d61639d9a0a80c"
+          },
+          {
+            "path": "scripts/deck_audit.py",
+            "size": 18669,
+            "sha256": "e216e5f11ecfc5033180f69ee4f63d0b08d8f2792dfecca61b0ae03b412f5161"
+          },
+          {
+            "path": "scripts/download-image.py",
+            "size": 11520,
+            "sha256": "895c29341a5d139906f1b47add7c8147db8e2f0efc0f878812db1e1fbff57d29"
+          },
+          {
+            "path": "scripts/office/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "scripts/office/helpers/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "scripts/office/helpers/merge_runs.py",
+            "size": 5567,
+            "sha256": "7c40ed838b88639c51f9ffdcfd564b568f26832b78fe44008c0e01b742669ca7"
+          },
+          {
+            "path": "scripts/office/helpers/simplify_redlines.py",
+            "size": 5754,
+            "sha256": "560cb55978a834c505406eb18e2c61f62f998fc7a2d8e9721b9c563b42597896"
+          },
+          {
+            "path": "scripts/office/pack.py",
+            "size": 5244,
+            "sha256": "1cd9914156f3da3806b31dc8623db2988ed8acfd3d86de1050136c54bfd3fb0c"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-contentTypes.xsd",
+            "size": 1963,
+            "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-coreProperties.xsd",
+            "size": 2515,
+            "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-digSig.xsd",
+            "size": 2856,
+            "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24"
+          },
+          {
+            "path": "scripts/office/schemas/ecma/fouth-edition/opc-relationships.xsd",
+            "size": 1344,
+            "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
+            "size": 74984,
+            "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
+            "size": 6956,
+            "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
+            "size": 51302,
+            "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
+            "size": 624,
+            "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd",
+            "size": 152039,
+            "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
+            "size": 1231,
+            "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
+            "size": 8862,
+            "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
+            "size": 14795,
+            "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd",
+            "size": 83612,
+            "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
+            "size": 1269,
+            "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
+            "size": 7328,
+            "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
+            "size": 6382,
+            "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
+            "size": 1248,
+            "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
+            "size": 880,
+            "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
+            "size": 2608,
+            "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
+            "size": 3507,
+            "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
+            "size": 7507,
+            "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd",
+            "size": 23313,
+            "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
+            "size": 1367,
+            "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd",
+            "size": 242277,
+            "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd",
+            "size": 26148,
+            "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
+            "size": 25279,
+            "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
+            "size": 535,
+            "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
+            "size": 5712,
+            "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
+            "size": 4010,
+            "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd",
+            "size": 171367,
+            "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd"
+          },
+          {
+            "path": "scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd",
+            "size": 4646,
+            "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2"
+          },
+          {
+            "path": "scripts/office/schemas/mce/mc.xsd",
+            "size": 3127,
+            "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-2010.xsd",
+            "size": 26549,
+            "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-2012.xsd",
+            "size": 3745,
+            "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-2018.xsd",
+            "size": 901,
+            "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-cex-2018.xsd",
+            "size": 1778,
+            "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-cid-2016.xsd",
+            "size": 1002,
+            "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd",
+            "size": 600,
+            "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604"
+          },
+          {
+            "path": "scripts/office/schemas/microsoft/wml-symex-2015.xsd",
+            "size": 745,
+            "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b"
+          },
+          {
+            "path": "scripts/office/soffice.py",
+            "size": 7870,
+            "sha256": "dbc03e3f4a6508e17ee5f1d14e5e37c21006343ac61277b3f1a8dc2661a04753"
+          },
+          {
+            "path": "scripts/office/unpack.py",
+            "size": 4042,
+            "sha256": "35d0d733d66b80d8c75ed3b4280dd368f05460ae8af71362332c87963fd1e9c9"
+          },
+          {
+            "path": "scripts/office/validate.py",
+            "size": 3612,
+            "sha256": "4f91925bc76425c6bb7c6af83e71dfbed94f2978241feab2967463b6ec1663b5"
+          },
+          {
+            "path": "scripts/office/validators/__init__.py",
+            "size": 336,
+            "sha256": "83e0f035c5abea238d3f2c3968afbd511ed022b527b7c9cb60a9434cc34ff987"
+          },
+          {
+            "path": "scripts/office/validators/base.py",
+            "size": 32651,
+            "sha256": "d6358b67252df4dbfe4fa6647423a765960c949346ef6a8c4eb8722bb1108d25"
+          },
+          {
+            "path": "scripts/office/validators/docx.py",
+            "size": 16376,
+            "sha256": "0ef04ce86b2e6b6a1cb088c0276fd0bd5b770d96fdfe7a6cc73d005feb3f0345"
+          },
+          {
+            "path": "scripts/office/validators/pptx.py",
+            "size": 9824,
+            "sha256": "f937961e62a5fa0d002b8dc51a4c4e2cd8fcd59fe65853fa54edaca3fe99eccc"
+          },
+          {
+            "path": "scripts/office/validators/redlining.py",
+            "size": 8918,
+            "sha256": "f4c33fdb9da0651d1d9aa76f0d5294cc9955869339ae131b2f75f3b2e366cb40"
+          },
+          {
+            "path": "scripts/optimize-image.py",
+            "size": 6641,
+            "sha256": "17a95a530a9e488a5346ee34b0e9c32bab13c80950f52cd3db4c39a6fdcaf72a"
+          },
+          {
+            "path": "scripts/runtime/__init__.py",
+            "size": 35,
+            "sha256": "b0f2ac270494d9f5b39a4c62a991e9dcd0224c2f475b7a0c7e986c1c9262c6bb"
+          },
+          {
+            "path": "scripts/runtime/asset_provenance.py",
+            "size": 2232,
+            "sha256": "3ac51fc4bc19b58b2478c15317610076a752c7de8c869247e92cf867abd7e250"
+          },
+          {
+            "path": "scripts/runtime/deck_spec.py",
+            "size": 44267,
+            "sha256": "ab63868ebe1f67a6284f378b16d036f08380c0b094ba2efda147656303053e4c"
+          },
+          {
+            "path": "scripts/runtime/frame_map.py",
+            "size": 61660,
+            "sha256": "94554199386bab130e69eed75172218483940f3bf51b6a5d9d1918ffa3b95fef"
+          },
+          {
+            "path": "scripts/runtime/inspection_artifacts.py",
+            "size": 637,
+            "sha256": "acc0ed053262f6d7f3fb12fecf61fdd2fe3c287922ec5ff6f8e540921c377532"
+          },
+          {
+            "path": "scripts/runtime/layout_export.py",
+            "size": 3135,
+            "sha256": "56d02c0ecda14cbe16065a2a7824ef6fc658d713dbf65ab591436a3824ecd6b7"
+          },
+          {
+            "path": "scripts/runtime/ooxml.py",
+            "size": 5833,
+            "sha256": "c12baeaee103c8d18e8650be958955c85803dc5e2ac75462f9a2f5d15ab08cde"
+          },
+          {
+            "path": "scripts/runtime/qa_gate.py",
+            "size": 5549,
+            "sha256": "cc35a3f6f72ab9468880c0228ed1570899fac3ece8ff12cfcf11d5d1b7d85abf"
+          },
+          {
+            "path": "scripts/runtime/raw_builder.js",
+            "size": 13359,
+            "sha256": "99cfda08d80cb2fb1f3bd9a91f12429f189d3e01ee1084c5f3c0f43640d0f045"
+          },
+          {
+            "path": "scripts/runtime/render_qa.py",
+            "size": 39935,
+            "sha256": "209cb6b68a218b42bb20931ad20580cd04c18d66b9298538b5fd2463e30a7d53"
+          },
+          {
+            "path": "scripts/runtime/shape_utils.py",
+            "size": 853,
+            "sha256": "e01e03610e5677de84971f77e45a94a432cf6290b7361a84dea0a8999a8bd614"
+          },
+          {
+            "path": "scripts/runtime/table_contract.py",
+            "size": 2312,
+            "sha256": "af7fa3111057717be803007de085751c8a1a6f215f4fd714f91fda1fcd598977"
+          },
+          {
+            "path": "scripts/runtime/template_inspector.py",
+            "size": 3827,
+            "sha256": "bb09c495eea30683257e13a1d4fcf969050b80012568ac878b13bdc495bcc9c2"
+          },
+          {
+            "path": "scripts/runtime/template_starter.py",
+            "size": 7863,
+            "sha256": "f3396c53c106609dc41f576bf174c99c98a336edbff6d7bf53391b7fdc22a327"
+          },
+          {
+            "path": "scripts/runtime/visual_policy.py",
+            "size": 2016,
+            "sha256": "439e1ffe94dbfe6738619fc25daa4b095823ef29ecc18fd25a74b42247444fa2"
+          },
+          {
+            "path": "scripts/runtime/workspace.py",
+            "size": 2194,
+            "sha256": "24a99adcd03863ac4c2fd958ce494f33adc4ea38e11383375a64b1aa369ac3da"
+          },
+          {
+            "path": "scripts/shape_batch.py",
+            "size": 26337,
+            "sha256": "cf40d052834ed5168da9f34343cae32bd572583dfd1516cd9c75bc02c11b069d"
+          },
+          {
+            "path": "scripts/shape_delete.py",
+            "size": 6622,
+            "sha256": "43988a973223cbbd73c4df7d2fd374f6668e5207c0775322a9843b4250d9ccbc"
+          },
+          {
+            "path": "scripts/shape_diff.py",
+            "size": 13114,
+            "sha256": "50429c484cc2ccdbc8ca5e55f4c7765695f45ee92a45c782883aa6bd9eca8d16"
+          },
+          {
+            "path": "scripts/shape_get.py",
+            "size": 2689,
+            "sha256": "61d467037be9d09d9a009fd1f09b653f643e2506c42515c2824e1af032136af3"
+          },
+          {
+            "path": "scripts/shape_history.py",
+            "size": 3878,
+            "sha256": "e1d6813b0b7b01914b2f09af7903b9734eb3296966195ef84985f07bb13e9e87"
+          },
+          {
+            "path": "scripts/shape_index.py",
+            "size": 9399,
+            "sha256": "52391cffd3aae4423c49e3d83e6e7b55906c128df70e18b1860cf19351a7511c"
+          },
+          {
+            "path": "scripts/shape_insert.py",
+            "size": 26783,
+            "sha256": "4a1fb522ca32b566ce2797843279da4d554d53b430b284cfed79894ee9fa59d7"
+          },
+          {
+            "path": "scripts/shape_repair.py",
+            "size": 4969,
+            "sha256": "ef56a9da7d580bb1b8ca7457dcabf6cf4f84f412fcb86e623f5e7531bed31943"
+          },
+          {
+            "path": "scripts/shape_revert.py",
+            "size": 13412,
+            "sha256": "2e57325a57be9359997730fd9a15d1598b162a850abfe867998d6bad3e501c2d"
+          },
+          {
+            "path": "scripts/shape_set_bbox.py",
+            "size": 6830,
+            "sha256": "5b0856fd1669c3eb18a3b2f7874a381600fba3caa9db23693cb3c0cb5ecbb9da"
+          },
+          {
+            "path": "scripts/shape_set_image.py",
+            "size": 7597,
+            "sha256": "9b9410e269de1f5a36a4394762be243155371cad06a6f4490894301677be821b"
+          },
+          {
+            "path": "scripts/shape_set_style.py",
+            "size": 14559,
+            "sha256": "0e06efe2c76bb71b6ee4955d0a851808fd44732f52e1f5223d63e1ab3b92ab69"
+          },
+          {
+            "path": "scripts/shape_set_text.py",
+            "size": 6426,
+            "sha256": "89d47d3df463af7cd338cf6bdd43c66049b3b85b3ffe334da67315dfad181fc2"
+          },
+          {
+            "path": "scripts/shape_undelete.py",
+            "size": 10120,
+            "sha256": "4606fbb919c348cace5042fc41d538abceec729b3ffb2f75628cbbc9f8767791"
+          },
+          {
+            "path": "scripts/slide_notes.py",
+            "size": 8858,
+            "sha256": "041562119511b96e3e67328155dfc646edde792e5bea83dd9b2fe4df313b5d6b"
+          },
+          {
+            "path": "scripts/thumbnail.py",
+            "size": 8929,
+            "sha256": "763649450cc5985df488ff03b4deb1166a7ec0f01597bf46fb9352808622a68d"
+          },
+          {
+            "path": "scripts/zooclaw_ppt_runtime.py",
+            "size": 18989,
+            "sha256": "c079f7a8a3be41df61d4671a23e873b2dabd721b895e024d8d68808a581c4ed3"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 20883,
+            "sha256": "fc839307d9190099ce7d71a93a0b7bf91566fe35d11ac8b21634cc435e946fb0"
+          },
+          {
+            "path": "tests/check_links.py",
+            "size": 4372,
+            "sha256": "78ca7aa30874f7c1a65d0fadc2670073ea373c0205c5a813e11a62691a7a159f"
+          },
+          {
+            "path": "tests/fixtures/images/blue-square.png",
+            "size": 346,
+            "sha256": "1f62381e8a0dc5a3192fd116c2e913757490f8050039a8cce39cf95f78830175"
+          },
+          {
+            "path": "tests/fixtures/slides/compile.js",
+            "size": 583,
+            "sha256": "379e10ec240619330b7ccd687b953a0558dc7c9d61405d76e26560191c09726b"
+          },
+          {
+            "path": "tests/fixtures/slides/slide-01.js",
+            "size": 550,
+            "sha256": "5f5bc601712f17a882f49f9acdafa3549acf0f996573dc3e6192e596b0130b2a"
+          },
+          {
+            "path": "tests/fixtures/slides/slide-02.js",
+            "size": 1114,
+            "sha256": "49b9ed9bf1e1e4d05dbe8586eb9c31cabc63b119650d3095bb7ac492b4bee97e"
+          },
+          {
+            "path": "tests/fixtures/slides/slide-03.js",
+            "size": 645,
+            "sha256": "5babd22681203ab594375743d175e8a30e328f77d963b0c6354cb0731cc56130"
+          },
+          {
+            "path": "tests/fixtures/smoke-test/generate.sh",
+            "size": 726,
+            "sha256": "1b2175ad503afdf9df017e44965fec6bc1b9c0ec63aca5d1ea69721aad53d4b1"
+          },
+          {
+            "path": "tests/fixtures/smoke-test/README.md",
+            "size": 385,
+            "sha256": "6ace985b75247b03ee50d0d5a866bc604968c0c55bd614088da269c6178a3767"
+          },
+          {
+            "path": "tests/fixtures/smoke-test/smoke-test.pptx",
+            "size": 60855,
+            "sha256": "b6c8c3651a45d816fa97d3b9819b7c0a0427ef663f47140e22ff25f46ef786ec"
+          },
+          {
+            "path": "tests/fixtures/with-image/with-image.pptx",
+            "size": 28713,
+            "sha256": "f0611ea45a88a3b34a8b25ba205b7e194a5470136bec13645fb3538d2d1222bd"
+          },
+          {
+            "path": "tests/runtime/conftest.py",
+            "size": 539,
+            "sha256": "4866a565f80e44bc6083b235b5f87d4b9bf53b504ce450ed6d7bdf9c34a0b04f"
+          },
+          {
+            "path": "tests/runtime/test_asset_provenance.py",
+            "size": 1300,
+            "sha256": "96362c1c6703d167f85c3e1840d72f682e79c3b48005cc556c290156e9f1f77c"
+          },
+          {
+            "path": "tests/runtime/test_deck_spec.py",
+            "size": 37456,
+            "sha256": "a1ee669c42a1cd587f63f2f2574474f925da07008b31798a0081c80f48e764ec"
+          },
+          {
+            "path": "tests/runtime/test_frame_map.py",
+            "size": 86401,
+            "sha256": "0e809b4e1d9d0cc42fbe5c81418811c71ec6df7d7697071f3eaf5a63980028f3"
+          },
+          {
+            "path": "tests/runtime/test_layout_export.py",
+            "size": 1065,
+            "sha256": "ba96660a6b50df702490c6a15427e62e43a2d97c24d864cce44a5186895c9fec"
+          },
+          {
+            "path": "tests/runtime/test_qa_gate.py",
+            "size": 10285,
+            "sha256": "55a8c353685c7626ad98992eacb51952af0a55c3eda6f7116d26ae0d8ff88f24"
+          },
+          {
+            "path": "tests/runtime/test_raw_builder.py",
+            "size": 8380,
+            "sha256": "249d765a4a26dc0f55331e6235578e5785ce43040024992963c05764ed528b47"
+          },
+          {
+            "path": "tests/runtime/test_render_qa.py",
+            "size": 24346,
+            "sha256": "b2903c4a20e5fd7180812258855aeb31b85194c57b2c217a516f4edbc0138662"
+          },
+          {
+            "path": "tests/runtime/test_runtime_cli.py",
+            "size": 20720,
+            "sha256": "e1b771b94d0b063d58870fb404e9bdf8f7fa4ecbde42423ecaa5ac649652025d"
+          },
+          {
+            "path": "tests/runtime/test_table_contract.py",
+            "size": 1182,
+            "sha256": "46ae6b805d3e65e35780c787bd0767695caa327ad663a5143722cee04eae71fb"
+          },
+          {
+            "path": "tests/runtime/test_template_inspector.py",
+            "size": 1691,
+            "sha256": "9a5c6a07f72abe36a37a5edc79aeebc049579a557b890059d5a4d47008e1054e"
+          },
+          {
+            "path": "tests/runtime/test_template_starter.py",
+            "size": 4770,
+            "sha256": "ca5cec68f9e1fabe0fdcbe0a7b746b5223f96438afeef32da76c37ad15161f34"
+          },
+          {
+            "path": "tests/runtime/test_visual_policy.py",
+            "size": 1835,
+            "sha256": "996697027ce71a8d1c65e73ddaa14ad22d291cbe62000091de49df1d882e1aac"
+          },
+          {
+            "path": "tests/runtime/test_workspace.py",
+            "size": 1826,
+            "sha256": "b88570b70f3d51941cdfacd898c706cc9fb44ec39f35c0d501c91e587a292dcb"
+          },
+          {
+            "path": "tests/shape_cli/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "tests/shape_cli/conftest.py",
+            "size": 1279,
+            "sha256": "3b932e45f189e254b44b83021e571024062a01ae3620793b3b1817971888be23"
+          },
+          {
+            "path": "tests/shape_cli/test_deck_audit.py",
+            "size": 7019,
+            "sha256": "425efcf2ac75e966215c7afbf953dad8324b3dc0c818aa88cec8b3580c3d931d"
+          },
+          {
+            "path": "tests/shape_cli/test_fidelity.py",
+            "size": 3435,
+            "sha256": "89bf4c610cb29339d2fcd77dc040c38e44782a925ca513e9e3c201712020f4bd"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_common.py",
+            "size": 28288,
+            "sha256": "8433e8c0ff169c652a20cfe5bd72cbe7d950723f7315e346951728526a21d657"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_delete.py",
+            "size": 4280,
+            "sha256": "18a16fdfcad9742aad2a500d0fa243afbeb80184a0b71b70f0a93b0e7704c3dc"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_diff.py",
+            "size": 11187,
+            "sha256": "b40eba8a18b50ae9bf8f19ca13cae963893a448dae8d518abe9d659c3e0cd1b5"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_get.py",
+            "size": 1661,
+            "sha256": "24d65ea162d671f2e958766d6f3c4831dec3ef2554c20a91107c0889c2f98b70"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_history.py",
+            "size": 4517,
+            "sha256": "73e76c7c919bd1330380aad86eaf9d720b25ccc57fc7103fc61290dda6182e21"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_index.py",
+            "size": 6394,
+            "sha256": "2bbbd592b83312b2f4936a11d13a71f21a4b362cc8869c238628edbdad6c49a5"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_insert.py",
+            "size": 15263,
+            "sha256": "08dc7bfc4682f24b1429702fcfa1d5542e2ea79890f77844b7e38a9a949085f8"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_repair.py",
+            "size": 6672,
+            "sha256": "610063923707b836a7ce7ca13bfe236be14d4f173158c4cf548b5e6131cce1ea"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_revert.py",
+            "size": 9837,
+            "sha256": "15401735dd6fa6834af713c6d4213ca99ce771d9d1e352f3619a33b31d9cc669"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_set_bbox.py",
+            "size": 5898,
+            "sha256": "cacddd5a144454a60c139de8354252e494883ef8fc5692a88baab38bd6be1078"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_set_image.py",
+            "size": 8173,
+            "sha256": "7663772f0a2d794bd09464f5e03444e3d80f8f22add71d201197a57692984834"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_set_style.py",
+            "size": 18654,
+            "sha256": "c1e144426a4fcbcc6538f77f21946dbbd440936c58759bb137946165804aed47"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_set_text.py",
+            "size": 7151,
+            "sha256": "25554664a5b19a91629d0bcc3eb559ec6f95374b2135125cc0d610e5fc9cc3fe"
+          },
+          {
+            "path": "tests/shape_cli/test_shape_undelete.py",
+            "size": 12208,
+            "sha256": "ce72d588bcddeafde700f05db29dde076d45e72b4109beaefbd34fc044346c96"
+          },
+          {
+            "path": "tests/shape_cli/test_slide_notes.py",
+            "size": 5217,
+            "sha256": "b01955d53a99e5a191217eabc43242e73459af7178cba73e4528e3c58ada3b78"
+          },
+          {
+            "path": "tests/smoke_test.sh",
+            "size": 17106,
+            "sha256": "0d1e4192ddbf25e33b0ef9bf342f25189cef9ade9e356d6c9423dc30e86e60a1"
+          },
+          {
+            "path": "tests/test_download_image.py",
+            "size": 8602,
+            "sha256": "32de0abcfdd7d7cfe42b29d348c18f1b4d4309bedda656e8090270eefd023f0d"
+          },
+          {
+            "path": "tests/test_shape_batch.py",
+            "size": 16723,
+            "sha256": "79aabf8da51f533bbff9165c9723d6c7ddad406f9ff14d85b8e10412d518473d"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/pptx/2",
+        "eligible": true,
+        "location": "/skills/pptx/SKILL.md",
+        "skill_id": "skl_SKILL130000000000000000000",
+        "contentHash": "sha256:5930351e6b500f76046db4849d7ac86be86f1173feff3f94b2391e6b9aa8c46d",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:fc839307d9190099"
+      },
+      {
+        "name": "video-generator",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 218,
+            "sha256": "ae8d3456309c4cff95eab7f854d6a4274c4eb9f7d38827532972867d86c8cf76"
+          },
+          {
+            "path": "scripts/requirements.txt",
+            "size": 13,
+            "sha256": "c5ddfb8fa25ae239131a9b5f819c51fc0ef5d059858da2a799be984f7a521039"
+          },
+          {
+            "path": "scripts/video_generation_cli.py",
+            "size": 19904,
+            "sha256": "9c70d52a96a4358e4a90f757858dcc99b6b9e43cb04f63c6e7d9a69ecb2094a1"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 5241,
+            "sha256": "e9de3ef61296ed9b8a8b68bdb684705669234c87b3ccee7ebfb5ff618d0f056e"
+          },
+          {
+            "path": "tests/test_video_creem_moderation.py",
+            "size": 4554,
+            "sha256": "d87fa9fa149a13d7218cb0df264e0562361fa6c79fa134415ff2fab262109475"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/video-generator/2",
+        "eligible": true,
+        "location": "/skills/video-generator/SKILL.md",
+        "skill_id": "skl_SKILL140000000000000000000",
+        "contentHash": "sha256:f6c6b6ecea997e257a3b91dcf8f890c7fd6cdeca74bef1402ae86c3ae2415974",
+        "description": "AI video generation skill — generate videos from text prompts or reference images using multiple models (Kling, Grok, Sora, Veo). Auto-selects model based on task type.",
+        "promptVersion": "sha256:e9de3ef61296ed9b"
+      },
+      {
+        "name": "web-designer",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 555,
+            "sha256": "b325dfb3e9b7b3cbc8efce22375306ef5c452ff5403345dc0e4979972e173f37"
+          },
+          {
+            "path": "DEPENDENCIES.md",
+            "size": 3605,
+            "sha256": "0bb7ff966f475b7cd183478616c4f4cdacf430b3f15269a38b22923bba3f3cf4"
+          },
+          {
+            "path": "examples/blog.html",
+            "size": 1924792,
+            "sha256": "b1c8f52aaa2caa23bef2a91dfedf23067c9b3c231dd7be0d86fa5b5380fd60bc"
+          },
+          {
+            "path": "examples/landing.html",
+            "size": 574779,
+            "sha256": "076f1909e2b3e88d3de0244ae15453d7be6bc359eb5c0db465d74076f4ff21cd"
+          },
+          {
+            "path": "examples/report.html",
+            "size": 1828128,
+            "sha256": "9404647e6c05b565812fb0a8c36f6433dbf3325c3b30dc8b50aeb7ea0c6557b2"
+          },
+          {
+            "path": "examples/slides.html",
+            "size": 1881619,
+            "sha256": "5a0423ea907f5b4ce05c9fb9ad6bc9e6330ec11d8990fe317d43d5735484585a"
+          },
+          {
+            "path": "references/components.md",
+            "size": 91171,
+            "sha256": "583908821f7a9733b5867cbd1b31d2828b04595fa552732cc0a1f2835efaf936"
+          },
+          {
+            "path": "references/content.md",
+            "size": 24382,
+            "sha256": "21d51af0ff850beede06349161598e5986a0d5f96da23020ca9fe29c0e0bd36b"
+          },
+          {
+            "path": "references/design-system.md",
+            "size": 43645,
+            "sha256": "1e7cf3b3bccb06d9f907d199ee401e9712dd4757c715d0643fcb106a88edb5b7"
+          },
+          {
+            "path": "scripts/bundle.sh",
+            "size": 4704,
+            "sha256": "43478f7258d52c9db050c0bfeb9d19a3bb06d78d1afae31c244b16144925cec9"
+          },
+          {
+            "path": "scripts/init.sh",
+            "size": 8101,
+            "sha256": "5dbd077f3ad23bead6bcd23fc7d71c7d4ad8ab6d3638c12cb6f55c384b4deda8"
+          },
+          {
+            "path": "scripts/optimize-image.py",
+            "size": 6249,
+            "sha256": "da3bd0febee5d611cc278bcee0c367af070ce2ed2bad6a0ed2849260ccbab70d"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 6683,
+            "sha256": "0613c1668839dfbcf1d2c04044e5df7f2b8bb3abd042c98fad46d91510a6be53"
+          },
+          {
+            "path": "templates/components.json",
+            "size": 399,
+            "sha256": "c00c974013c74924b6eb1dc4e00faac2c4fba2d5e1cfd54a120ef698c5b4d2e0"
+          },
+          {
+            "path": "templates/fonts.css",
+            "size": 3911,
+            "sha256": "192723bdbc87bfcf03d5ab4d1f67f72ed7d2aaf9095d69f78ce2e639ff583f70"
+          },
+          {
+            "path": "templates/index.css",
+            "size": 5416,
+            "sha256": "5c3532848f060fc72090f6658a1970e83e224a07c546be9cda48942715857486"
+          },
+          {
+            "path": "templates/tailwind.config.js",
+            "size": 3390,
+            "sha256": "7b289cbb10aefd966f7dbc940a47fe44439e6d32d833e595398ba649b7de5eb8"
+          }
+        ],
+        "scope": "global",
+        "version": "1",
+        "basePath": "/opt/zooclaw/skills/global/web-designer/1",
+        "eligible": true,
+        "location": "/skills/web-designer/SKILL.md",
+        "skill_id": "skl_SKILL150000000000000000000",
+        "contentHash": "sha256:d7f999a2590cc151e10bea3dedd2659ee70583c22c51dd1bad75f57cca796b7c",
+        "description": "Generate interactive HTML web pages — reports, slide decks, landing pages, dashboards, portfolios — via React + shadcn/ui + ECharts in a single self-contained HTML. Not for PDF, pptx, docx, or images.",
+        "promptVersion": "sha256:0613c1668839dfbc"
+      },
+      {
+        "name": "xlsx",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 297,
+            "sha256": "aaceef262cc2cf7e740787be9e83eac324c32e28f50aef135d851aa0e1f99fa4"
+          },
+          {
+            "path": "references/create.md",
+            "size": 12973,
+            "sha256": "91bdf41cee6d7c7be6aa0d148dbfa7da9a628a9a3bef69fe1da1ae12d13fda0d"
+          },
+          {
+            "path": "references/edit.md",
+            "size": 10034,
+            "sha256": "4a304e7fb4e9e0205b0895f100f23fb2be3a1922ea0d911e2cd09baa2038cfab"
+          },
+          {
+            "path": "references/fix.md",
+            "size": 1417,
+            "sha256": "22d591b1bc53bce4c4885b78d1945d0363940037cffa3f150ebb6492a2e0314f"
+          },
+          {
+            "path": "references/format.md",
+            "size": 12556,
+            "sha256": "29a4617f6017c807e28592588d2a987175f36902b8994cc3111c5b96f356c18c"
+          },
+          {
+            "path": "references/ooxml-cheatsheet.md",
+            "size": 5378,
+            "sha256": "bf62473d440a5a18de2d1aaebc1b98d3cb186241190ffc61cde58a86dc049fad"
+          },
+          {
+            "path": "references/read-analyze.md",
+            "size": 4287,
+            "sha256": "e66c41f342e28aa44b7a4ea5bc7f83da5c506624ab89d8c527cd00643a1f84c6"
+          },
+          {
+            "path": "references/validate.md",
+            "size": 11706,
+            "sha256": "6c888f3ebc1efebc930fbdee1ed35e88436c73c07c344b6e85c32e8f49f66c44"
+          },
+          {
+            "path": "requirements.txt",
+            "size": 48,
+            "sha256": "3e60d4bb63eed14f29652c36aab3b0e8f3fa54f12847ec37fe38034a7ad69345"
+          },
+          {
+            "path": "schemas/ecma/fouth-edition/opc-contentTypes.xsd",
+            "size": 1963,
+            "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a"
+          },
+          {
+            "path": "schemas/ecma/fouth-edition/opc-coreProperties.xsd",
+            "size": 2515,
+            "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8"
+          },
+          {
+            "path": "schemas/ecma/fouth-edition/opc-digSig.xsd",
+            "size": 2856,
+            "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24"
+          },
+          {
+            "path": "schemas/ecma/fouth-edition/opc-relationships.xsd",
+            "size": 1344,
+            "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
+            "size": 74984,
+            "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
+            "size": 6956,
+            "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
+            "size": 51302,
+            "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
+            "size": 624,
+            "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-main.xsd",
+            "size": 152039,
+            "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
+            "size": 1231,
+            "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
+            "size": 8862,
+            "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
+            "size": 14795,
+            "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/pml.xsd",
+            "size": 83612,
+            "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
+            "size": 1269,
+            "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
+            "size": 7328,
+            "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
+            "size": 6382,
+            "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
+            "size": 1248,
+            "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
+            "size": 880,
+            "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
+            "size": 2608,
+            "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
+            "size": 3507,
+            "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
+            "size": 7507,
+            "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-math.xsd",
+            "size": 23313,
+            "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
+            "size": 1367,
+            "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/sml.xsd",
+            "size": 242277,
+            "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/vml-main.xsd",
+            "size": 26148,
+            "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
+            "size": 25279,
+            "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
+            "size": 535,
+            "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
+            "size": 5712,
+            "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
+            "size": 4010,
+            "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/wml.xsd",
+            "size": 171367,
+            "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd"
+          },
+          {
+            "path": "schemas/ISO-IEC29500-4_2016/xml.xsd",
+            "size": 4646,
+            "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2"
+          },
+          {
+            "path": "schemas/mce/mc.xsd",
+            "size": 3127,
+            "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413"
+          },
+          {
+            "path": "schemas/microsoft/wml-2010.xsd",
+            "size": 26549,
+            "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2"
+          },
+          {
+            "path": "schemas/microsoft/wml-2012.xsd",
+            "size": 3745,
+            "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74"
+          },
+          {
+            "path": "schemas/microsoft/wml-2018.xsd",
+            "size": 901,
+            "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad"
+          },
+          {
+            "path": "schemas/microsoft/wml-cex-2018.xsd",
+            "size": 1778,
+            "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081"
+          },
+          {
+            "path": "schemas/microsoft/wml-cid-2016.xsd",
+            "size": 1002,
+            "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d"
+          },
+          {
+            "path": "schemas/microsoft/wml-sdtdatahash-2020.xsd",
+            "size": 600,
+            "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604"
+          },
+          {
+            "path": "schemas/microsoft/wml-symex-2015.xsd",
+            "size": 745,
+            "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b"
+          },
+          {
+            "path": "scripts/formula_check.py",
+            "size": 18515,
+            "sha256": "6849075a6c127cf74e5052554b1046751326f194d60255f24ac4f2c15a9eeed6"
+          },
+          {
+            "path": "scripts/office/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "scripts/office/soffice.py",
+            "size": 2338,
+            "sha256": "d12db3a6b2f9b71255748659746d07a76599b70ff91a059a657d4b75dc4e7e9e"
+          },
+          {
+            "path": "scripts/office/validate.py",
+            "size": 7546,
+            "sha256": "a1206277742aa51473873f2c96368e44c32f1c1f6a4c576311e16e6ce551bdec"
+          },
+          {
+            "path": "scripts/recalc.py",
+            "size": 7698,
+            "sha256": "31b029bcd87a57c98e5b512aa99c551749a51a5fba55a678b7dbc5c73894209e"
+          },
+          {
+            "path": "scripts/run_tests.sh",
+            "size": 1236,
+            "sha256": "f28ce5d8667d84a72c27a6edf96e67ce9a03c83fcc5605064aac342a42248389"
+          },
+          {
+            "path": "scripts/shared_strings_builder.py",
+            "size": 5179,
+            "sha256": "18cecc1990a59b6c208173a405de48d6bfb983b4682938bcb1f949ef05cd7c7c"
+          },
+          {
+            "path": "scripts/style_audit.py",
+            "size": 21595,
+            "sha256": "ecbf8238749e704857ceaee6aa22c3cd2f56bdc0575fda80d86d1f78bd8a6587"
+          },
+          {
+            "path": "scripts/xlsx_add_column.py",
+            "size": 11918,
+            "sha256": "3ed892df712ea9cd7ed7729662f093574f4ee9f26d64e009c0d3927f30abd5a0"
+          },
+          {
+            "path": "scripts/xlsx_insert_row.py",
+            "size": 11267,
+            "sha256": "f3565799253773d91acad72bbbe4ec2abcc61435f2c48700f51939bb33768531"
+          },
+          {
+            "path": "scripts/xlsx_pack.py",
+            "size": 3353,
+            "sha256": "b4703ce6737a3e6912275bbd4f3681ecde32eb79d7157b9ea4c5fff1e1a799b0"
+          },
+          {
+            "path": "scripts/xlsx_reader.py",
+            "size": 13432,
+            "sha256": "a49fd1153b25668e969ced10257530c2646b800db266517230070e51168921bf"
+          },
+          {
+            "path": "scripts/xlsx_shift_rows.py",
+            "size": 12434,
+            "sha256": "3713dfbaecd6d8d55435e5f2a1def93f76e5bec023db5e7537ff5321448131f6"
+          },
+          {
+            "path": "scripts/xlsx_unpack.py",
+            "size": 4804,
+            "sha256": "9169017fde883e6c5685fa6111b22b9027052e4721142785b037ceaf7a60fe18"
+          },
+          {
+            "path": "scripts/xlsx_utils.py",
+            "size": 3332,
+            "sha256": "89441821714ba49257bd0b379919e556ab197951c127f7db49fb10b232324931"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 7643,
+            "sha256": "f9aa31c81b13824dd9b400ecd1c2800f272524eea0cc9ba6ec259fd66a960467"
+          },
+          {
+            "path": "templates/minimal_xlsx/_rels/.rels",
+            "size": 309,
+            "sha256": "04fb672e829ec6d5942a95014326ff1a89365346d8593631fe58a067379f79db"
+          },
+          {
+            "path": "templates/minimal_xlsx/[Content_Types].xml",
+            "size": 836,
+            "sha256": "af1b5e212ea1c6081649269e2126f0f8c28bea7cc0b8039731f4cdd064eb9a09"
+          },
+          {
+            "path": "templates/minimal_xlsx/xl/_rels/workbook.xml.rels",
+            "size": 862,
+            "sha256": "f60ff34ef9eeae7a2c01f2e316180b6771cce3ce96bbef4a6ca4c8c4c60704c9"
+          },
+          {
+            "path": "templates/minimal_xlsx/xl/sharedStrings.xml",
+            "size": 1167,
+            "sha256": "2f5b6bb2ad8bc9b7d3077555917377404f7c14e0b2736ad7ba936ae5b99fca95"
+          },
+          {
+            "path": "templates/minimal_xlsx/xl/styles.xml",
+            "size": 8383,
+            "sha256": "7a83fa48c30277de1f2110a699f18fe6496af31a6f7264a01e3cbdff5313da32"
+          },
+          {
+            "path": "templates/minimal_xlsx/xl/workbook.xml",
+            "size": 1119,
+            "sha256": "64a5961f39a8c255ba5d0c49d1e0be86c01d25ca1fd87445759d2d92756380dc"
+          },
+          {
+            "path": "templates/minimal_xlsx/xl/worksheets/sheet1.xml",
+            "size": 2596,
+            "sha256": "666bff4e34691adb89a53cecddc3d84a6f1f04b38eba353c188b7d1693e342ac"
+          },
+          {
+            "path": "tests/__init__.py",
+            "size": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "path": "tests/test_add_column.py",
+            "size": 6243,
+            "sha256": "94e3528e69754f789b24ab35bb706f63cafb7e6d15487c56b50a2d3796a22d94"
+          },
+          {
+            "path": "tests/test_formula_check.py",
+            "size": 5519,
+            "sha256": "2dc74307a44fee71ed16efe7ab56f48cd62d74f9e64e35ae696ab957f1cf50d9"
+          },
+          {
+            "path": "tests/test_insert_row.py",
+            "size": 12268,
+            "sha256": "03ccdf630b906e5e2db9e9869d65ac48574907c5c5eb242d2dce919c8e31ed7a"
+          },
+          {
+            "path": "tests/test_shift_rows.py",
+            "size": 1846,
+            "sha256": "1e596d58548baa77d763499b4720d8e4e00d063e97bb1726dc2d75dc0b011360"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/xlsx/2",
+        "eligible": true,
+        "location": "/skills/xlsx/SKILL.md",
+        "skill_id": "skl_SKILL160000000000000000000",
+        "contentHash": "sha256:fd20017b25ff095b38077ee2a66bc7b2cb6003b81938134ee589cf75a150cf63",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:f9aa31c81b13824d"
+      },
+      {
+        "name": "zooclaw-asr",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 91,
+            "sha256": "a41bfb35e74f67738296e5c6198d579049383849faedd85ac6ea97dccc2843cf"
+          },
+          {
+            "path": "scripts/transcribe.sh",
+            "size": 5985,
+            "sha256": "5977632db05ba4f968e873223478e403048dac3c7c448c9e3ce250924ea504e8"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 4129,
+            "sha256": "e53a85453bb717906cf3c134a6ae7b608c975e0ceabaa4e8f170398204464c15"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/zooclaw-asr/2",
+        "eligible": true,
+        "location": "/skills/zooclaw-asr/SKILL.md",
+        "skill_id": "skl_SKILL170000000000000000000",
+        "contentHash": "sha256:20f7eddbd32a55fa35b60ad097cee313057c899f30078398769ab5d4c4a5b513",
+        "description": "<non-English text removed>",
+        "promptVersion": "sha256:e53a85453bb71790"
+      },
+      {
+        "name": "zooclaw-tts",
+        "files": [
+          {
+            "path": ".env.example",
+            "size": 91,
+            "sha256": "a41bfb35e74f67738296e5c6198d579049383849faedd85ac6ea97dccc2843cf"
+          },
+          {
+            "path": "references/celebrity-search.md",
+            "size": 2175,
+            "sha256": "d87dde0ad3b1304187b585d13ed9e84c60633ab7d8155853d909daad12d37be6"
+          },
+          {
+            "path": "references/errors.md",
+            "size": 1595,
+            "sha256": "b451e3a9a1fea7232acc96522030245fe21d02a43436f8f970914405e105d250"
+          },
+          {
+            "path": "references/limits.md",
+            "size": 2513,
+            "sha256": "7dabe458fae0fdae0d8ec96c9982f6a1aaea72b7181d2316ce69d97479958a88"
+          },
+          {
+            "path": "references/voices.md",
+            "size": 2580,
+            "sha256": "e1a75ad5faa1993a6237b214b66c637a721feb65624dfa6cf001c8cb044c0732"
+          },
+          {
+            "path": "scripts/asr_transcribe.sh",
+            "size": 1619,
+            "sha256": "9b7a6c9ae3860121c7df95fea3afca07bdee4d0b3ae83fb33faeb8ad39a9c0a4"
+          },
+          {
+            "path": "scripts/celebrity_clone.sh",
+            "size": 10098,
+            "sha256": "e26b8bbcf80ce58fa7594109e1da1e5c81e8fb4f460fc9627d77f54a23e69a5e"
+          },
+          {
+            "path": "scripts/synthesize.sh",
+            "size": 21658,
+            "sha256": "7e3d26d9dc8d9c24788290c3c4bd8be8d53e131eae63282e52eedd647cea82e9"
+          },
+          {
+            "path": "scripts/voice_mgmt.sh",
+            "size": 2229,
+            "sha256": "1092d1b3ee2894da9e04ed783bb629a2349db4948ea5296a72ace9369819881c"
+          },
+          {
+            "path": "SKILL.md",
+            "size": 19601,
+            "sha256": "ac3e03a079a3a529c7527a712ff5c518fa8f21d3fdf644b94e0c5c5f56dfb456"
+          }
+        ],
+        "scope": "global",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/zooclaw-tts/2",
+        "eligible": true,
+        "location": "/skills/zooclaw-tts/SKILL.md",
+        "skill_id": "skl_SKILL180000000000000000000",
+        "contentHash": "sha256:f83e917d130c987d18708ab2aa8994fbc050362930ccb043bf6e9b6bdeed2457",
+        "description": "ZooClaw built-in TTS — preset voices, voice design from descriptions, voice cloning from audio, plus celebrity clone from YouTube. Auto-selects mode. Handles voice management and file-to-speech.",
+        "promptVersion": "sha256:ac3e03a079a3a529"
+      }
+    ]
+  }
+}

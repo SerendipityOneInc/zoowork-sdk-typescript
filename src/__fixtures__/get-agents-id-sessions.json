@@ -1,0 +1,21 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions",
+  "status": 200,
+  "body": {
+    "page": 1,
+    "page_size": 50,
+    "total": 1,
+    "sessions": [
+      {
+        "session_id": "SESSION100000000000000000000000000000000000000000000000",
+        "session_key": "agent:agt_AGENT100000000000000000000:cron:surface-probe-schedule:1786113709000:0cce4257",
+        "channel": "cron",
+        "run_status": "running",
+        "updated_at": "2026-08-07T14:41:49.240Z",
+        "metadata": {},
+        "archived": false
+      }
+    ]
+  }
+}

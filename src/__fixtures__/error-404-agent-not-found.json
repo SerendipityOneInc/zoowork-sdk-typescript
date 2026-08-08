@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_01000000000000000000000000",
+  "status": 404,
+  "body": {
+    "code": "service_api.not_found",
+    "detail": "Not found"
+  }
+}

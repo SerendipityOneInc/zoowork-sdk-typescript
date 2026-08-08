@@ -1,0 +1,6 @@
+{
+  "method": "DELETE",
+  "path": "/agents/agt_AGENT200000000000000000000",
+  "status": 204,
+  "body": null
+}

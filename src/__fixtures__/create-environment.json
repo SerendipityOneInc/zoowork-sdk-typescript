@@ -1,0 +1,43 @@
+{
+  "method": "POST",
+  "path": "/environments",
+  "status": 201,
+  "body": {
+    "environment_id": "env_ENVIRONMENT100000000000000000000",
+    "scope": "org",
+    "org_id": "ORG10000000000000000000000000000",
+    "name": "sdk-surface-probe-env",
+    "description": "Throwaway environment from examples/surface-probe.ts.",
+    "status": "active",
+    "latest_version": 1,
+    "latest_ready_version": null,
+    "created_by": "USER100000000000000",
+    "created_at": "2026-08-07T14:42:03.590Z",
+    "updated_at": "2026-08-07T14:42:03.590Z",
+    "archived_at": null,
+    "version": {
+      "environment_id": "env_ENVIRONMENT100000000000000000000",
+      "version": 1,
+      "status": "queued",
+      "config": {
+        "files": [],
+        "networking": {
+          "type": "unrestricted"
+        }
+      },
+      "base_environment_id": "env_ENVIRONMENT1",
+      "base_version": 6,
+      "source_hash": "sha256:c2ea1ebd8a36e1a65b8197dd82cd06db52a61b7ad77f2aff6d1983f979159687",
+      "spec_hash": "sha256:869826259745aeff8dc5e260e6353bf0b84e9fdd0d97d925c1c33fa91f3f7a0f",
+      "e2b_template_name": null,
+      "e2b_template_id": null,
+      "e2b_build_id": null,
+      "template_ref": null,
+      "failure_stage": null,
+      "failure_message": null,
+      "created_by": "USER100000000000000",
+      "created_at": "2026-08-07T14:42:03.590Z",
+      "ready_at": null
+    }
+  }
+}

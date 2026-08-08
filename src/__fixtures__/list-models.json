@@ -1,0 +1,169 @@
+{
+  "method": "GET",
+  "path": "/models",
+  "status": 200,
+  "body": [
+    {
+      "model": "litellm/claude-fable-5",
+      "display_name": "Claude Fable 5",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/claude-haiku-4-5",
+      "display_name": "Claude Haiku 4.5",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/claude-opus-4-8",
+      "display_name": "Claude Opus 4.8",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/claude-opus-5",
+      "display_name": "Claude Opus 5",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/claude-sonnet-4-6",
+      "display_name": "Claude Sonnet 4.6",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/claude-sonnet-5",
+      "display_name": "Claude Sonnet 5",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/deepseek-v4-pro",
+      "display_name": "DeepSeek V4 Pro",
+      "family": "deepseek",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/gemini-3-flash-preview",
+      "display_name": "Gemini 3 Flash Preview",
+      "family": "google",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/gemini-3.1-flash-lite",
+      "display_name": "Gemini 3.1 Flash Lite",
+      "family": "google",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/gemini-3.1-flash-tts-preview",
+      "display_name": "Gemini 3.1 Flash TTS Preview",
+      "family": "google",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/gemini-3.1-pro-preview",
+      "display_name": "Gemini 3.1 Pro Preview",
+      "family": "google",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/glm-5",
+      "display_name": "GLM 5",
+      "family": "zhipu",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/glm-5.2",
+      "display_name": "GLM 5.2",
+      "family": "zhipu",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/gpt-5.5",
+      "display_name": "GPT 5.5",
+      "family": "openai",
+      "api": "openai-completions"
+    },
+    {
+      "model": "litellm/gpt-5.6-luna",
+      "display_name": "GPT 5.6 Luna",
+      "family": "openai",
+      "api": "openai-completions"
+    },
+    {
+      "model": "litellm/gpt-5.6-sol",
+      "display_name": "GPT 5.6 Sol",
+      "family": "openai",
+      "api": "openai-completions"
+    },
+    {
+      "model": "litellm/gpt-5.6-terra",
+      "display_name": "GPT 5.6 Terra",
+      "family": "openai",
+      "api": "openai-completions"
+    },
+    {
+      "model": "litellm/grok-4.5",
+      "display_name": "Grok 4.5",
+      "family": "xai",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/grok-build-0.1",
+      "display_name": "Grok Build 0.1",
+      "family": "xai",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/kimi-k2.6",
+      "display_name": "Kimi K2.6",
+      "family": "moonshot",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/qwen35-122B",
+      "display_name": "Qwen 3.5 122B",
+      "family": "alibaba",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/deepseek-v4-flash-0731",
+      "display_name": "DeepSeek V4 Flash 0731",
+      "family": "deepseek",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/qwen3.8-max",
+      "display_name": "Qwen 3.8 Max",
+      "family": "alibaba",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/agent-studio-sonnet-4-6",
+      "display_name": "Agent Studio Sonnet 4.6",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/agent-studio-sonnet-5",
+      "display_name": "Agent Studio Sonnet 5",
+      "family": "anthropic",
+      "api": "anthropic-messages"
+    },
+    {
+      "model": "litellm/dola-seed-2.1-turbo",
+      "display_name": "Dola Seed 2.1 Turbo",
+      "family": "bytedance",
+      "api": "openai-completions"
+    },
+    {
+      "model": "litellm/seed-2.0-mini",
+      "display_name": "Seed 2.0 Mini",
+      "family": "bytedance",
+      "api": "openai-completions"
+    }
+  ]
+}

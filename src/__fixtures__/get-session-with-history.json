@@ -1,0 +1,92 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions/SESSION2000000000000000000000000?history=true&limit=20",
+  "status": 200,
+  "body": {
+    "session_id": "SESSION2000000000000000000000000",
+    "session_key": "api:SESSION2000000000000000000000000",
+    "channel": "api",
+    "run_status": "succeeded",
+    "updated_at": "2026-08-07T14:41:54.677Z",
+    "metadata": {
+      "source": "sdk-surface-probe"
+    },
+    "archived": false,
+    "status": null,
+    "pending_approvals": 0,
+    "entry": {
+      "channel": "api",
+      "sessionId": "SESSION2000000000000000000000000",
+      "updatedAt": 1786113714677,
+      "lastChannel": "api",
+      "lastAccountId": "agt_AGENT100000000000000000000"
+    },
+    "history": [
+      {
+        "seq": 1,
+        "entry_type": "message",
+        "entry": {
+          "type": "message",
+          "message": {
+            "role": "user",
+            "content": [
+              {
+                "text": "Reply with exactly: SURFACE-PROBE-MARKER. Nothing else.",
+                "type": "text"
+              }
+            ],
+            "timestamp": 1786113714382
+          }
+        },
+        "created_at": "2026-08-07T14:41:54.681Z"
+      },
+      {
+        "seq": 2,
+        "entry_type": "message",
+        "entry": {
+          "type": "message",
+          "message": {
+            "api": "anthropic-messages",
+            "role": "assistant",
+            "model": "claude-fable-5",
+            "usage": {
+              "cost": {
+                "input": 0,
+                "total": 0,
+                "output": 0,
+                "cacheRead": 0,
+                "cacheWrite": 0
+              },
+              "input": 14889,
+              "output": 75,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 14964
+            },
+            "content": [
+              {
+                "text": "",
+                "type": "text"
+              },
+              {
+                "type": "thinking",
+                "thinking": "The user is asking me to reply with exactly \"SURFACE-PROBE-MARKER\" and nothing else. This appears to be a simple text response request. I should comply with this direct instruction.\n",
+                "thinkingSignature": ""
+              },
+              {
+                "text": "\n\nSURFACE-PROBE-MARKER",
+                "type": "text"
+              }
+            ],
+            "provider": "litellm",
+            "timestamp": 1786113716316,
+            "responseId": "msg_7d520115-764d-44ce-8f55-b9b74cc76363",
+            "stopReason": "stop",
+            "responseModel": "qwen35-122B"
+          }
+        },
+        "created_at": "2026-08-07T14:41:56.318Z"
+      }
+    ]
+  }
+}

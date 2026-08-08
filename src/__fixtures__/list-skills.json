@@ -1,0 +1,364 @@
+{
+  "method": "GET",
+  "path": "/skills",
+  "status": 200,
+  "body": {
+    "skills": [
+      {
+        "skill_id": "skl_SKILL100000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "bot-mailbox",
+        "description": "Bot's own dedicated email mailbox — send, reply, forward, check inbox using the agent's OWN address. Use only when bot acts as itself; do NOT use to manage a user's personal email.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:35:42.789Z",
+        "updated_at": "2026-07-29T06:35:42.794Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL200000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "browser-skill",
+        "description": "Default skill for all browser operations in OpenClaw — navigate, click, type, scrape, screenshot, login, inspect — via remote Browserbase MCP. Default agent for complex tasks.",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:35:44.816Z",
+        "updated_at": "2026-08-07T11:31:02.695Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL300000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "chameleon-seedance",
+        "description": "ByteDance Seedance / Dreamina video generation — text/image/video/audio input, image-to-video, edit, extend, segment chain. Use for seedance, Dreamina, ByteDance or Volcengine video generation.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:35:47.658Z",
+        "updated_at": "2026-07-29T06:35:47.663Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL400000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "council",
+        "description": "Convene a council of LLMs on one topic — independent multi-vendor positions, one report preserving disagreement. Cross-model review, second opinion, high-stakes verification (any language).",
+        "latest_version": "4",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:35:58.907Z",
+        "updated_at": "2026-08-07T11:31:10.189Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL200000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "cron-job",
+        "description": "<non-English text removed>",
+        "latest_version": "2",
+        "status": "deprecated",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:36:13.137Z",
+        "updated_at": "2026-08-07T11:32:04.661Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL500000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "deep-research",
+        "description": "<non-English text removed>",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:36:16.293Z",
+        "updated_at": "2026-08-07T11:31:12.279Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL600000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "designer",
+        "description": "<non-English text removed>",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:36:16.855Z",
+        "updated_at": "2026-08-07T11:31:15.132Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL700000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "docx",
+        "description": "<non-English text removed>",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:36:21.802Z",
+        "updated_at": "2026-07-29T06:36:21.815Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL210000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "ecap-io",
+        "description": "ECAP standardized I/O — use ecap-card blocks for interactive output (table, kv, actions, form, composite); include public URLs for media. Handles [ACTION:...] and [FORM:...] callbacks from cards.",
+        "latest_version": "1",
+        "status": "deprecated",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:37:27.269Z",
+        "updated_at": "2026-08-07T11:32:04.661Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL800000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "glossary",
+        "description": "Pack-level terminology — people, companies, abbreviations, jargon, banned words. Supports auto-scan, correction learning, and manual edit; shared across Transcription, Humanizer, Weekly Report.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:37:28.037Z",
+        "updated_at": "2026-07-29T06:37:28.083Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL900000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "humanizer",
+        "description": "<non-English text removed>",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:37:29.683Z",
+        "updated_at": "2026-07-29T06:37:29.689Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL100000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "knowledge-base",
+        "description": "<non-English text removed>",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:37:37.440Z",
+        "updated_at": "2026-07-29T06:37:37.443Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL110000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "meeting-notes",
+        "description": "<non-English text removed>",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:37:40.066Z",
+        "updated_at": "2026-07-29T06:37:40.070Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL120000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "pdf",
+        "description": "<non-English text removed>",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:37:42.538Z",
+        "updated_at": "2026-07-29T06:37:42.544Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL130000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "pptx",
+        "description": "<non-English text removed>",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:37:53.838Z",
+        "updated_at": "2026-08-07T11:31:44.320Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL220000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "specialist-manager",
+        "description": "ZooClaw Specialists guide and living roster — recommends matches, manages hire/fire. Surface candidates BEFORE attempting the task yourself; match by intent in any language, not exact wording.",
+        "latest_version": "1",
+        "status": "deprecated",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:39:02.810Z",
+        "updated_at": "2026-08-07T11:32:04.661Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL140000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "video-generator",
+        "description": "AI video generation skill — generate videos from text prompts or reference images using multiple models (Kling, Grok, Sora, Veo). Auto-selects model based on task type.",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:39:04.190Z",
+        "updated_at": "2026-08-07T11:31:47.600Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL150000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "web-designer",
+        "description": "Generate interactive HTML web pages — reports, slide decks, landing pages, dashboards, portfolios — via React + shadcn/ui + ECharts in a single self-contained HTML. Not for PDF, pptx, docx, or images.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:39:06.910Z",
+        "updated_at": "2026-07-29T06:39:06.927Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL160000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "xlsx",
+        "description": "<non-English text removed>",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:39:16.285Z",
+        "updated_at": "2026-08-07T11:32:03.561Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL170000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "zooclaw-asr",
+        "description": "<non-English text removed>",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:39:41.404Z",
+        "updated_at": "2026-08-05T04:46:36.058Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL180000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "zooclaw-tts",
+        "description": "ZooClaw built-in TTS — preset voices, voice design from descriptions, voice cloning from audio, plus celebrity clone from YouTube. Auto-selects mode. Handles voice management and file-to-speech.",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:39:42.759Z",
+        "updated_at": "2026-08-05T04:46:41.311Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL190000000000000000000",
+        "scope": "org",
+        "pack_id": null,
+        "name": "sdk-surface-probe-skill",
+        "description": "Throwaway skill uploaded by examples/surface-probe.ts to verify the skill registry surface. Safe to delete.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER2000000000",
+        "created_at": "2026-08-07T14:41:39.734Z",
+        "updated_at": "2026-08-07T14:41:40.287Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": "ORG10000000000000000000000000000"
+        }
+      }
+    ],
+    "page": 1,
+    "page_size": 100,
+    "total": 22
+  }
+}

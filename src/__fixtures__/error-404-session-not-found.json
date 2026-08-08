@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions/SESSION3000000000000000000000000",
+  "status": 404,
+  "body": {
+    "error": {
+      "type": "not_found",
+      "message": "session not found"
+    }
+  }
+}

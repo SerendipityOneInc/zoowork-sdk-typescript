@@ -1,0 +1,19 @@
+{
+  "method": "GET",
+  "path": "/environments/env_ENVIRONMENT100000000000000000000",
+  "status": 200,
+  "body": {
+    "environment_id": "env_ENVIRONMENT100000000000000000000",
+    "scope": "org",
+    "org_id": "ORG10000000000000000000000000000",
+    "name": "sdk-surface-probe-env",
+    "description": "Throwaway environment from examples/surface-probe.ts.",
+    "status": "active",
+    "latest_version": 1,
+    "latest_ready_version": null,
+    "created_by": "USER100000000000000",
+    "created_at": "2026-08-07T14:42:03.590Z",
+    "updated_at": "2026-08-07T14:42:03.590Z",
+    "archived_at": null
+  }
+}

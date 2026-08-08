@@ -1,0 +1,97 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/schedules",
+  "status": 200,
+  "body": {
+    "schedules": [
+      {
+        "schedule_name": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule",
+        "spec": {
+          "calendars": [
+            {
+              "second": [
+                {
+                  "start": 0,
+                  "end": 0,
+                  "step": 1
+                }
+              ],
+              "minute": [
+                {
+                  "start": 0,
+                  "end": 0,
+                  "step": 1
+                }
+              ],
+              "hour": [
+                {
+                  "start": 9,
+                  "end": 9,
+                  "step": 1
+                }
+              ],
+              "dayOfMonth": [
+                {
+                  "start": 1,
+                  "end": 31,
+                  "step": 1
+                }
+              ],
+              "month": [
+                {
+                  "start": "JANUARY",
+                  "end": "DECEMBER",
+                  "step": 1
+                }
+              ],
+              "year": [],
+              "dayOfWeek": [
+                {
+                  "start": "SUNDAY",
+                  "end": "SATURDAY",
+                  "step": 1
+                }
+              ],
+              "comment": ""
+            }
+          ],
+          "intervals": [],
+          "skip": [],
+          "timezone": "Asia/Singapore"
+        },
+        "state": {
+          "paused": false,
+          "note": ""
+        },
+        "memo": {
+          "computer_id": "cmp_COMPUTER100000000000000000",
+          "agent_id": "agt_AGENT100000000000000000000",
+          "schedule_id": "surface-probe-schedule",
+          "name": "surface-probe-schedule"
+        },
+        "next_action_times": [
+          "2026-08-08T01:00:00.000Z",
+          "2026-08-09T01:00:00.000Z",
+          "2026-08-10T01:00:00.000Z",
+          "2026-08-11T01:00:00.000Z",
+          "2026-08-12T01:00:00.000Z"
+        ],
+        "scheduleSpec": {
+          "timezoneName": "Asia/Singapore",
+          "catchupWindowMs": 3600000,
+          "cronExpressions": [
+            "0 9 * * *"
+          ]
+        },
+        "payload": {
+          "kind": "agentTurn",
+          "message": "Reply with exactly: SURFACE-PROBE-MARKER"
+        },
+        "delivery": {
+          "mode": "none"
+        },
+        "enabled": true
+      }
+    ]
+  }
+}

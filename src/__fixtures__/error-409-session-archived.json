@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/sessions/SESSION2000000000000000000000000/events",
+  "status": 409,
+  "body": {
+    "error": {
+      "type": "session_archived",
+      "message": "session is archived"
+    }
+  }
+}
