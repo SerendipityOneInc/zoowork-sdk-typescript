@@ -3,6 +3,19 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified against
 staging, not the day it was written.
 
+## 0.0.5 — 2026-08-10
+
+### Added
+
+- **`listAgents(opts?)`** — `GET /agents` with `label.*` filters and `page`, unwrapping `{agents}`.
+  `{ labels: { workspace_id: '…' } }` resolves a ZooClaw chat-URL workspace id to its agent — the
+  missing "get your agent_id with nothing but your key" step.
+  **Known-blocked at the gateway today**: the public gateway answers collection-level GET with
+  `404 service_api.not_found` *without consulting the engine* (its agents family only registers
+  POST — FEEDBACK #16; the engine route itself works and is documented). Shipped ahead of the
+  gateway so integrations light up the moment the route opens. Verified against the mock harness
+  and the recorded engine list shape; **not yet verifiable against staging** for the reason above.
+
 ## 0.0.4 — 2026-08-07
 
 The Developer Preview surface goes from "agents and sessions" to the whole management plane, and

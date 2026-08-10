@@ -80,6 +80,7 @@ test('the client built from the entry point exposes every documented method', ()
   const methods = [
     'listModels',
     'createAgent',
+    'listAgents',
     'getAgent',
     'updateAgent',
     'deleteAgent',

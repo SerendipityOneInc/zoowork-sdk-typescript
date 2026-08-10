@@ -52,6 +52,11 @@ const session = await zc.createSession(agent.agent_id, {
 
 An explicit option always beats the environment variable.
 
+> **`listAgents()` ships ahead of the gateway.** `zc.listAgents({ labels: { workspace_id: '…' } })`
+> lists your agents (and resolves a ZooClaw chat-URL workspace id to its agent) — but the public
+> gateway does not forward collection-level `GET /agents` yet and answers `404 service_api.not_found`.
+> The engine route works; the method lights up the moment the gateway opens it.
+
 > **Wait on `status.desired_state`, never on `status.actual_state`.**
 > `actual_state` reports chat-channel connectivity. An API-only agent has no channels,
 > so it stays at `activating` forever and `active` is unreachable — a readiness loop
