@@ -623,9 +623,8 @@ export interface ZooclawClient {
    * `{ labels: { workspace_id: '…' } }` resolves an app workspace id (the first path
    * segment of a ZooClaw chat URL) to its agent. Page size is fixed at 100 by the engine.
    *
-   * ⚠ Requires the gateway to forward collection-level GET. The public gateway does not
-   * yet — it answers `404 service_api.not_found` without consulting the engine (tracked
-   * as FEEDBACK #16). The method ships now so integrations work the moment the route opens.
+   * Note the scope is `owner_uid AND org_id`: an agent a colleague created in your org is
+   * fetchable by `getAgent` but will not appear here.
    */
   listAgents(opts?: { labels?: Record<string, string>; page?: number }): Promise<AgentRecord[]>
   getAgent(agentId: string): Promise<AgentRecord>

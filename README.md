@@ -52,10 +52,11 @@ const session = await zc.createSession(agent.agent_id, {
 
 An explicit option always beats the environment variable.
 
-> **`listAgents()` ships ahead of the gateway.** `zc.listAgents({ labels: { workspace_id: '…' } })`
-> lists your agents (and resolves a ZooClaw chat-URL workspace id to its agent) — but the public
-> gateway does not forward collection-level `GET /agents` yet and answers `404 service_api.not_found`.
-> The engine route works; the method lights up the moment the gateway opens it.
+> **Finding the agent you built in the app.** The first path segment of a ZooClaw chat URL
+> (`/chat/<32-hex>/sessions/…`) is a *workspace* id, not an `agt_…`. Resolve it with
+> `zc.listAgents({ labels: { workspace_id: '<32-hex>' } })`; a bare `zc.listAgents()` lists
+> everything your key can see. Scope is `owner_uid AND org_id` — an agent a *colleague*
+> created in your org is fetchable by id but will not appear in your list.
 
 > **Wait on `status.desired_state`, never on `status.actual_state`.**
 > `actual_state` reports chat-channel connectivity. An API-only agent has no channels,

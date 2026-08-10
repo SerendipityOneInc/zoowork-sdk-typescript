@@ -10,11 +10,10 @@ staging, not the day it was written.
 - **`listAgents(opts?)`** — `GET /agents` with `label.*` filters and `page`, unwrapping `{agents}`.
   `{ labels: { workspace_id: '…' } }` resolves a ZooClaw chat-URL workspace id to its agent — the
   missing "get your agent_id with nothing but your key" step.
-  **Known-blocked at the gateway today**: the public gateway answers collection-level GET with
-  `404 service_api.not_found` *without consulting the engine* (its agents family only registers
-  POST — FEEDBACK #16; the engine route itself works and is documented). Shipped ahead of the
-  gateway so integrations light up the moment the route opens. Verified against the mock harness
-  and the recorded engine list shape; **not yet verifiable against staging** for the reason above.
+  Scope is the engine's `owner_uid AND org_id`, so an agent a colleague created in your org is
+  fetchable by id but absent from your list. Page size is fixed at 100 by the engine.
+  Verified against staging on 2026-08-10, the day the gateway opened collection-level `GET /agents`
+  (it had answered `404 service_api.not_found` until then — FEEDBACK #16).
 
 ## 0.0.4 — 2026-08-07
 
