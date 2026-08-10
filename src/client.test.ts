@@ -175,6 +175,19 @@ test('createAgent POSTs the envelope and sends Idempotency-Key only when given o
   expect('Idempotency-Key' in bare.calls[0]!.headers).toBe(false)
 })
 
+test('listAgents unwraps agents and builds label.* / page query from the options supplied', async () => {
+  const all = harness(jsonReply({ page: 1, page_size: 100, total: 1, agents: [{ agent_id: 'agt_1' }] }))
+  expect(await all.client.listAgents()).toEqual([{ agent_id: 'agt_1' }])
+  expect(path(all.calls)).toBe('/agents')
+
+  const filtered = harness(jsonReply({ agents: [] }))
+  await filtered.client.listAgents({ labels: { workspace_id: 'w1', pack_id: 'p 1' }, page: 2 })
+  expect(path(filtered.calls)).toBe('/agents?page=2&label.workspace_id=w1&label.pack_id=p+1')
+
+  const empty = harness(jsonReply({}))
+  expect(await empty.client.listAgents()).toEqual([])
+})
+
 test('agent ids are percent-encoded into the path', async () => {
   const { calls, client } = harness(jsonReply({ agent_id: 'a/b' }))
   await client.getAgent('a/b')

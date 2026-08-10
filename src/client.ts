@@ -617,6 +617,17 @@ export interface ZooclawClient {
 
   // ── agents ──
   createAgent(input: { resource: AgentResource; ownership: Ownership }, idempotencyKey?: string): Promise<AgentRecord>
+  /**
+   * List the agents owned by your key's bound user (engine query: `owner_uid AND org_id`,
+   * both injected by the gateway). `labels` filters on declared labels — e.g.
+   * `{ labels: { workspace_id: '…' } }` resolves an app workspace id (the first path
+   * segment of a ZooClaw chat URL) to its agent. Page size is fixed at 100 by the engine.
+   *
+   * ⚠ Requires the gateway to forward collection-level GET. The public gateway does not
+   * yet — it answers `404 service_api.not_found` without consulting the engine (tracked
+   * as FEEDBACK #16). The method ships now so integrations work the moment the route opens.
+   */
+  listAgents(opts?: { labels?: Record<string, string>; page?: number }): Promise<AgentRecord[]>
   getAgent(agentId: string): Promise<AgentRecord>
   /** PUT declared sections; bumps config_version on EVERY call — gate on drift, don't blind-retry. */
   updateAgent(agentId: string, sections: Record<string, unknown>): Promise<AgentRecord>
@@ -1067,6 +1078,12 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
         body: JSON.stringify(input),
         ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
       }),
+    listAgents: async (opts = {}) => {
+      const params: Record<string, string | number | undefined> = { page: opts.page }
+      for (const [k, v] of Object.entries(opts.labels ?? {})) params[`label.${k}`] = v
+      const data = await json<{ agents?: AgentRecord[] }>(`/agents${query(params)}`)
+      return data.agents ?? []
+    },
     getAgent: (agentId) => json(agents(agentId)),
     updateAgent: (agentId, sections) => json(agents(agentId), { method: 'PUT', body: JSON.stringify(sections) }),
     deleteAgent: async (agentId) => {
