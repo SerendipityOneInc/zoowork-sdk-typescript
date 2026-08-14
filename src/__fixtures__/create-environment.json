@@ -3,7 +3,7 @@
   "path": "/environments",
   "status": 201,
   "body": {
-    "environment_id": "env_ENVIRONMENT130000000000000000000",
+    "environment_id": "env_ENVIRONMENT140000000000000000000",
     "scope": "org",
     "org_id": "ORG10000000000000000000000000000",
     "name": "sdk-surface-probe-env",
@@ -12,11 +12,11 @@
     "latest_version": 1,
     "latest_ready_version": null,
     "created_by": "USER100000000000000",
-    "created_at": "2026-08-14T07:35:00.040Z",
-    "updated_at": "2026-08-14T07:35:00.040Z",
+    "created_at": "2026-08-14T10:09:00.632Z",
+    "updated_at": "2026-08-14T10:09:00.632Z",
     "archived_at": null,
     "version": {
-      "environment_id": "env_ENVIRONMENT130000000000000000000",
+      "environment_id": "env_ENVIRONMENT140000000000000000000",
       "version": 1,
       "status": "queued",
       "config": {
@@ -37,7 +37,7 @@
       "failure_stage": null,
       "failure_message": null,
       "created_by": "USER100000000000000",
-      "created_at": "2026-08-14T07:35:00.040Z",
+      "created_at": "2026-08-14T10:09:00.632Z",
       "ready_at": null
     }
   }

@@ -7,23 +7,23 @@
       {
         "source": "run_projection",
         "schedule_id": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule",
-        "fired_at": "2026-08-14T07:34:33.000Z",
+        "fired_at": "2026-08-14T10:08:37.000Z",
         "status": "skipped",
         "consecutive_errors": 0
       },
       {
         "source": "temporal",
-        "scheduled_at": "2026-08-14T07:34:35.173Z",
-        "taken_at": "2026-08-14T07:34:35.204Z",
-        "workflow_id": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule-workflow-2026-08-14T07:34:35Z",
-        "temporal_run_id": "019fff31-b3bc-7064-b69f-5588b19c5f46"
+        "scheduled_at": "2026-08-14T10:08:38.655Z",
+        "taken_at": "2026-08-14T10:08:38.692Z",
+        "workflow_id": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule-workflow-2026-08-14T10:08:38Z",
+        "temporal_run_id": "019fffbe-bf19-706f-a680-dcc3d04e0b14"
       },
       {
         "source": "temporal",
-        "scheduled_at": "2026-08-14T07:34:33.637Z",
-        "taken_at": "2026-08-14T07:34:33.673Z",
-        "workflow_id": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule-workflow-2026-08-14T07:34:33Z",
-        "temporal_run_id": "019fff31-adbd-7e11-94f9-a2bbdeff7a30"
+        "scheduled_at": "2026-08-14T10:08:37.106Z",
+        "taken_at": "2026-08-14T10:08:37.176Z",
+        "workflow_id": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-schedule-workflow-2026-08-14T10:08:37Z",
+        "temporal_run_id": "019fffbe-b92c-7dc1-86ad-f3b2cd8fa9e6"
       }
     ]
   }
