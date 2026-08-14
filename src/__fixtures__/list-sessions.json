@@ -12,7 +12,7 @@
         "session_key": "api:SESSION2000000000000000000000000",
         "channel": "api",
         "run_status": "succeeded",
-        "updated_at": "2026-08-07T14:41:54.677Z",
+        "updated_at": "2026-08-14T07:34:42.326Z",
         "metadata": {
           "source": "sdk-surface-probe"
         },
@@ -20,10 +20,10 @@
       },
       {
         "session_id": "SESSION100000000000000000000000000000000000000000000000",
-        "session_key": "agent:agt_AGENT100000000000000000000:cron:surface-probe-schedule:1786113709000:0cce4257",
+        "session_key": "agent:agt_AGENT100000000000000000000:cron:surface-probe-schedule:1786692875000:cc25fc5c",
         "channel": "cron",
         "run_status": "succeeded",
-        "updated_at": "2026-08-07T14:41:49.240Z",
+        "updated_at": "2026-08-14T07:34:35.244Z",
         "metadata": {},
         "archived": false
       }

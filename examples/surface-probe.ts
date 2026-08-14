@@ -616,6 +616,47 @@ try {
     )
   })
 
+  await probe('schedule with payload.outcome', async () => {
+    // A second, DISABLED schedule that never fires: the point is whether the management plane
+    // stores and echoes the outcome gate, not whether the evaluator runs.
+    const outcomeScheduleId = `surface-probe-outcome-${epoch}`
+    rec.literal(outcomeScheduleId, 'surface-probe-outcome-schedule')
+    rec.tag('create-schedule-outcome')
+    await zc.createSchedule(
+      agentId,
+      {
+        schedule_id: outcomeScheduleId,
+        schedule: { kind: 'cron', expr: '0 9 1 1 *', tz: 'UTC' },
+        payload: {
+          kind: 'agentTurn',
+          message: 'Surface-probe outcome job — never fires.',
+          outcome: {
+            description: 'A non-empty report exists at /workspace/report.md.',
+            evaluator: { type: 'command', command: 'test -s /workspace/report.md' },
+            maxIterations: 2,
+            publish: 'after_satisfied',
+          },
+        },
+        sessionTarget: 'isolated',
+        delivery: { mode: 'none' },
+        enabled: false,
+      },
+      `surface-probe-outcome-${stamp}`,
+    )
+    createdScheduleIds.push(outcomeScheduleId)
+    rec.tag('get-schedule-outcome')
+    const back = await zc.getSchedule(agentId, outcomeScheduleId)
+    const echoed = (back.payload as { outcome?: unknown } | undefined)?.outcome
+    record(
+      'schedule with payload.outcome',
+      echoed !== undefined ? 'WORKS' : 'DIFFERS',
+      `payload.outcome ${echoed !== undefined ? 'read back verbatim' : 'MISSING on readback'}: ${JSON.stringify(echoed)}`,
+      { echoed },
+    )
+    await zc.deleteSchedule(agentId, outcomeScheduleId)
+    createdScheduleIds.splice(createdScheduleIds.indexOf(outcomeScheduleId), 1)
+  })
+
   // ── 3. wake ─────────────────────────────────────────────────────────────────
   await probe('wake', async () => {
     rec.tag('wake')
@@ -868,6 +909,126 @@ try {
       `status=pending → ${pending.length} row(s); no filter → ${bare.length} row(s). ` +
         'The route answers, but this agent has no tool policy that asks, so the round trip past the empty list stays unproven.',
       { pending: pending.length, bare: bare.length },
+    )
+  })
+
+  // ── 6b. system prompt ───────────────────────────────────────────────────────
+  await probe('getSystemPrompt', async () => {
+    rec.tag('get-system-prompt')
+    const sp = await zc.getSystemPrompt(agentId)
+    record(
+      'getSystemPrompt',
+      sp.declaration !== undefined ? 'WORKS' : 'DIFFERS',
+      `declaration=${JSON.stringify(sp.declaration)} effective.source=${(sp.effective as { source?: string } | undefined)?.source} ` +
+        '— a fresh agent is born pinned to the active platform template version',
+      sp,
+    )
+  })
+
+  await probe('previewSystemPrompt', async () => {
+    const current = (await zc.getAgent(agentId)).status?.config_version
+    if (typeof current !== 'number') {
+      record('previewSystemPrompt', 'INFO', 'skipped — no config_version on the projection')
+      return
+    }
+    rec.tag('preview-system-prompt')
+    const p = await zc.previewSystemPrompt(agentId, {
+      config_version: current,
+      now_ms: Date.now(),
+      session_id: 'ses_surface_probe_preview',
+      model_display: 'surface-probe',
+      workspace_dir: '/workspace',
+      tool_names: ['read', 'exec'],
+    })
+    const slots = p.slot_hashes ? Object.keys(p.slot_hashes).length : 0
+    record(
+      'previewSystemPrompt',
+      typeof p.system_prompt === 'string' && p.system_prompt.length > 0 ? 'WORKS' : 'DIFFERS',
+      `char_count=${p.char_count} slot_hashes=${slots} transcript=${JSON.stringify(p.transcript)} ` +
+        "— deterministic assembly, no session touched; the RAW ':' in system-prompt:preview passes the gateway",
+      { char_count: p.char_count, slots },
+    )
+  })
+
+  await probe('upgrade-system-prompt is a gateway 404 (:verb hole)', async () => {
+    // The SDK wraps no upgradeSystemPrompt ON PURPOSE, and this raw call is the evidence: the
+    // gateway's tenant precheck reads ':upgrade-system-prompt' as part of the agent id and
+    // answers its own 404 — the same hole that eats ':replace-environment'. If this ever stops
+    // being 404, revisit that SDK decision.
+    rec.tag('error-404-upgrade-system-prompt-gateway')
+    const res = await rec.fetch(`${baseUrl}/agents/${agentId}:upgrade-system-prompt`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.ZOOCLAW_API_KEY ?? ''}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expected_config_version: 1 }),
+    })
+    record(
+      'upgrade-system-prompt is a gateway 404 (:verb hole)',
+      res.status === 404 ? 'DIFFERS' : 'INFO',
+      res.status === 404
+        ? 'POST /agents/{id}:upgrade-system-prompt → 404 from the GATEWAY (service_api.not_found) — the engine route exists but is unreachable here'
+        : `POST /agents/{id}:upgrade-system-prompt → HTTP ${res.status} — the :verb hole may have been fixed; revisit the no-wrapper decision`,
+      { status: res.status },
+    )
+  })
+
+  // ── 6c. artifacts ───────────────────────────────────────────────────────────
+  await probe('listArtifacts', async () => {
+    // First call untagged: it warms the SDK's ownership cache with a projection GET, so the
+    // TAGGED call below is the single artifacts request.
+    await zc.listArtifacts(agentId)
+    rec.tag('list-artifacts')
+    const page = await zc.listArtifacts(agentId)
+    record(
+      'listArtifacts',
+      Array.isArray(page.artifacts) ? 'WORKS' : 'BROKEN',
+      `${page.artifacts.length} artifact(s), page=${page.page} has_more=${page.has_more} — empty until a turn calls ` +
+        'artifact_publish; the SDK derived owner_uid/org_id from the projection (the gateway does not inject them here)',
+      page,
+    )
+    // The selector rule, on disk: the same route bare is a 400.
+    rec.tag('error-400-artifacts-ownership-required')
+    const bare = await rec.fetch(`${baseUrl}/agents/${agentId}/artifacts`, {
+      headers: { Authorization: `Bearer ${process.env.ZOOCLAW_API_KEY ?? ''}` },
+    })
+    record(
+      'listArtifacts without selectors',
+      bare.status === 400 ? 'DIFFERS' : 'INFO',
+      `GET /agents/{id}/artifacts with no owner_uid/org_id → HTTP ${bare.status} — the engine demands both selectors ` +
+        'and the gateway forwards the caller query verbatim on this family',
+      { status: bare.status },
+    )
+  })
+
+  await probe('getArtifact (unknown id)', async () => {
+    try {
+      rec.tag('error-404-artifact-not-found')
+      await zc.getArtifact(agentId, 'art_01000000000000000000000000')
+      record('getArtifact (unknown id)', 'DIFFERS', 'reading a nonexistent artifact SUCCEEDED')
+    } catch (e) {
+      const err = e as ZooclawError
+      record(
+        'getArtifact (unknown id)',
+        err.status === 404 ? 'WORKS' : 'DIFFERS',
+        `HTTP ${err.status} type=${JSON.stringify(err.type)} — unknown and foreign artifact ids are both 404 (hidden, not 403)`,
+        { status: err.status, type: err.type },
+      )
+    }
+  })
+
+  await probe('agent-level outcome default (PUT)', async () => {
+    rec.tag('put-agent-outcome')
+    const updated = await zc.updateAgent(agentId, {
+      outcome: {
+        description: 'Unattended runs leave a non-empty /workspace/report.md.',
+        evaluator: { type: 'command', command: 'test -s /workspace/report.md' },
+      },
+    })
+    const echoed = (updated.declared as { outcome?: unknown } | undefined)?.outcome
+    record(
+      'agent-level outcome default (PUT)',
+      echoed !== undefined ? 'WORKS' : 'DIFFERS',
+      `declared.outcome ${echoed !== undefined ? 'landed' : 'MISSING'} — the default every cron job without its own outcome inherits`,
+      { echoed },
     )
   })
 

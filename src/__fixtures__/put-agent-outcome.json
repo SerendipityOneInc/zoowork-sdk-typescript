@@ -1,5 +1,5 @@
 {
-  "method": "GET",
+  "method": "PUT",
   "path": "/agents/agt_AGENT100000000000000000000",
   "status": 200,
   "body": {
@@ -16,6 +16,13 @@
         "primary": "litellm/claude-fable-5"
       },
       "labels": {},
+      "outcome": {
+        "evaluator": {
+          "type": "command",
+          "command": "test -s /workspace/report.md"
+        },
+        "description": "Unattended runs leave a non-empty /workspace/report.md."
+      },
       "persona": {
         "docs": []
       },
@@ -159,7 +166,7 @@
     "status": {
       "desired_state": "running",
       "actual_state": "activating",
-      "config_version": 3,
+      "config_version": 6,
       "render_state": "ready",
       "status_message": null,
       "render": {

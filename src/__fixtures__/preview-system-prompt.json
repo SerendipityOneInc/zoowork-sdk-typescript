@@ -1,0 +1,27 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/system-prompt:preview",
+  "status": 200,
+  "body": {
+    "agent_id": "agt_AGENT100000000000000000000",
+    "config_version": 5,
+    "system_prompt": "<non-English text removed>",
+    "char_count": 13781,
+    "slot_hashes": {
+      "identity": "08a0816f30d20d831780c85dc94663bc680a4b338fc0199a997b1020a957cedd",
+      "tooling": "e0b61c4c95f8e787956a9ed9691ce21c969e5b4f444a34834f12147add394a9d",
+      "safety": "930e2cda78cb5263e541ce3889aaac1deb8f4382e8bbf2567f8a734bc0aab402",
+      "platform_policy": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skills": "c948a3433972c45c3dae97bced249f17f92278bae7f9a296324fe4e0377c2d82",
+      "memory": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "workspace": "5ec0984536e683dbb5b1290475e0dafdcc3743cdcd8ed5d2bbcb4fb9340fa3c3",
+      "output_rules": "84e22964593b9d31a878bc1919f53a8b30b4b806c818ee1052c2bbd0ea9ce4ec",
+      "persona_context": "6e5976399b7c57a68f6648ade2223d568550437281be1f630ab6991a022abc60",
+      "cache_boundary": "16bdb78954bf2d75e09f4a3684074c2cb7844b4a16203d92b40ab5a7feea72ca",
+      "dynamic_context": "bf34c119385b358767cf768fdf57a54128bfbe43e5263dfa28defb0911a73e48",
+      "runtime": "040bc090ade4e3dcadc42ac8c336e254e3b091db530a7a05a6c6c2884a58ddc9",
+      "subagent_context": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "transcript": []
+  }
+}

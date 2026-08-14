@@ -5,74 +5,6 @@
   "body": {
     "skills": [
       {
-        "name": "bot-mailbox",
-        "files": [
-          {
-            "path": ".env.example",
-            "size": 220,
-            "sha256": "81a23ff46a4b60c267c2962ff13b8494e7287174f824da785d3be0330a916f74"
-          },
-          {
-            "path": "scripts/agent_email_cli.py",
-            "size": 11046,
-            "sha256": "f52fb8f8c0c908db1bc452fe05db7dc2349f468602e1acf88259328e98cb6e24"
-          },
-          {
-            "path": "SKILL.md",
-            "size": 10182,
-            "sha256": "598f147d1ea9fbbbcf4f630cb02826ea8c87ab56591ff34c44bb52a09a4894f8"
-          }
-        ],
-        "scope": "global",
-        "version": "1",
-        "basePath": "/opt/zooclaw/skills/global/bot-mailbox/1",
-        "eligible": true,
-        "location": "/skills/bot-mailbox/SKILL.md",
-        "skill_id": "skl_SKILL100000000000000000000",
-        "contentHash": "sha256:abfaae4cc373f5570d53e38beab171544222513c33f7a445fde60178c7d486c0",
-        "description": "Bot's own dedicated email mailbox — send, reply, forward, check inbox using the agent's OWN address. Use only when bot acts as itself; do NOT use to manage a user's personal email.",
-        "promptVersion": "sha256:598f147d1ea9fbbb"
-      },
-      {
-        "name": "browser-skill",
-        "files": [
-          {
-            "path": ".gitignore",
-            "size": 12,
-            "sha256": "ebc294b4868ae73f969fbcb4512b756236d9942e682e641077f8f9973dd7f88d"
-          },
-          {
-            "path": "assets/state.example.json",
-            "size": 343,
-            "sha256": "fdf766ec1c267ae7b6ede290e030b63713447b9badaf57f27dabd5673df4aa5f"
-          },
-          {
-            "path": "scripts/mcp_request.js",
-            "size": 24460,
-            "sha256": "9b44fbdb3c3afd20a70695693d76a2cd1762be8dbdae00a756e9a57f5289b1eb"
-          },
-          {
-            "path": "scripts/state.js",
-            "size": 8484,
-            "sha256": "30eda4c8496d59691da95a324d2fc5fc0b02818e28d2e2f2264c6395617a10e3"
-          },
-          {
-            "path": "SKILL.md",
-            "size": 13073,
-            "sha256": "829c70291be096b1730ed1ced374de478b663710a060ab439d9a872447959651"
-          }
-        ],
-        "scope": "global",
-        "version": "2",
-        "basePath": "/opt/zooclaw/skills/global/browser-skill/2",
-        "eligible": true,
-        "location": "/skills/browser-skill/SKILL.md",
-        "skill_id": "skl_SKILL200000000000000000000",
-        "contentHash": "sha256:2cabcde04b21117325a26fc2fd4ab692d8b42f3f0b90f71e0a4c6886f973b362",
-        "description": "Default skill for all browser operations in OpenClaw — navigate, click, type, scrape, screenshot, login, inspect — via remote Browserbase MCP. Default agent for complex tasks.",
-        "promptVersion": "sha256:829c70291be096b1"
-      },
-      {
         "name": "chameleon-seedance",
         "files": [
           {
@@ -107,13 +39,18 @@
           },
           {
             "path": "references/byteplus-dreamina-seedance-2.0-api.md",
-            "size": 11506,
-            "sha256": "50c88e2b9fdc7865b44fb65cbfcb11e5dfc93dbe96f786374240ecd2478cd2f1"
+            "size": 11821,
+            "sha256": "c8a887abf59f95b0b7295af690d34fc93543b3c9ccebbd84e762a2a5dbce7282"
+          },
+          {
+            "path": "references/byteplus-dreamina-seedance-2.5-api.md",
+            "size": 4986,
+            "sha256": "18d31e4f21132ace212e38a01a5121fcc3074d722791de7797ac2dc976005d72"
           },
           {
             "path": "references/chameleon-kb-summary.md",
-            "size": 11689,
-            "sha256": "36712f42620f4b0f2d86b7058fc3c66cb08ba27a49a54efe12b76036c26e870b"
+            "size": 15698,
+            "sha256": "11f4ea419cd3dad140fc67227738d6585c9c6a68197c54635102567ecc56e6ad"
           },
           {
             "path": "references/ideation-guidance.md",
@@ -162,8 +99,8 @@
           },
           {
             "path": "scripts/chameleon_generate.py",
-            "size": 50396,
-            "sha256": "c6933a075e150b7aa2fc737595af04dd614287a3516e9ac5060c43a5d2565f63"
+            "size": 54096,
+            "sha256": "3b8a3853ae6cf1d1b1af6ee69c6ef83431e9c554b87825d68221ee5ba2e21374"
           },
           {
             "path": "scripts/erase_subtitles.py",
@@ -177,24 +114,24 @@
           },
           {
             "path": "SKILL.md",
-            "size": 11077,
-            "sha256": "9ba382ab67a526d911b71227a94d42e3000faa57faa43c3291efd662ad842134"
+            "size": 11404,
+            "sha256": "8f0983d11084a81fee3cdaa88b875cb07c9d1806b5630e3c78b83ee75dedab23"
           },
           {
             "path": "tests/test_chameleon_generate.py",
-            "size": 5574,
-            "sha256": "ace7a995741523877db2a2517ed19ab978a2b7ee71c7cd62e8721501fe876f3d"
+            "size": 8682,
+            "sha256": "2bf3ee7ddbe8c15d37f237372902fd41c0ffb69221902041033fcadae352dfe5"
           }
         ],
         "scope": "global",
-        "version": "1",
-        "basePath": "/opt/zooclaw/skills/global/chameleon-seedance/1",
+        "version": "2",
+        "basePath": "/opt/zooclaw/skills/global/chameleon-seedance/2",
         "eligible": true,
         "location": "/skills/chameleon-seedance/SKILL.md",
-        "skill_id": "skl_SKILL300000000000000000000",
-        "contentHash": "sha256:5f92a0d489a3ec66bda4592f155da35ddc8b2231f2722c95bc99a37702feb5a8",
-        "description": "ByteDance Seedance / Dreamina video generation — text/image/video/audio input, image-to-video, edit, extend, segment chain. Use for seedance, Dreamina, ByteDance or Volcengine video generation.",
-        "promptVersion": "sha256:9ba382ab67a526d9"
+        "skill_id": "skl_SKILL200000000000000000000",
+        "contentHash": "sha256:7ed77ccd5e5b07f5299cddaa91e055ea26d7445bfbafa2a7cfc419a4e589c7ba",
+        "description": "ByteDance Seedance / Dreamina video generation (2.5/2.0/fast/mini) — text/image/video/audio input, i2v, edit, extend, 30s on 2.5. Use for seedance, Dreamina, ByteDance or Volcengine video.",
+        "promptVersion": "sha256:8f0983d11084a81f"
       },
       {
         "name": "council",
@@ -207,7 +144,7 @@
           {
             "path": "README.md",
             "size": 3244,
-            "sha256": "57a5ea4ca266f58eed30fe36c5ff5ed15f600ada69386a172a163e5d62ab3369"
+            "sha256": "2803d86a9352626f55ac0e79e0e869287cdec9d142bead35da540651c583835c"
           },
           {
             "path": "references/fallback-synthesis.md",
@@ -216,13 +153,13 @@
           },
           {
             "path": "references/member-prompt.md",
-            "size": 2328,
-            "sha256": "ec59a316cf2860a11aa31186bd8dcd5617b5533585e75ed25d89b1931c18c0d3"
+            "size": 2613,
+            "sha256": "4afb065915e132644d74ed0023f4bcea047d3c1fea9c9a0c17428d7165b592c1"
           },
           {
             "path": "references/synthesis-prompts.md",
-            "size": 4334,
-            "sha256": "1b160804af75506a867c6b09e687359c22d947c11e4e9f4cfdb67167fb643e6f"
+            "size": 5364,
+            "sha256": "3edd6def2c51abd69f8e70e09b1a932e1f3f64dadf800a95f445a8674a9faee5"
           },
           {
             "path": "scripts/cast_pricing.py",
@@ -236,8 +173,8 @@
           },
           {
             "path": "scripts/final_synthesis.py",
-            "size": 12494,
-            "sha256": "2f9180437e869f6111af158175a0a41d3ffaf622358c7b48162ee27cc88a8b0c"
+            "size": 13253,
+            "sha256": "1ea82ca54d269b7cdbd4faea65ec80a01c0a5f6bfa294fd01d6191f855e64723"
           },
           {
             "path": "scripts/llm_client.py",
@@ -276,8 +213,8 @@
           },
           {
             "path": "SKILL.md",
-            "size": 15857,
-            "sha256": "66b98422b5a14fded355b6b9d77578c52ea43bf238169480fb27582c0a8d9df2"
+            "size": 15905,
+            "sha256": "78a41e99cf0601498f30445d70db6d6f4ba8679ada1d1ed262de6d731c5d0ae1"
           },
           {
             "path": "tests/conftest.py",
@@ -296,8 +233,8 @@
           },
           {
             "path": "tests/test_final_synthesis.py",
-            "size": 11887,
-            "sha256": "67cec5484a371e87ae80ab265dcbd0a0ddb0825680a99d218813cd63574d4b9d"
+            "size": 11889,
+            "sha256": "434250a4e78312f408760d0531d3b1474ee2297d55c4132472b7b5864847977e"
           },
           {
             "path": "tests/test_llm_client.py",
@@ -336,33 +273,33 @@
           }
         ],
         "scope": "global",
-        "version": "4",
-        "basePath": "/opt/zooclaw/skills/global/council/4",
+        "version": "5",
+        "basePath": "/opt/zooclaw/skills/global/council/5",
         "eligible": true,
         "location": "/skills/council/SKILL.md",
-        "skill_id": "skl_SKILL400000000000000000000",
-        "contentHash": "sha256:98375c53e90a76c4230e5030b2fec6fe0dc610851ccf5d61482ebb4f75bee740",
+        "skill_id": "skl_SKILL300000000000000000000",
+        "contentHash": "sha256:1e0f63f4808bb9c2076291d8483ba21f6c0bbb407c488cbca098181b79e3bebe",
         "description": "Convene a council of LLMs on one topic — independent multi-vendor positions, one report preserving disagreement. Cross-model review, second opinion, high-stakes verification (any language).",
-        "promptVersion": "sha256:66b98422b5a14fde"
+        "promptVersion": "sha256:78a41e99cf060149"
       },
       {
         "name": "deep-research",
         "files": [
           {
             "path": "SKILL.md",
-            "size": 11986,
-            "sha256": "7756ee06f411cae89b912a1ba8352e06a1e65be735ae48234f0adb57aae54b74"
+            "size": 13130,
+            "sha256": "bccf9ce54f7d33b5ed4a0a444be291ed1ff1b963f03d5d2a50544724a6da1868"
           }
         ],
         "scope": "global",
-        "version": "2",
-        "basePath": "/opt/zooclaw/skills/global/deep-research/2",
+        "version": "6",
+        "basePath": "/opt/zooclaw/skills/global/deep-research/6",
         "eligible": true,
         "location": "/skills/deep-research/SKILL.md",
-        "skill_id": "skl_SKILL500000000000000000000",
-        "contentHash": "sha256:224cf908b507cb87708978b1992e6ecfa51519a5260e8c99906ec4afcd1ebd5e",
+        "skill_id": "skl_SKILL400000000000000000000",
+        "contentHash": "sha256:31fcf6f2a5ee2db40ebe30444b84788e670b2d25e4d3d338c6007d3e97195dbd",
         "description": "<non-English text removed>",
-        "promptVersion": "sha256:7756ee06f411cae8"
+        "promptVersion": "sha256:bccf9ce54f7d33b5"
       },
       {
         "name": "designer",
@@ -423,7 +360,7 @@
         "basePath": "/opt/zooclaw/skills/global/designer/2",
         "eligible": true,
         "location": "/skills/designer/SKILL.md",
-        "skill_id": "skl_SKILL600000000000000000000",
+        "skill_id": "skl_SKILL500000000000000000000",
         "contentHash": "sha256:ddfcbb437ae329dbb8401e7be7859cd0422fcc9501101cd17b765ebbe85d70cc",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:fd4172437688f0c5"
@@ -1082,7 +1019,7 @@
         "basePath": "/opt/zooclaw/skills/global/docx/1",
         "eligible": true,
         "location": "/skills/docx/SKILL.md",
-        "skill_id": "skl_SKILL700000000000000000000",
+        "skill_id": "skl_SKILL600000000000000000000",
         "contentHash": "sha256:85e9a33343e7289c114a439aeff61c039bda6c9d0a92184d85d1a256c4a36dac",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:efe6ebeb55d964c2"
@@ -1111,7 +1048,7 @@
         "basePath": "/opt/zooclaw/skills/global/glossary/1",
         "eligible": true,
         "location": "/skills/glossary/SKILL.md",
-        "skill_id": "skl_SKILL800000000000000000000",
+        "skill_id": "skl_SKILL700000000000000000000",
         "contentHash": "sha256:862b0d296bae0615dd9921b7e032c28421aeda902038cfcd39471c3560a3fa5b",
         "description": "Pack-level terminology — people, companies, abbreviations, jargon, banned words. Supports auto-scan, correction learning, and manual edit; shared across Transcription, Humanizer, Weekly Report.",
         "promptVersion": "sha256:bfee06d308f6558e"
@@ -1195,7 +1132,7 @@
         "basePath": "/opt/zooclaw/skills/global/humanizer/1",
         "eligible": true,
         "location": "/skills/humanizer/SKILL.md",
-        "skill_id": "skl_SKILL900000000000000000000",
+        "skill_id": "skl_SKILL800000000000000000000",
         "contentHash": "sha256:85465f4d10a9d888f4f0cd7a78c42e448f300ba642d9b40232bdcd42806062b2",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:0e687a8bc07631ca"
@@ -1234,7 +1171,7 @@
         "basePath": "/opt/zooclaw/skills/global/knowledge-base/1",
         "eligible": true,
         "location": "/skills/knowledge-base/SKILL.md",
-        "skill_id": "skl_SKILL100000000000000000000",
+        "skill_id": "skl_SKILL900000000000000000000",
         "contentHash": "sha256:239db812bad76eb531e510dfe0063968f0935f6eaf729db7d64dcf8590f53098",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:2d15fea52723fe07"
@@ -1268,7 +1205,7 @@
         "basePath": "/opt/zooclaw/skills/global/meeting-notes/1",
         "eligible": true,
         "location": "/skills/meeting-notes/SKILL.md",
-        "skill_id": "skl_SKILL110000000000000000000",
+        "skill_id": "skl_SKILL100000000000000000000",
         "contentHash": "sha256:0cc923a632739ac1fd114b4f48dc2d0fe365d6281ca7a55d6dbc0a17f4bd217b",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:dd1c6ad7ecb3fb17"
@@ -1387,7 +1324,7 @@
         "basePath": "/opt/zooclaw/skills/global/pdf/1",
         "eligible": true,
         "location": "/skills/pdf/SKILL.md",
-        "skill_id": "skl_SKILL120000000000000000000",
+        "skill_id": "skl_SKILL110000000000000000000",
         "contentHash": "sha256:d4f94a7a75df33af7059d72044fafb346a27d593fcbbab6596c2c3944204c767",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:3c66adcb3aa62eda"
@@ -2231,7 +2168,7 @@
         "basePath": "/opt/zooclaw/skills/global/pptx/2",
         "eligible": true,
         "location": "/skills/pptx/SKILL.md",
-        "skill_id": "skl_SKILL130000000000000000000",
+        "skill_id": "skl_SKILL120000000000000000000",
         "contentHash": "sha256:5930351e6b500f76046db4849d7ac86be86f1173feff3f94b2391e6b9aa8c46d",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:fc839307d9190099"
@@ -2270,7 +2207,7 @@
         "basePath": "/opt/zooclaw/skills/global/video-generator/2",
         "eligible": true,
         "location": "/skills/video-generator/SKILL.md",
-        "skill_id": "skl_SKILL140000000000000000000",
+        "skill_id": "skl_SKILL130000000000000000000",
         "contentHash": "sha256:f6c6b6ecea997e257a3b91dcf8f890c7fd6cdeca74bef1402ae86c3ae2415974",
         "description": "AI video generation skill — generate videos from text prompts or reference images using multiple models (Kling, Grok, Sora, Veo). Auto-selects model based on task type.",
         "promptVersion": "sha256:e9de3ef61296ed9b"
@@ -2369,7 +2306,7 @@
         "basePath": "/opt/zooclaw/skills/global/web-designer/1",
         "eligible": true,
         "location": "/skills/web-designer/SKILL.md",
-        "skill_id": "skl_SKILL150000000000000000000",
+        "skill_id": "skl_SKILL140000000000000000000",
         "contentHash": "sha256:d7f999a2590cc151e10bea3dedd2659ee70583c22c51dd1bad75f57cca796b7c",
         "description": "Generate interactive HTML web pages — reports, slide decks, landing pages, dashboards, portfolios — via React + shadcn/ui + ECharts in a single self-contained HTML. Not for PDF, pptx, docx, or images.",
         "promptVersion": "sha256:0613c1668839dfbc"
@@ -2763,7 +2700,7 @@
         "basePath": "/opt/zooclaw/skills/global/xlsx/2",
         "eligible": true,
         "location": "/skills/xlsx/SKILL.md",
-        "skill_id": "skl_SKILL160000000000000000000",
+        "skill_id": "skl_SKILL150000000000000000000",
         "contentHash": "sha256:fd20017b25ff095b38077ee2a66bc7b2cb6003b81938134ee589cf75a150cf63",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:f9aa31c81b13824d"
@@ -2792,7 +2729,7 @@
         "basePath": "/opt/zooclaw/skills/global/zooclaw-asr/2",
         "eligible": true,
         "location": "/skills/zooclaw-asr/SKILL.md",
-        "skill_id": "skl_SKILL170000000000000000000",
+        "skill_id": "skl_SKILL160000000000000000000",
         "contentHash": "sha256:20f7eddbd32a55fa35b60ad097cee313057c899f30078398769ab5d4c4a5b513",
         "description": "<non-English text removed>",
         "promptVersion": "sha256:e53a85453bb71790"
@@ -2856,7 +2793,7 @@
         "basePath": "/opt/zooclaw/skills/global/zooclaw-tts/2",
         "eligible": true,
         "location": "/skills/zooclaw-tts/SKILL.md",
-        "skill_id": "skl_SKILL180000000000000000000",
+        "skill_id": "skl_SKILL170000000000000000000",
         "contentHash": "sha256:f83e917d130c987d18708ab2aa8994fbc050362930ccb043bf6e9b6bdeed2457",
         "description": "ZooClaw built-in TTS — preset voices, voice design from descriptions, voice cloning from audio, plus celebrity clone from YouTube. Auto-selects mode. Handles voice management and file-to-speech.",
         "promptVersion": "sha256:ac3e03a079a3a529"

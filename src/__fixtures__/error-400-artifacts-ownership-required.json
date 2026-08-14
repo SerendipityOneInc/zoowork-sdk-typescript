@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/artifacts",
+  "status": 400,
+  "body": {
+    "error": {
+      "type": "ownership_required",
+      "message": "owner_uid and org_id are required"
+    }
+  }
+}

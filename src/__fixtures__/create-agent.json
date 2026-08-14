@@ -13,11 +13,11 @@
     },
     "resolved_environment": {
       "environment_id": "env_ENVIRONMENT1",
-      "version": 6,
+      "version": 11,
       "provider": "e2b",
       "template_ref": "zc-env-zooclaw-base:00000000-0000-4000-8000-000000000001",
       "build_id": "00000000-0000-4000-8000-000000000001",
-      "spec_hash": "sha256:d368169c8581400457ce54a9fe3a667cf143d149d7a1391d18873e6d76a42cf5",
+      "spec_hash": "sha256:3f10cbe1b94529ed557b15b8b8e52b4257ada20d43f9fa6062612d1fd4c73a0d",
       "networking": {
         "type": "unrestricted"
       }

@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/artifacts?owner_uid=USER100000000000000&org_id=ORG10000000000000000000000000000",
+  "status": 200,
+  "body": {
+    "artifacts": [],
+    "page": 1,
+    "has_more": false
+  }
+}

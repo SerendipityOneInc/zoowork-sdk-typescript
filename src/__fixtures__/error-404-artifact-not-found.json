@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/artifacts/art_01000000000000000000000000?owner_uid=USER100000000000000&org_id=ORG10000000000000000000000000000",
+  "status": 404,
+  "body": {
+    "error": {
+      "type": "not_found",
+      "message": "Artifact not found"
+    }
+  }
+}

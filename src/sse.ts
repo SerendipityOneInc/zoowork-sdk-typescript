@@ -1,7 +1,7 @@
 /**
  * SSE line parser for the `/events/stream` endpoint endpoint.
  *
- * Ported from zooclaw-app-kit server/zooclaw/sse.ts — that parser is correct against the
+ * Ported from zoowork-app-kit server/zooclaw/sse.ts — that parser is correct against the
  * live wire and needed no changes. The `id:` field matters: The server frames each durable
  * event as `id: <seq>` + `data: <json>`, so dropping the id line would freeze the resume
  * cursor. Web Streams + TextDecoder only, so this runs in workers and browsers as well as

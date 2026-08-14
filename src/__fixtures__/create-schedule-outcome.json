@@ -1,0 +1,8 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/schedules",
+  "status": 201,
+  "body": {
+    "schedule_name": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-outcome-schedule"
+  }
+}

@@ -1,6 +1,6 @@
 # @zooclaw-agents/sdk
 
-TypeScript SDK for the [ZooClaw Managed Agents](https://github.com/SerendipityOneInc/zooclaw-agents-docs) API. Developer Preview.
+TypeScript SDK for the [ZooClaw Managed Agents](https://github.com/SerendipityOneInc/zoowork-agents-docs) API. Developer Preview.
 
 Zero runtime dependencies — it uses the platform `fetch`, which you can override for edge runtimes and tests. ESM only, Node 20+.
 
@@ -10,7 +10,7 @@ npm install @zooclaw-agents/sdk
 
 ## Quickstart
 
-You need an API key (`zct_...`) issued for your organization. Keep it server-side: it authenticates as your whole organization, not as one end user.
+You need an API key (`zct_...`) issued for your organization — create one in the ZooClaw App under **Settings → API Keys** (any personal org; enterprise orgs need the admin role), or ask your org admin for one. The secret is shown exactly once at creation. Keep it server-side: it authenticates as your whole organization, not as one end user.
 
 ```ts
 import { createZooclawClient } from '@zooclaw-agents/sdk'
@@ -129,6 +129,12 @@ const { exit_code, stdout } = await zc.exec(agent.agent_id, ['bash', '-lc', 'pwd
   `getSchedule` result — the obvious thing to do — is a 400. The types refuse it for you.
 - **`exec` resolves on a failed command.** A non-zero exit is still HTTP 200: check `exit_code`,
   don't wait for a rejection. It runs in `/workspace` and needs an agent-scope sandbox.
+- **A cron job can carry an outcome gate.** `payload.outcome` says what "done" looks like — a
+  sandbox `command` whose exit 0 means satisfied, or an LLM `rubric` graded in a fresh context.
+  The run evaluates and revises itself up to `maxIterations` (1–5), and under the default
+  `publish: 'after_satisfied'` a result that failed evaluation is not announced. An agent-level
+  default lives at `resource.outcome`; a job's own `outcome` overrides it, and an explicit
+  `null` opts the job out. Cron fires only — heartbeats and interactive sessions never evaluate.
 
 ## Sessions, approvals, environments
 
@@ -147,6 +153,28 @@ start: an agent's Environment **freezes on its first sandbox creation** — afte
 is `409 environment_locked`, and stopping the agent does not clear it — and sandbox networking
 defaults to unrestricted unless the Environment declares `networking: { type: 'limited' }`.
 
+## Artifacts and the system prompt
+
+```ts
+const { artifacts, has_more } = await zc.listArtifacts(agent.agent_id)
+const { url } = await zc.downloadArtifact(agent.agent_id, artifacts[0].artifact_id)
+
+const { declaration, effective } = await zc.getSystemPrompt(agent.agent_id)
+```
+
+Artifacts are published by the agent's own `artifact_publish` tool during a turn — there is no
+API for publishing from outside the loop. This surface lists what the agent published,
+re-resolves an access URL (`downloadArtifact` mints a fresh one; the URL is a revocable bearer
+capability, so treat it like a secret), and deletes. These routes demand `owner_uid`/`org_id`
+selectors; the SDK derives both from the agent's own projection and caches them, at the cost of
+one extra GET on first use.
+
+`getSystemPrompt` answers the pinned template version and the rendered result;
+`previewSystemPrompt` assembles the exact prompt for a given set of runtime facts without
+touching any session. The pin is set at create time and does not follow later platform
+activations — and the engine's upgrade route is not reachable through the gateway — so treat
+the pin as a create-time decision.
+
 ## Two helpers
 
 ```ts
@@ -159,7 +187,7 @@ and `listEvents` truncates at 500 events with nothing in the response to say it 
 
 ## Documentation
 
-Full guides, the capability matrix, and a porting guide for developers coming from Claude Managed Agents: **[zooclaw-docs](https://github.com/SerendipityOneInc/zooclaw-agents-docs)**.
+Full guides and the capability matrix: **[zooclaw-docs](https://github.com/SerendipityOneInc/zoowork-agents-docs)**.
 
 Runnable examples in [`examples/`](examples):
 

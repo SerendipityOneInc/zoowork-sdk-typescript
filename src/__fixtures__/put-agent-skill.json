@@ -1,6 +1,6 @@
 {
   "method": "PUT",
-  "path": "/agents/agt_AGENT100000000000000000000/skills/skl_SKILL190000000000000000000",
+  "path": "/agents/agt_AGENT100000000000000000000/skills/skl_SKILL180000000000000000000",
   "status": 200,
   "body": {
     "config_version": 4,
