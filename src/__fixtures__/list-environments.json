@@ -8,6 +8,20 @@
         "environment_id": "env_ENVIRONMENT200000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
+        "name": "sdk-surface-probe-env-1786692860812",
+        "description": "Throwaway environment from examples/surface-probe.ts.",
+        "status": "archived",
+        "latest_version": 1,
+        "latest_ready_version": 1,
+        "created_by": "USER100000000000000",
+        "created_at": "2026-08-14T07:35:00.040Z",
+        "updated_at": "2026-08-14T07:35:16.633Z",
+        "archived_at": "2026-08-14T07:35:01.545Z"
+      },
+      {
+        "environment_id": "env_ENVIRONMENT300000000000000000000",
+        "scope": "org",
+        "org_id": "ORG10000000000000000000000000000",
         "name": "f2f964c28f564c7192145274f605e06b",
         "description": "",
         "status": "active",
@@ -19,7 +33,7 @@
         "archived_at": null
       },
       {
-        "environment_id": "env_ENVIRONMENT300000000000000000000",
+        "environment_id": "env_ENVIRONMENT400000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "pack-test-ptr_734f6973078e4189bf2aded903a4bb5e",
@@ -33,7 +47,7 @@
         "archived_at": null
       },
       {
-        "environment_id": "env_ENVIRONMENT400000000000000000000",
+        "environment_id": "env_ENVIRONMENT500000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "sdk-surface-probe-env-1786113695518",
@@ -47,7 +61,7 @@
         "archived_at": "2026-08-07T14:42:04.831Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT500000000000000000000",
+        "environment_id": "env_ENVIRONMENT600000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "sdk-surface-probe-env-1786113582377",
@@ -61,7 +75,7 @@
         "archived_at": "2026-08-07T14:40:12.225Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT600000000000000000000",
+        "environment_id": "env_ENVIRONMENT700000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "sdk-surface-probe-env-1786113513540",
@@ -75,7 +89,7 @@
         "archived_at": "2026-08-07T14:39:03.845Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT700000000000000000000",
+        "environment_id": "env_ENVIRONMENT800000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "sdk-surface-probe-env-1786113325844",
@@ -89,7 +103,7 @@
         "archived_at": "2026-08-07T14:35:53.859Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT800000000000000000000",
+        "environment_id": "env_ENVIRONMENT900000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "sdk-surface-probe-env-1786111213638",
@@ -103,7 +117,7 @@
         "archived_at": "2026-08-07T14:00:42.813Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT900000000000000000000",
+        "environment_id": "env_ENVIRONMENT100000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "sdk-surface-probe-env-1786111099982",
@@ -117,7 +131,7 @@
         "archived_at": "2026-08-07T13:58:45.981Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT100000000000000000000",
+        "environment_id": "env_ENVIRONMENT110000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "sdk-surface-probe-env-1786110711885",
@@ -131,7 +145,7 @@
         "archived_at": "2026-08-07T13:52:15.929Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT110000000000000000000",
+        "environment_id": "env_ENVIRONMENT120000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "colon-probe",
@@ -145,7 +159,7 @@
         "archived_at": "2026-08-07T13:02:42.342Z"
       },
       {
-        "environment_id": "env_ENVIRONMENT120000000000000000000",
+        "environment_id": "env_ENVIRONMENT130000000000000000000",
         "scope": "org",
         "org_id": "ORG10000000000000000000000000000",
         "name": "probe-env",
@@ -161,6 +175,6 @@
     ],
     "page": 1,
     "page_size": 50,
-    "total": 11
+    "total": 12
   }
 }

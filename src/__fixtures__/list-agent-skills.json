@@ -2179,7 +2179,7 @@
           {
             "path": "SKILL.md",
             "size": 287,
-            "sha256": "c5241bffab4c990a04e0269e5bda4f5dfd8f2ab2710a3daed7050f4c291f9a2d"
+            "sha256": "49de1872a3540995c57da56e5d864b486a49a6c3c9cd5bcd34d4776b6fba305f"
           }
         ],
         "scope": "org",
@@ -2188,9 +2188,9 @@
         "eligible": true,
         "location": "/skills/sdk-surface-probe-skill/SKILL.md",
         "skill_id": "skl_SKILL180000000000000000000",
-        "contentHash": "sha256:b6c5997fe31aaba6471606eaf0671d9e3e25bc2af93e456b421b901adbc6e396",
+        "contentHash": "sha256:7d7a6fbc48240d9b25af18deafcd896532da03fa8574a97c77e05e71105dd885",
         "description": "Throwaway skill uploaded by examples/surface-probe.ts to verify the skill registry surface. Safe to delete.",
-        "promptVersion": "sha256:c5241bffab4c990a"
+        "promptVersion": "sha256:49de1872a3540995"
       },
       {
         "name": "video-generator",

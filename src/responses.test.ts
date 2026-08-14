@@ -921,14 +921,25 @@ test('previewSystemPrompt assembles without a session: 13 slot hashes, transcrip
   expectKinds(result, { char_count: 'number', config_version: 'number' })
 })
 
-test('the engine upgrade route is unreachable: :upgrade-system-prompt answers the GATEWAY 404 envelope', () => {
-  // No SDK method produces this request ON PURPOSE, so the fixture is asserted raw. The
-  // `{code, detail}` envelope is the gateway's own — proof the 404 comes from the tenant
-  // precheck (which reads ':upgrade-system-prompt' as part of the agent id), not the engine.
-  const fx = fixture('error-404-upgrade-system-prompt-gateway')
-  expect(fx.status).toBe(404)
-  expect(fx.body).toEqual({ code: 'service_api.not_found', detail: 'Not found' })
-  expect(fx.path.endsWith(':upgrade-system-prompt')).toBe(true)
+test('upgradeSystemPrompt answers the new pin and the version bump it cost', async () => {
+  const { result, path, method } = await replay('upgrade-system-prompt', (c) =>
+    c.upgradeSystemPrompt(AGENT, { expected_config_version: 5 }),
+  )
+  expect(method).toBe('POST')
+  // The `{id}:verb` grammar, RAW colon — reachable through the gateway since fix #3387
+  // (2026-08-14); it answered the gateway's own 404 envelope until that day.
+  expect(path).toBe(`/agents/${AGENT}:upgrade-system-prompt`)
+  expect(path).toBe(fixture('upgrade-system-prompt').path)
+  expectKinds(result, { config_version: 'number', template_hash: 'string' })
+  expect(result.declaration).toEqual({ source: 'platform', version: 1 })
+})
+
+test('a stale expected_config_version is 409 config_version_changed — a real CAS, not a re-apply', async () => {
+  const err = await replayError('error-409-upgrade-config-version-changed', (c) =>
+    c.upgradeSystemPrompt(AGENT, { expected_config_version: 5 }),
+  )
+  expect(err.status).toBe(409)
+  expect(err.type).toBe('config_version_changed')
 })
 
 /**

@@ -154,7 +154,7 @@
       "environment_id": "env_ENVIRONMENT1"
     },
     "environment_locked": true,
-    "environment_locked_at": "2026-08-14T07:34:21.619Z",
+    "environment_locked_at": "2026-08-14T10:08:25.473Z",
     "bootstrap_state": "skipped",
     "status": {
       "desired_state": "running",

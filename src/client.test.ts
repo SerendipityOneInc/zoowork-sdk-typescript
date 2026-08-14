@@ -523,6 +523,19 @@ test('getSystemPrompt and previewSystemPrompt hit their paths — the preview co
   expect(JSON.parse(preview.calls[0]!.body as string)).toEqual(input)
 })
 
+test('upgradeSystemPrompt POSTs the agent-id-suffix verb with a RAW colon and the CAS body', async () => {
+  const { calls, client } = harness(jsonReply({ agent_id: 'a', config_version: 4 }))
+  await client.upgradeSystemPrompt('a', { expected_config_version: 3 })
+  // `{id}:verb` grammar — reachable through the gateway since fix #3387 (2026-08-14).
+  expect(path(calls)).toBe('/agents/a:upgrade-system-prompt')
+  expect(calls[0]!.method).toBe('POST')
+  expect(JSON.parse(calls[0]!.body as string)).toEqual({ expected_config_version: 3 })
+
+  const pinned = harness(jsonReply({ agent_id: 'a', config_version: 5 }))
+  await pinned.client.upgradeSystemPrompt('a', { expected_config_version: 4, template_version: 2 })
+  expect(JSON.parse(pinned.calls[0]!.body as string)).toEqual({ expected_config_version: 4, template_version: 2 })
+})
+
 /** The projection every artifact test answers for the selector-derivation GET. */
 const AGENT_PROJECTION = { agent_id: 'a', ownership: { owner_uid: 'u1', org_id: 'o1' } }
 

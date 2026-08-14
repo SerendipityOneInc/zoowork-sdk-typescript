@@ -28,6 +28,7 @@ export {
   type SystemPromptInfo,
   type SystemPromptPreview,
   type SystemPromptPreviewInput,
+  type SystemPromptUpgrade,
   type ScheduleSpec,
   type SchedulePayload,
   type ScheduleInput,

@@ -171,9 +171,10 @@ one extra GET on first use.
 
 `getSystemPrompt` answers the pinned template version and the rendered result;
 `previewSystemPrompt` assembles the exact prompt for a given set of runtime facts without
-touching any session. The pin is set at create time and does not follow later platform
-activations — and the engine's upgrade route is not reachable through the gateway — so treat
-the pin as a create-time decision.
+touching any session. The pin is set at create time and never follows a later platform
+activation on its own — moving it is one explicit call, `upgradeSystemPrompt`, which takes
+the agent's current `config_version` as a CAS (`409 config_version_changed` on a stale one)
+and answers the new pin plus the version bump it cost.
 
 ## Two helpers
 
