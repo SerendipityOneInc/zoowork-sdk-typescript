@@ -3,7 +3,7 @@
   "path": "/skills",
   "status": 201,
   "body": {
-    "skill_id": "skl_SKILL190000000000000000000",
+    "skill_id": "skl_SKILL180000000000000000000",
     "scope": "org",
     "pack_id": null,
     "name": "sdk-surface-probe-skill",
@@ -11,8 +11,8 @@
     "latest_version": "1",
     "status": "active",
     "created_by": "USER2000000000",
-    "created_at": "2026-08-07T14:41:39.734Z",
-    "updated_at": "2026-08-07T14:41:40.287Z",
+    "created_at": "2026-08-14T07:34:24.892Z",
+    "updated_at": "2026-08-14T07:34:25.430Z",
     "ownership": {
       "owner_uid": null,
       "org_id": "ORG10000000000000000000000000000"

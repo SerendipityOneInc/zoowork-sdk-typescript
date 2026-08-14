@@ -32,6 +32,10 @@
         "primary": "litellm/claude-sonnet-5"
       },
       "tool_policy": {},
+      "system_prompt": {
+        "source": "platform",
+        "version": 1
+      },
       "imageGenerationModel": {
         "primary": "litellm/gemini-2.5-flash-image"
       }
@@ -40,118 +44,112 @@
     "resolved_skills": [
       {
         "skill_id": "skl_SKILL100000000000000000000",
-        "name": "bot-mailbox",
+        "name": "browser-ops",
         "version": "1",
-        "eligible": true
+        "eligible": false
       },
       {
         "skill_id": "skl_SKILL200000000000000000000",
-        "name": "browser-skill",
+        "name": "chameleon-seedance",
         "version": "2",
         "eligible": true
       },
       {
         "skill_id": "skl_SKILL300000000000000000000",
-        "name": "chameleon-seedance",
-        "version": "1",
+        "name": "council",
+        "version": "5",
         "eligible": true
       },
       {
         "skill_id": "skl_SKILL400000000000000000000",
-        "name": "council",
-        "version": "4",
+        "name": "deep-research",
+        "version": "6",
         "eligible": true
       },
       {
         "skill_id": "skl_SKILL500000000000000000000",
-        "name": "deep-research",
-        "version": "2",
-        "eligible": true
-      },
-      {
-        "skill_id": "skl_SKILL600000000000000000000",
         "name": "designer",
         "version": "2",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL700000000000000000000",
+        "skill_id": "skl_SKILL600000000000000000000",
         "name": "docx",
         "version": "1",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL800000000000000000000",
+        "skill_id": "skl_SKILL700000000000000000000",
         "name": "glossary",
         "version": "1",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL900000000000000000000",
+        "skill_id": "skl_SKILL800000000000000000000",
         "name": "humanizer",
         "version": "1",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL100000000000000000000",
+        "skill_id": "skl_SKILL900000000000000000000",
         "name": "knowledge-base",
         "version": "1",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL110000000000000000000",
+        "skill_id": "skl_SKILL100000000000000000000",
         "name": "meeting-notes",
         "version": "1",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL120000000000000000000",
+        "skill_id": "skl_SKILL110000000000000000000",
         "name": "pdf",
         "version": "1",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL130000000000000000000",
+        "skill_id": "skl_SKILL120000000000000000000",
         "name": "pptx",
         "version": "2",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL140000000000000000000",
+        "skill_id": "skl_SKILL130000000000000000000",
         "name": "video-generator",
         "version": "2",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL150000000000000000000",
+        "skill_id": "skl_SKILL140000000000000000000",
         "name": "web-designer",
         "version": "1",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL160000000000000000000",
+        "skill_id": "skl_SKILL150000000000000000000",
         "name": "xlsx",
         "version": "2",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL170000000000000000000",
+        "skill_id": "skl_SKILL160000000000000000000",
         "name": "zooclaw-asr",
         "version": "2",
         "eligible": true
       },
       {
-        "skill_id": "skl_SKILL180000000000000000000",
+        "skill_id": "skl_SKILL170000000000000000000",
         "name": "zooclaw-tts",
         "version": "2",
         "eligible": true
       }
     ],
     "resolved_environment": {
-      "version": 6,
+      "version": 11,
       "build_id": "00000000-0000-4000-8000-000000000001",
       "provider": "e2b",
-      "spec_hash": "sha256:d368169c8581400457ce54a9fe3a667cf143d149d7a1391d18873e6d76a42cf5",
+      "spec_hash": "sha256:3f10cbe1b94529ed557b15b8b8e52b4257ada20d43f9fa6062612d1fd4c73a0d",
       "template_ref": "zc-env-zooclaw-base:00000000-0000-4000-8000-000000000001",
       "environment_id": "env_ENVIRONMENT1"
     },

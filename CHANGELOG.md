@@ -3,6 +3,47 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified against
 staging, not the day it was written.
 
+## 0.0.6 — 2026-08-14
+
+Three engine surfaces that landed this week — the system-prompt pin, the artifacts control
+plane, and outcome-gated cron — plus one new wire field. Everything below was driven live
+through the `/service/v1` gateway on 2026-08-14 and is pinned by re-recorded fixtures.
+
+### Added
+
+- **`getSystemPrompt(agentId)` / `previewSystemPrompt(agentId, input)`** — the pin as declared
+  and the rendered template in effect; and deterministic assembly of the exact prompt for given
+  runtime facts, without touching a session (13 `slot_hashes`, `transcript` always `[]`).
+  `resource.system_prompt` is typed on `AgentResource` (`{source:'platform',version}` |
+  `{source:'custom',base_version,template}`): a fresh create pins the active platform version
+  on its own, the pin never follows later activations, and on PUT the section is
+  REPLACE-ON-WRITE like `tool_policy`. There is deliberately NO `upgradeSystemPrompt`: the
+  engine's `POST /agents/{id}:upgrade-system-prompt` is 404 through the gateway (the tenant
+  precheck reads the `:verb` suffix as part of the agent id — the `:replace-environment` hole),
+  and the recorded gateway envelope is on disk as proof.
+- **`listArtifacts` / `getArtifact` / `downloadArtifact` / `deleteArtifact`** — the control
+  plane over what the agent's own in-loop `artifact_publish` tool produced (publishing from
+  outside the loop still does not exist). These routes demand `owner_uid`+`org_id` selectors
+  and the gateway does not inject them, so the SDK derives both from the agent's own projection
+  and caches them per agent — the first artifact call costs one extra GET. `listArtifacts`
+  returns the page VERBATIM (`{artifacts, page, has_more}`): unlike `listEvents`, this list
+  says when it truncated, and flattening it away would have re-created that bug. The colon in
+  `:download` goes RAW on the wire — this family matches the literal colon, the opposite of
+  the environments family's `%3A`.
+- **`OutcomeConfig`** on `SchedulePayload.outcome` and `AgentResource.outcome` — the
+  evaluate-revise-finalize gate for unattended cron fires (`command` or `rubric` evaluator,
+  `maxIterations` 1–5, `publish: after_satisfied | always | never`). Stored verbatim, no
+  defaults injected; a job-level value overrides the agent default and an explicit `null` opts
+  the job out. Cron fires only.
+- **`EnvironmentVersionRecord.base_template_ref`** — new on the wire this week: the exact
+  base-image build a version layers on.
+
+### Changed
+
+- Response fixtures re-recorded against staging 2026-08-14. Count-pinned assertions
+  (global skill catalog, org environment list) now assert against the recording instead of a
+  number that drifts.
+
 ## 0.0.5 — 2026-08-10
 
 ### Added
@@ -10,11 +51,10 @@ staging, not the day it was written.
 - **`listAgents(opts?)`** — `GET /agents` with `label.*` filters and `page`, unwrapping `{agents}`.
   `{ labels: { workspace_id: '…' } }` resolves a ZooClaw chat-URL workspace id to its agent — the
   missing "get your agent_id with nothing but your key" step.
-  **Known-blocked at the gateway today**: the public gateway answers collection-level GET with
-  `404 service_api.not_found` *without consulting the engine* (its agents family only registers
-  POST — FEEDBACK #16; the engine route itself works and is documented). Shipped ahead of the
-  gateway so integrations light up the moment the route opens. Verified against the mock harness
-  and the recorded engine list shape; **not yet verifiable against staging** for the reason above.
+  Scope is the engine's `owner_uid AND org_id`, so an agent a colleague created in your org is
+  fetchable by id but absent from your list. Page size is fixed at 100 by the engine.
+  Verified against staging on 2026-08-10, the day the gateway opened collection-level `GET /agents`
+  (it had answered `404 service_api.not_found` until then — FEEDBACK #16).
 
 ## 0.0.4 — 2026-08-07
 

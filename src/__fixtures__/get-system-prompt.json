@@ -1,0 +1,22 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/system-prompt",
+  "status": 200,
+  "body": {
+    "agent_id": "agt_AGENT100000000000000000000",
+    "config_version": 5,
+    "declaration": {
+      "source": "platform",
+      "version": 1
+    },
+    "effective": {
+      "source": "platform",
+      "profile": "legacy",
+      "template": "{{identity}}\n{{tooling}}\n{{safety}}\n{{platform_policy}}\n{{skills}}\n{{memory}}\n{{workspace}}\n{{output_rules}}\n{{persona_context}}\n{{cache_boundary}}\n{{dynamic_context}}\n{{runtime}}\n{{subagent_context}}",
+      "templateHash": "be68a96bcd3b1f938720f21d3cbe9597407a93654ad16179619c410dd9cf9e3f",
+      "schemaVersion": 1,
+      "platformPolicy": "",
+      "templateVersion": 1
+    }
+  }
+}

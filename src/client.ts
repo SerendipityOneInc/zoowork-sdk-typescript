@@ -121,6 +121,59 @@ export interface McpServerDeclaration {
   [k: string]: unknown
 }
 
+/**
+ * The system-prompt pin (`resource.system_prompt`).
+ *
+ * Pin an immutable PLATFORM template version, or override the whole template with a CUSTOM one
+ * (`base_version` records the platform version it derives from; the template must fill all 13
+ * functional slots exactly once and stay under 64 KiB UTF-8). Create pins the platform version
+ * active at that moment on its own — a plain create answered `{source:'platform',version:1}`,
+ * staging-verified 2026-08-14 — and the pin NEVER follows a later activation: ordinary PUTs,
+ * skill changes and rerenders keep it. The engine's escape hatch,
+ * `POST /agents/{id}:upgrade-system-prompt`, is 404 through the gateway (the tenant precheck
+ * reads the `:verb` suffix as part of the agent id — the `:replace-environment` hole), so for
+ * an API-key caller the pin is effectively a create-time decision.
+ *
+ * On PUT this section is REPLACE-ON-WRITE, like `tool_policy` — not merged.
+ */
+export type SystemPromptDeclaration =
+  | { source: 'platform'; version: number }
+  | { source: 'custom'; base_version: number; template: string }
+
+/**
+ * How an unattended cron fire is judged (`command`: a sandbox command whose exit 0 means
+ * satisfied — ≤8 KiB, `timeoutSec` 1–600 (default 120); `rubric`: an LLM grader in a fresh
+ * context — `rubric.type` must be `'text'`, ≤32 KiB). `subagent` is a reserved slot the API
+ * still rejects. Validation is write-strict at EVERY level: an unknown key anywhere in the
+ * outcome object is a 400 naming the field, so a typo cannot silently drop a limit.
+ */
+export type OutcomeEvaluator =
+  | { type: 'command'; command: string; timeoutSec?: number; cwd?: string; skipIfUnchanged?: boolean }
+  | { type: 'rubric'; rubric: { type: 'text'; text: string }; model?: string }
+
+/**
+ * What "done" looks like for an unattended cron fire — evaluated INSIDE the run.
+ *
+ * Attach it to a cron schedule (`payload.outcome`) or as an agent-level default (top-level
+ * `outcome` on {@link AgentResource}); the job-level value overrides the default, and an
+ * explicit `null` on the job disables the default for that job. It governs cron fires ONLY —
+ * heartbeats and interactive sessions never evaluate. The runtime loops
+ * evaluate → revise → finalize inside the same run, up to `maxIterations` (1–5, default 3),
+ * and under the default `publish: 'after_satisfied'` nothing that failed evaluation is
+ * announced or published. `description` is what the evaluator judges against, ≤4096 chars.
+ *
+ * Staging-verified 2026-08-14: a schedule carrying this was accepted (201) and read back
+ * verbatim under `payload.outcome`, and an agent-level PUT landed in `declared.outcome`.
+ */
+export interface OutcomeConfig {
+  description: string
+  evaluator: OutcomeEvaluator
+  /** 1–5; the engine defaults an omitted value to 3 at run time (nothing is stored for you). */
+  maxIterations?: number
+  /** Defaults to `after_satisfied` at run time: an unsatisfied result stays unpublished. */
+  publish?: 'after_satisfied' | 'always' | 'never'
+}
+
 export interface AgentResource {
   name: string
   model?: { primary: string; input?: string[] }
@@ -130,6 +183,16 @@ export interface AgentResource {
   tool_policy?: Record<string, unknown>
   /** Remote MCP servers. Only unauthenticated ones work today — see {@link McpServerDeclaration}. */
   mcp?: McpServerDeclaration[]
+  /**
+   * System-prompt pin. Omitted on create means "the platform version active right now", pinned
+   * from then on. REPLACE-ON-WRITE on PUT, like `tool_policy` — see {@link SystemPromptDeclaration}.
+   */
+  system_prompt?: SystemPromptDeclaration
+  /**
+   * Agent-level default outcome for unattended cron fires. A schedule's `payload.outcome`
+   * overrides it per job; an explicit `null` there opts that job out. See {@link OutcomeConfig}.
+   */
+  outcome?: OutcomeConfig | null
   sandbox?: { scope: 'agent' | 'session' }
   environment_id?: string
   environment_version?: number
@@ -317,6 +380,12 @@ export type ScheduleSpec =
 export interface SchedulePayload {
   kind: 'agentTurn' | string
   message?: string
+  /**
+   * Evaluate-revise-finalize gate for THIS job — overrides the agent-level default, and an
+   * explicit `null` opts this job out of that default. Cron fires only. Staging-verified
+   * 2026-08-14 (201, read back verbatim). See {@link OutcomeConfig}.
+   */
+  outcome?: OutcomeConfig | null
   [k: string]: unknown
 }
 
@@ -496,6 +565,95 @@ export interface ApprovalRecord {
   [k: string]: unknown
 }
 
+/** Artifact lifecycle. Only a `ready` row carries a resolvable `url`. */
+export type ArtifactStatus = 'pending' | 'ready' | 'failed' | 'deleted' | string
+
+/**
+ * One published artifact — an immutable snapshot of a `/workspace` file, created by the
+ * agent's OWN in-loop `artifact_publish` tool during a turn. There is no API for publishing
+ * from outside the loop; this surface lists, reads, re-resolves and deletes what the agent
+ * published. Publishing is a COPY: the source file stays in the workspace.
+ *
+ * `url` is a revocable bearer capability — treat it like a secret, and expect its lifetime to
+ * be deployment policy (staging hands out 24-hour presigned GETs).
+ */
+export interface ArtifactRecord {
+  artifact_id: string
+  agent_id?: string
+  session_id?: string
+  run_id?: string
+  turn?: number
+  /** Where in `/workspace` it was published from. */
+  source_path?: string
+  file_name?: string
+  content_type?: string
+  size?: number
+  sha256?: string
+  status?: ArtifactStatus
+  /** Absent until the upload finalizes — a row without it answers `409 artifact_not_ready` to download. */
+  url?: string
+  created_at?: string
+  finalized_at?: string | null
+  deleted_at?: string | null
+  [k: string]: unknown
+}
+
+/** One page of artifacts. `has_more` is real — this list DOES tell you when it truncated. */
+export interface ArtifactPage {
+  artifacts: ArtifactRecord[]
+  page?: number
+  has_more?: boolean
+  [k: string]: unknown
+}
+
+/**
+ * `getSystemPrompt` result: the pin as declared, and what is actually in effect.
+ *
+ * `declaration: null` together with `effective.source: 'legacy'` marks a pre-templates agent
+ * still on virtual legacy behavior — only an explicit engine-side upgrade migrates those.
+ * Agents created after templates landed carry a real declaration from birth.
+ */
+export interface SystemPromptInfo {
+  agent_id?: string
+  config_version?: number
+  declaration?: SystemPromptDeclaration | null
+  /** Rendered-template metadata (source/profile/version/hashes…), or the virtual-legacy marker. */
+  effective?: Record<string, unknown>
+  [k: string]: unknown
+}
+
+/**
+ * The runtime facts `previewSystemPrompt` assembles from. The required ones are required by
+ * the engine — omitting any is a 400 naming it.
+ */
+export interface SystemPromptPreviewInput {
+  /** Must equal the agent's CURRENT `status.config_version`, or the answer is `409 config_version_changed`. */
+  config_version: number
+  now_ms: number
+  session_id: string
+  model_display: string
+  workspace_dir: string
+  tool_names: string[]
+  channel?: string
+  chat_type?: string
+  session_key?: string
+  subagent?: { role?: string; taskName?: string }
+  [k: string]: unknown
+}
+
+export interface SystemPromptPreview {
+  agent_id?: string
+  config_version?: number
+  /** The assembled prompt, verbatim. */
+  system_prompt?: string
+  char_count?: number
+  /** One hash per functional slot on a templated agent; `null` when legacy assembly produced no slots. */
+  slot_hashes?: Record<string, string> | null
+  /** Always `[]` — the preview never reads the transcript. */
+  transcript?: unknown[]
+  [k: string]: unknown
+}
+
 /**
  * An Environment build spec. The top level accepts EXACTLY these four keys — any other key is
  * `400 invalid_environment_config`, which is why this type has no index signature.
@@ -585,6 +743,8 @@ export interface EnvironmentVersionRecord {
   e2b_build_id?: string | null
   /** `null` until the build reaches `ready`. */
   template_ref?: string | null
+  /** The exact base-image build this version layers on — recorded 2026-08-14, new on the wire. */
+  base_template_ref?: string | null
   /** Which phase failed, on `status: 'failed'`. */
   failure_stage?: string | null
   failure_message?: string | null
@@ -623,9 +783,8 @@ export interface ZooclawClient {
    * `{ labels: { workspace_id: '…' } }` resolves an app workspace id (the first path
    * segment of a ZooClaw chat URL) to its agent. Page size is fixed at 100 by the engine.
    *
-   * ⚠ Requires the gateway to forward collection-level GET. The public gateway does not
-   * yet — it answers `404 service_api.not_found` without consulting the engine (tracked
-   * as FEEDBACK #16). The method ships now so integrations work the moment the route opens.
+   * Note the scope is `owner_uid AND org_id`: an agent a colleague created in your org is
+   * fetchable by `getAgent` but will not appear here.
    */
   listAgents(opts?: { labels?: Record<string, string>; page?: number }): Promise<AgentRecord[]>
   getAgent(agentId: string): Promise<AgentRecord>
@@ -676,6 +835,27 @@ export interface ZooclawClient {
    */
   putAgentSkill(agentId: string, skillId: string, opts?: { enabled?: boolean; versionPin?: number | null }): Promise<{ config_version?: number; warnings?: string[] }>
   deleteAgentSkill(agentId: string, skillId: string): Promise<void>
+
+  // ── system prompt ──
+  /**
+   * The agent's system-prompt pin and the rendered template in effect. Staging-verified
+   * 2026-08-14 — a fresh agent answers a real `declaration` (`{source:'platform',version:1}`),
+   * a pre-templates agent answers `declaration: null` with a virtual-legacy `effective`.
+   */
+  getSystemPrompt(agentId: string): Promise<SystemPromptInfo>
+  /**
+   * Assemble the EXACT prompt for a given set of runtime facts, without touching any session.
+   * Deterministic for fixed inputs (`transcript` is always `[]`), and `slot_hashes` names each
+   * template slot for diffing. `config_version` must be the agent's CURRENT one.
+   * Staging-verified 2026-08-14; the raw `:` in `system-prompt:preview` passes the gateway.
+   *
+   * There is deliberately no `upgradeSystemPrompt` here: the engine's
+   * `POST /agents/{id}:upgrade-system-prompt` is 404 through the gateway — the tenant
+   * precheck reads the `:verb` suffix as part of the agent id, the same hole that eats
+   * `:replace-environment` — so a wrapper would be a method that cannot succeed. Until the
+   * gateway fixes `:verb` routing, the pin only moves at create time.
+   */
+  previewSystemPrompt(agentId: string, input: SystemPromptPreviewInput): Promise<SystemPromptPreview>
 
   // ── skill registry (bring your own skill) ──
   /**
@@ -795,6 +975,37 @@ export interface ZooclawClient {
     approvalId: string,
     input: { decision: ApprovalDecision; resolvedBy?: string },
   ): Promise<Record<string, unknown>>
+
+  // ── artifacts ──
+  //
+  // Every artifact route DEMANDS `owner_uid` + `org_id` query selectors — the engine answers
+  // `400 ownership_required` without them, and the gateway does NOT inject them here (it does
+  // only on `GET /agents`). The SDK derives both from the agent's own projection
+  // (`getAgent().ownership`) and caches them per agent for the client's lifetime, so the first
+  // artifact call on an agent costs one extra GET. Staging-verified 2026-08-14.
+  /**
+   * Artifacts this agent published, one page per call — but unlike `listEvents`, the page SAYS
+   * when it truncated: read `has_more`. `limit` defaults to 50, capped at 100; filter by
+   * `sessionId`, `sourcePath`, or `createdBefore` (ISO timestamp). Empty list staging-verified
+   * 2026-08-14; a populated one needs a turn that called `artifact_publish`.
+   */
+  listArtifacts(
+    agentId: string,
+    opts?: { page?: number; limit?: number; sessionId?: string; sourcePath?: string; createdBefore?: string },
+  ): Promise<ArtifactPage>
+  /** One artifact row. A foreign or unknown id is 404 (hidden, not 403). */
+  getArtifact(agentId: string, artifactId: string): Promise<ArtifactRecord>
+  /**
+   * Mint a fresh access URL for a `ready` artifact: `{artifact_id, url}`. A row that never
+   * finalized is `409 artifact_not_ready`. The colon in `:download` goes RAW on the wire —
+   * this family matches the literal colon, unlike the environments family's `%3A`.
+   */
+  downloadArtifact(agentId: string, artifactId: string): Promise<{ artifact_id?: string; url?: string }>
+  /**
+   * Delete one artifact; the 200 body is the row as the engine leaves it. Not yet exercised
+   * against staging — doing so needs an artifact a real turn published first.
+   */
+  deleteArtifact(agentId: string, artifactId: string): Promise<ArtifactRecord>
 
   // ── automation: schedules, wake ──
   listSchedules(agentId: string): Promise<ScheduleRecord[]>
@@ -1066,6 +1277,33 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
       signal?.addEventListener('abort', done, { once: true })
     })
 
+  /**
+   * `owner_uid` + `org_id` for the artifacts family, derived once per agent from its own
+   * projection. The engine requires both selectors on every artifact route and re-checks them
+   * against the agent's ownership; the gateway forwards the caller's query verbatim there
+   * (it injects selectors only on `GET /agents`), so the SDK has to supply them — and the
+   * projection's `ownership` is the one source a key-holder always has. Ownership is
+   * immutable for the life of an agent, so the cache never needs invalidating.
+   */
+  const ownershipByAgent = new Map<string, Ownership>()
+  const artifactSelectors = async (agentId: string): Promise<Ownership> => {
+    const hit = ownershipByAgent.get(agentId)
+    if (hit) return hit
+    const projection = await json<AgentRecord>(agents(agentId))
+    const own = projection.ownership
+    if (!own?.owner_uid || !own.org_id) {
+      throw new ZooclawError(
+        500,
+        `agent ${agentId} projection carries no ownership — cannot derive the owner_uid/org_id ` +
+          'selectors the artifact routes require',
+        'ownership_unavailable',
+      )
+    }
+    const sel = { owner_uid: own.owner_uid, org_id: own.org_id }
+    ownershipByAgent.set(agentId, sel)
+    return sel
+  }
+
   const client: ZooclawClient = {
     listModels: async () => {
       const data = await json<ModelInfo[] | { models?: ModelInfo[] }>('/models')
@@ -1291,6 +1529,44 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
         method: 'POST',
         body: JSON.stringify(input),
       }),
+
+    getSystemPrompt: (agentId) => json(`${agents(agentId)}/system-prompt`),
+    // The colon goes RAW here: this family matches the literal `system-prompt:preview` segment,
+    // and both spellings pass the gateway (verified 2026-08-14) — so raw also serves the
+    // deployment-internal direct mode, whose HTTP server never percent-decodes the path.
+    previewSystemPrompt: (agentId, input) =>
+      json(`${agents(agentId)}/system-prompt:preview`, { method: 'POST', body: JSON.stringify(input) }),
+
+    listArtifacts: async (agentId, opts = {}) => {
+      const sel = await artifactSelectors(agentId)
+      const data = await json<ArtifactPage>(
+        `${agents(agentId)}/artifacts${query({
+          ...sel,
+          page: opts.page,
+          limit: opts.limit,
+          session_id: opts.sessionId,
+          source_path: opts.sourcePath,
+          created_before: opts.createdBefore,
+        })}`,
+      )
+      return { ...data, artifacts: data.artifacts ?? [] }
+    },
+    getArtifact: async (agentId, artifactId) => {
+      const sel = await artifactSelectors(agentId)
+      return json(`${agents(agentId)}/artifacts/${encodeURIComponent(artifactId)}${query({ ...sel })}`)
+    },
+    downloadArtifact: async (agentId, artifactId) => {
+      const sel = await artifactSelectors(agentId)
+      return json(`${agents(agentId)}/artifacts/${encodeURIComponent(artifactId)}:download${query({ ...sel })}`, {
+        method: 'POST',
+      })
+    },
+    deleteArtifact: async (agentId, artifactId) => {
+      const sel = await artifactSelectors(agentId)
+      return json(`${agents(agentId)}/artifacts/${encodeURIComponent(artifactId)}${query({ ...sel })}`, {
+        method: 'DELETE',
+      })
+    },
 
     listSchedules: async (agentId) => {
       const data = await json<{ schedules?: ScheduleRecord[] }>(schedules(agentId))

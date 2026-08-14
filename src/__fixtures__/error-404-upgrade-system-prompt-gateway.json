@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000:upgrade-system-prompt",
+  "status": 404,
+  "body": {
+    "code": "service_api.not_found",
+    "detail": "Not found"
+  }
+}

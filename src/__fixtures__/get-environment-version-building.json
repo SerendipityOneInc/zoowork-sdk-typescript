@@ -1,9 +1,9 @@
 {
   "method": "GET",
-  "path": "/environments/env_ENVIRONMENT100000000000000000000/versions/1",
+  "path": "/environments/env_ENVIRONMENT130000000000000000000/versions/1",
   "status": 200,
   "body": {
-    "environment_id": "env_ENVIRONMENT100000000000000000000",
+    "environment_id": "env_ENVIRONMENT130000000000000000000",
     "version": 1,
     "status": "building",
     "config": {
@@ -13,17 +13,18 @@
       }
     },
     "base_environment_id": "env_ENVIRONMENT1",
-    "base_version": 6,
+    "base_version": 11,
     "source_hash": "sha256:c2ea1ebd8a36e1a65b8197dd82cd06db52a61b7ad77f2aff6d1983f979159687",
-    "spec_hash": "sha256:869826259745aeff8dc5e260e6353bf0b84e9fdd0d97d925c1c33fa91f3f7a0f",
-    "e2b_template_name": "zc-env-691c13450d2be7e1ce32494eb83f0984:v1-a1",
-    "e2b_template_id": "s5lyeco8g3rtdkrqsnzf",
-    "e2b_build_id": "033ba2b3-24eb-4650-844f-ed41653d3045",
+    "spec_hash": "sha256:814bbf8262eb18a47d3e7bd65cdda7669fe53f9ad788134214279a10ce11702f",
+    "e2b_template_name": "zc-env-74017de645d325845b8f08e124612b82:v1-a1",
+    "e2b_template_id": "5roncbdzb0nla3xwe2nz",
+    "e2b_build_id": "c0b03798-ffe4-437e-a4b2-c9715d589cc0",
     "template_ref": null,
+    "base_template_ref": "zc-env-zooclaw-base:00000000-0000-4000-8000-000000000001",
     "failure_stage": null,
     "failure_message": null,
     "created_by": "USER100000000000000",
-    "created_at": "2026-08-07T14:42:03.590Z",
+    "created_at": "2026-08-14T07:35:00.040Z",
     "ready_at": null
   }
 }

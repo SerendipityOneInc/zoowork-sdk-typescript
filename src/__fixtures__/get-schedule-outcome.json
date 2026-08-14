@@ -1,0 +1,49 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/schedules/surface-probe-outcome-schedule",
+  "status": 200,
+  "body": {
+    "scheduleId": "cron/cmp_COMPUTER100000000000000000/agt_AGENT100000000000000000000/surface-probe-outcome-schedule",
+    "computerId": "cmp_COMPUTER100000000000000000",
+    "agentId": "agt_AGENT100000000000000000000",
+    "apiAgentId": "agt_AGENT100000000000000000000",
+    "name": "surface-probe-outcome-schedule",
+    "jobKind": "cron",
+    "execution": {
+      "kind": "isolated"
+    },
+    "originMetadata": {
+      "kind": "management"
+    },
+    "contextSnapshot": [],
+    "scheduleSpec": {
+      "timezoneName": "UTC",
+      "catchupWindowMs": 3600000,
+      "cronExpressions": [
+        "0 9 1 1 *"
+      ]
+    },
+    "payload": {
+      "kind": "agentTurn",
+      "message": "Surface-probe outcome job — never fires.",
+      "outcome": {
+        "publish": "after_satisfied",
+        "evaluator": {
+          "type": "command",
+          "command": "test -s /workspace/report.md"
+        },
+        "description": "A non-empty report exists at /workspace/report.md.",
+        "maxIterations": 2
+      }
+    },
+    "delivery": {
+      "mode": "none"
+    },
+    "origin": "management",
+    "enabled": false,
+    "deleteAfterRun": false,
+    "consecutiveErrors": 0,
+    "createdAt": "2026-08-14T07:34:38.220Z",
+    "updatedAt": "2026-08-14T07:34:38.220Z"
+  }
+}

@@ -5,16 +5,32 @@
   "body": {
     "skills": [
       {
-        "skill_id": "skl_SKILL100000000000000000000",
+        "skill_id": "skl_SKILL190000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "bot-mailbox",
         "description": "Bot's own dedicated email mailbox — send, reply, forward, check inbox using the agent's OWN address. Use only when bot acts as itself; do NOT use to manage a user's personal email.",
         "latest_version": "1",
-        "status": "active",
+        "status": "deprecated",
         "created_by": "USER3000000000",
         "created_at": "2026-07-29T06:35:42.789Z",
-        "updated_at": "2026-07-29T06:35:42.794Z",
+        "updated_at": "2026-08-13T14:08:41.842Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL100000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "browser-ops",
+        "description": "v2-native browser skill (supersedes the legacy browser-skill / Browserbase path). Drives the built-in browser tool — navigate, snapshot, act, upload, login, handoff — for any real web page task.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-08-13T14:08:34.158Z",
+        "updated_at": "2026-08-13T14:08:34.718Z",
         "ownership": {
           "owner_uid": null,
           "org_id": null
@@ -27,10 +43,26 @@
         "name": "browser-skill",
         "description": "Default skill for all browser operations in OpenClaw — navigate, click, type, scrape, screenshot, login, inspect — via remote Browserbase MCP. Default agent for complex tasks.",
         "latest_version": "2",
-        "status": "active",
+        "status": "deprecated",
         "created_by": "USER3000000000",
         "created_at": "2026-07-29T06:35:44.816Z",
-        "updated_at": "2026-08-07T11:31:02.695Z",
+        "updated_at": "2026-08-13T14:08:41.842Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": null
+        }
+      },
+      {
+        "skill_id": "skl_SKILL200000000000000000000",
+        "scope": "global",
+        "pack_id": null,
+        "name": "chameleon-seedance",
+        "description": "ByteDance Seedance / Dreamina video generation (2.5/2.0/fast/mini) — text/image/video/audio input, i2v, edit, extend, 30s on 2.5. Use for seedance, Dreamina, ByteDance or Volcengine video.",
+        "latest_version": "2",
+        "status": "active",
+        "created_by": "USER3000000000",
+        "created_at": "2026-07-29T06:35:47.658Z",
+        "updated_at": "2026-08-10T11:28:40.666Z",
         "ownership": {
           "owner_uid": null,
           "org_id": null
@@ -40,36 +72,20 @@
         "skill_id": "skl_SKILL300000000000000000000",
         "scope": "global",
         "pack_id": null,
-        "name": "chameleon-seedance",
-        "description": "ByteDance Seedance / Dreamina video generation — text/image/video/audio input, image-to-video, edit, extend, segment chain. Use for seedance, Dreamina, ByteDance or Volcengine video generation.",
-        "latest_version": "1",
-        "status": "active",
-        "created_by": "USER3000000000",
-        "created_at": "2026-07-29T06:35:47.658Z",
-        "updated_at": "2026-07-29T06:35:47.663Z",
-        "ownership": {
-          "owner_uid": null,
-          "org_id": null
-        }
-      },
-      {
-        "skill_id": "skl_SKILL400000000000000000000",
-        "scope": "global",
-        "pack_id": null,
         "name": "council",
         "description": "Convene a council of LLMs on one topic — independent multi-vendor positions, one report preserving disagreement. Cross-model review, second opinion, high-stakes verification (any language).",
-        "latest_version": "4",
+        "latest_version": "5",
         "status": "active",
         "created_by": "USER3000000000",
         "created_at": "2026-07-29T06:35:58.907Z",
-        "updated_at": "2026-08-07T11:31:10.189Z",
+        "updated_at": "2026-08-08T16:27:09.291Z",
         "ownership": {
           "owner_uid": null,
           "org_id": null
         }
       },
       {
-        "skill_id": "skl_SKILL200000000000000000000",
+        "skill_id": "skl_SKILL210000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "cron-job",
@@ -85,23 +101,23 @@
         }
       },
       {
-        "skill_id": "skl_SKILL500000000000000000000",
+        "skill_id": "skl_SKILL400000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "deep-research",
         "description": "<non-English text removed>",
-        "latest_version": "2",
+        "latest_version": "6",
         "status": "active",
         "created_by": "USER3000000000",
         "created_at": "2026-07-29T06:36:16.293Z",
-        "updated_at": "2026-08-07T11:31:12.279Z",
+        "updated_at": "2026-08-07T23:26:26.120Z",
         "ownership": {
           "owner_uid": null,
           "org_id": null
         }
       },
       {
-        "skill_id": "skl_SKILL600000000000000000000",
+        "skill_id": "skl_SKILL500000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "designer",
@@ -117,7 +133,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL700000000000000000000",
+        "skill_id": "skl_SKILL600000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "docx",
@@ -133,7 +149,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL210000000000000000000",
+        "skill_id": "skl_SKILL220000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "ecap-io",
@@ -149,7 +165,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL800000000000000000000",
+        "skill_id": "skl_SKILL700000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "glossary",
@@ -165,7 +181,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL900000000000000000000",
+        "skill_id": "skl_SKILL800000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "humanizer",
@@ -181,7 +197,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL100000000000000000000",
+        "skill_id": "skl_SKILL900000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "knowledge-base",
@@ -197,7 +213,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL110000000000000000000",
+        "skill_id": "skl_SKILL100000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "meeting-notes",
@@ -213,7 +229,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL120000000000000000000",
+        "skill_id": "skl_SKILL110000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "pdf",
@@ -229,7 +245,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL130000000000000000000",
+        "skill_id": "skl_SKILL120000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "pptx",
@@ -245,7 +261,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL220000000000000000000",
+        "skill_id": "skl_SKILL230000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "specialist-manager",
@@ -261,7 +277,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL140000000000000000000",
+        "skill_id": "skl_SKILL130000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "video-generator",
@@ -277,7 +293,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL150000000000000000000",
+        "skill_id": "skl_SKILL140000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "web-designer",
@@ -293,7 +309,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL160000000000000000000",
+        "skill_id": "skl_SKILL150000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "xlsx",
@@ -309,7 +325,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL170000000000000000000",
+        "skill_id": "skl_SKILL160000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "zooclaw-asr",
@@ -325,7 +341,7 @@
         }
       },
       {
-        "skill_id": "skl_SKILL180000000000000000000",
+        "skill_id": "skl_SKILL170000000000000000000",
         "scope": "global",
         "pack_id": null,
         "name": "zooclaw-tts",
@@ -341,7 +357,23 @@
         }
       },
       {
-        "skill_id": "skl_SKILL190000000000000000000",
+        "skill_id": "skl_SKILL240000000000000000000",
+        "scope": "org",
+        "pack_id": null,
+        "name": "coffee-order",
+        "description": "Use whenever the user asks about the office coffee menu, coffee prices, or wants to order a coffee — including the words latte, espresso, or americano. Contains the official menu and prices.",
+        "latest_version": "1",
+        "status": "active",
+        "created_by": "USER2000000000",
+        "created_at": "2026-08-11T12:05:20.325Z",
+        "updated_at": "2026-08-11T12:05:20.500Z",
+        "ownership": {
+          "owner_uid": null,
+          "org_id": "ORG10000000000000000000000000000"
+        }
+      },
+      {
+        "skill_id": "skl_SKILL180000000000000000000",
         "scope": "org",
         "pack_id": null,
         "name": "sdk-surface-probe-skill",
@@ -349,8 +381,8 @@
         "latest_version": "1",
         "status": "active",
         "created_by": "USER2000000000",
-        "created_at": "2026-08-07T14:41:39.734Z",
-        "updated_at": "2026-08-07T14:41:40.287Z",
+        "created_at": "2026-08-14T07:34:24.892Z",
+        "updated_at": "2026-08-14T07:34:25.430Z",
         "ownership": {
           "owner_uid": null,
           "org_id": "ORG10000000000000000000000000000"
@@ -359,6 +391,6 @@
     ],
     "page": 1,
     "page_size": 100,
-    "total": 22
+    "total": 24
   }
 }

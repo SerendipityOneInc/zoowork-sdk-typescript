@@ -1,6 +1,6 @@
 {
   "method": "DELETE",
-  "path": "/skills/skl_SKILL190000000000000000000",
+  "path": "/skills/skl_SKILL180000000000000000000",
   "status": 204,
   "body": null
 }

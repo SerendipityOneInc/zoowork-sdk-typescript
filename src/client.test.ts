@@ -502,6 +502,80 @@ test('resolveApproval posts the decision vocabulary verbatim', async () => {
   expect(JSON.parse(calls[0]!.body as string)).toEqual({ decision: 'allow-once', resolvedBy: 'u@x' })
 })
 
+test('getSystemPrompt and previewSystemPrompt hit their paths — the preview colon goes RAW', async () => {
+  const get = harness(jsonReply({ agent_id: 'a', declaration: { source: 'platform', version: 1 } }))
+  await get.client.getSystemPrompt('a')
+  expect(path(get.calls)).toBe('/agents/a/system-prompt')
+
+  const preview = harness(jsonReply({ system_prompt: 'x', transcript: [] }))
+  const input = {
+    config_version: 3,
+    now_ms: 1755150000000,
+    session_id: 'ses_p',
+    model_display: 'probe',
+    workspace_dir: '/workspace',
+    tool_names: ['read'],
+  }
+  await preview.client.previewSystemPrompt('a', input)
+  // RAW ':' — this family matches the literal colon; the environments family needs %3A instead.
+  expect(path(preview.calls)).toBe('/agents/a/system-prompt:preview')
+  expect(preview.calls[0]!.method).toBe('POST')
+  expect(JSON.parse(preview.calls[0]!.body as string)).toEqual(input)
+})
+
+/** The projection every artifact test answers for the selector-derivation GET. */
+const AGENT_PROJECTION = { agent_id: 'a', ownership: { owner_uid: 'u1', org_id: 'o1' } }
+
+test('artifact methods derive owner_uid/org_id from the projection ONCE and cache them', async () => {
+  const { calls, client } = harness((call) =>
+    call.url.endsWith('/agents/a')
+      ? jsonReply(AGENT_PROJECTION)
+      : jsonReply({ artifacts: [], page: 1, has_more: false }),
+  )
+  const page = await client.listArtifacts('a')
+  expect(page.artifacts).toEqual([])
+  expect(page.has_more).toBe(false)
+  // Call 0 is the projection fetch the selectors come from; call 1 carries both of them.
+  expect(path(calls, 0)).toBe('/agents/a')
+  expect(path(calls, 1)).toBe('/agents/a/artifacts?owner_uid=u1&org_id=o1')
+
+  await client.listArtifacts('a', {
+    page: 2,
+    limit: 10,
+    sessionId: 's1',
+    sourcePath: '/workspace/r.md',
+    createdBefore: '2026-08-14T00:00:00Z',
+  })
+  // The ownership cache held: three calls total, not four.
+  expect(calls.length).toBe(3)
+  expect(path(calls, 2)).toBe(
+    '/agents/a/artifacts?owner_uid=u1&org_id=o1&page=2&limit=10&session_id=s1&source_path=%2Fworkspace%2Fr.md&created_before=2026-08-14T00%3A00%3A00Z',
+  )
+})
+
+test('getArtifact / downloadArtifact / deleteArtifact carry the selectors — download keeps a RAW colon', async () => {
+  const { calls, client } = harness((call) =>
+    call.url.endsWith('/agents/a')
+      ? jsonReply(AGENT_PROJECTION)
+      : jsonReply({ artifact_id: 'art_1', url: 'https://x.invalid/a' }),
+  )
+  await client.getArtifact('a', 'art_1')
+  await client.downloadArtifact('a', 'art_1')
+  await client.deleteArtifact('a', 'art_1')
+  expect(path(calls, 1)).toBe('/agents/a/artifacts/art_1?owner_uid=u1&org_id=o1')
+  expect(path(calls, 2)).toBe('/agents/a/artifacts/art_1:download?owner_uid=u1&org_id=o1')
+  expect(calls[2]!.method).toBe('POST')
+  expect(path(calls, 3)).toBe('/agents/a/artifacts/art_1?owner_uid=u1&org_id=o1')
+  expect(calls[3]!.method).toBe('DELETE')
+})
+
+test('a projection without ownership is a loud ownership_unavailable, not a selector-less 400', async () => {
+  const { client } = harness(jsonReply({ agent_id: 'a' }))
+  const err = await rejection(client.listArtifacts('a'))
+  expect(err.type).toBe('ownership_unavailable')
+  expect(err.status).toBe(500)
+})
+
 test('schedule CRUD hits the documented paths', async () => {
   const listed = harness(jsonReply({ schedules: [{ scheduleId: 'sc1' }] }))
   expect(await listed.client.listSchedules('a')).toEqual([{ scheduleId: 'sc1' }])

@@ -21,6 +21,10 @@ import {
   type AgentRecord,
   type AgentSkill,
   type AgentStatus,
+  type ArtifactPage,
+  type OutcomeConfig,
+  type SystemPromptInfo,
+  type SystemPromptPreview,
   type EnvironmentConfig,
   type EnvironmentRecord,
   type EnvironmentVersionRecord,
@@ -503,8 +507,10 @@ test('an org-scope skill answers ownership.owner_uid: null — it belongs to the
 })
 
 test('a global catalog skill answers BOTH ownership fields as null', async () => {
-  const { result } = await replay('list-skills', (c) => c.listSkills())
-  expect(result).toHaveLength(22)
+  const { result, raw } = await replay('list-skills', (c) => c.listSkills())
+  // The catalog size DRIFTS as global skills get added (22 → 24 between recordings); assert the
+  // unwrap against the recording itself, never a pinned count.
+  expect(result).toHaveLength((raw.skills as unknown[]).length)
   const global = result.find((s) => s.scope === 'global')!
   expectKinds(global.ownership, { owner_uid: 'null', org_id: 'null' })
   expect(global.latest_version).toBe('1')
@@ -519,8 +525,9 @@ test('listSkills({ q }) narrows to the matching row and keeps the same shape', a
 })
 
 test('listAgentSkills rows are a DIFFERENT shape from a registry SkillRecord', async () => {
-  const { result } = await replay('list-agent-skills', (c) => c.listAgentSkills(AGENT))
-  expect(result).toHaveLength(19)
+  const { result, raw } = await replay('list-agent-skills', (c) => c.listAgentSkills(AGENT))
+  // The attached count follows the global catalog and DRIFTS between recordings.
+  expect(result).toHaveLength((raw.skills as unknown[]).length)
   const row = result[0]!
   // The resolved/merged view: file manifest, base path, content hash — and no `latest_version`,
   // `created_at` or `ownership` from the registry row.
@@ -539,7 +546,9 @@ test('listAgentSkills rows are a DIFFERENT shape from a registry SkillRecord', a
   ])
   expectNoKeys(row, 'latest_version', 'ownership', 'created_at', 'status')
   declared<number | string | undefined>(row.version, 'string')
-  expect(row.version).toBe(holds<AgentSkill['version']>('1'))
+  // The probe's own upload is the row whose version is knowable: version 1, spelled "1".
+  const probeRow = result.find((s) => s.name === 'sdk-surface-probe-skill')!
+  expect(probeRow.version).toBe(holds<AgentSkill['version']>('1'))
   declared<{ path: string }[] | undefined>(row.files, 'array')
   expectKinds(row.files?.[0], { path: 'string', size: 'number', sha256: 'string' })
 })
@@ -547,10 +556,11 @@ test('listAgentSkills rows are a DIFFERENT shape from a registry SkillRecord', a
 test('deleteAgentSkill removes exactly the one row', async () => {
   const { result: before } = await replay('list-agent-skills', (c) => c.listAgentSkills(AGENT))
   const { result: after } = await replay('list-agent-skills-after-detach', (c) => c.listAgentSkills(AGENT))
-  expect(before).toHaveLength(19)
-  expect(after).toHaveLength(18)
-  expect(before.some((s) => s.skill_id === SKILL)).toBe(true)
-  expect(after.some((s) => s.skill_id === SKILL)).toBe(false)
+  // Absolute counts drift with the global catalog; the DELTA is the assertion. The probe skill
+  // is found by its scrub-stable NAME — its minted id number follows the catalog size.
+  expect(before.length - after.length).toBe(1)
+  expect(before.some((s) => s.name === 'sdk-surface-probe-skill')).toBe(true)
+  expect(after.some((s) => s.name === 'sdk-surface-probe-skill')).toBe(false)
 })
 
 test('putAgentSkill and deleteAgentSkill answer the same {config_version, warnings} receipt', async () => {
@@ -781,6 +791,7 @@ test('getEnvironmentVersion has status and NO state — polling `state === "read
     'e2b_template_id',
     'e2b_build_id',
     'template_ref',
+    'base_template_ref',
     'failure_stage',
     'failure_message',
     'created_by',
@@ -805,21 +816,28 @@ test('a version can carry e2b_build_id while still building — build_id is not 
 })
 
 test('listEnvironments rows keep latest_ready_version after archiving', async () => {
-  const { result } = await replay('list-environments', (c) => c.listEnvironments())
-  expect(result).toHaveLength(8)
+  const { result, raw } = await replay('list-environments', (c) => c.listEnvironments())
+  // The org accretes archived probe Environments between recordings; count against the recording.
+  expect(result).toHaveLength((raw.environments as unknown[]).length)
   for (const row of result) expectExactKeys(row, ENVIRONMENT_KEYS)
-  const archived = result[0]!
-  expect(archived.status).toBe('archived')
+  // The point: archiving does not null the build lineage out. At least one archived row still
+  // carries a numeric latest_ready_version and its archive stamp.
+  const archived = result.find((r) => r.status === 'archived' && typeof r.latest_ready_version === 'number')!
+  expect(archived).toBeDefined()
   expectKinds(archived, { latest_version: 'number', latest_ready_version: 'number', archived_at: 'string' })
 })
 
 test('archiveEnvironment percent-encodes the colon and flips status to archived', async () => {
-  const { result, path, method } = await replay('archive-environment', (c) => c.archiveEnvironment(ENVIRONMENT))
+  // The archived id's scrub number follows how many environments the recording saw first, so it
+  // is read off the fixture instead of pinned.
+  const recordedPath = fixture('archive-environment').path
+  const archivedId = recordedPath.slice('/environments/'.length).replace(/%3Aarchive$/, '')
+  const { result, path, method } = await replay('archive-environment', (c) => c.archiveEnvironment(archivedId))
   // The route quirk and its response, pinned together: a raw `:` here is a 404.
   expect(method).toBe('POST')
-  expect(path).toBe(`/environments/${ENVIRONMENT}%3Aarchive`)
+  expect(path).toBe(`/environments/${archivedId}%3Aarchive`)
   expect(path).not.toContain(':')
-  expect(path).toBe(fixture('archive-environment').path)
+  expect(path).toBe(recordedPath)
   expect(result.status).toBe('archived')
   declared<string | null | undefined>(result.archived_at, 'string')
 })
@@ -865,6 +883,175 @@ test('listApprovals answers an empty array with and without the status filter', 
   expect(all).toEqual([])
   // Both recordings are empty, so the shape of an APPROVAL ROW is still unproven — which is what
   // `ApprovalRecord`'s doc comment says. Nothing here may be read as confirming those field names.
+})
+
+// ── system prompt & artifacts (0.0.6) ──────────────────────────────────────
+
+test('getSystemPrompt answers the pin AND the effective template — a fresh agent is platform-pinned from birth', async () => {
+  const { result, path } = await replay('get-system-prompt', (c) => c.getSystemPrompt(AGENT))
+  expect(path).toBe(`/agents/${AGENT}/system-prompt`)
+  expect(result.declaration).toEqual({ source: 'platform', version: 1 })
+  const effective = result.effective as Record<string, unknown>
+  expectKinds(effective, { source: 'string', templateHash: 'string', templateVersion: 'number' })
+  // Platform v1 is the byte-compatible legacy PROFILE under the template machinery — `source`
+  // says the pin is real while `profile` still says the assembled bytes are the legacy ones.
+  expect(effective.source).toBe('platform')
+  expect(effective.profile).toBe('legacy')
+})
+
+test('previewSystemPrompt assembles without a session: 13 slot hashes, transcript pinned to []', async () => {
+  const { result, path, method } = await replay('preview-system-prompt', (c) =>
+    c.previewSystemPrompt(AGENT, {
+      config_version: 5,
+      now_ms: 0,
+      session_id: 's',
+      model_display: 'm',
+      workspace_dir: '/workspace',
+      tool_names: [],
+    }),
+  )
+  expect(method).toBe('POST')
+  // RAW colon on the wire — recorded through the gateway exactly like this. (The environments
+  // family needs %3A; this family is the opposite.)
+  expect(path).toBe(`/agents/${AGENT}/system-prompt:preview`)
+  expect(path).toBe(fixture('preview-system-prompt').path)
+  declared<string | undefined>(result.system_prompt, 'string')
+  expect(Object.keys(result.slot_hashes ?? {})).toHaveLength(13)
+  expect(result.transcript).toEqual([])
+  expectKinds(result, { char_count: 'number', config_version: 'number' })
+})
+
+test('the engine upgrade route is unreachable: :upgrade-system-prompt answers the GATEWAY 404 envelope', () => {
+  // No SDK method produces this request ON PURPOSE, so the fixture is asserted raw. The
+  // `{code, detail}` envelope is the gateway's own — proof the 404 comes from the tenant
+  // precheck (which reads ':upgrade-system-prompt' as part of the agent id), not the engine.
+  const fx = fixture('error-404-upgrade-system-prompt-gateway')
+  expect(fx.status).toBe(404)
+  expect(fx.body).toEqual({ code: 'service_api.not_found', detail: 'Not found' })
+  expect(fx.path.endsWith(':upgrade-system-prompt')).toBe(true)
+})
+
+/**
+ * Artifact methods make TWO requests — the projection GET the selectors derive from, then the
+ * artifact call — so their replays answer the projection from its own recorded fixture and
+ * everything else from `name`. `path`/`method` describe the LAST call.
+ */
+async function replayArtifacts<T>(name: string, call: (client: ZooclawClient) => Promise<T>): Promise<Replayed<T>> {
+  const projection = fixture('get-agents-id')
+  const fx = fixture(name)
+  const calls: { url: string; method: string }[] = []
+  const client = createZooclawClient({
+    apiKey: 'zct_test_key',
+    baseUrl: BASE,
+    fetch: async (input: string, init: RequestInit = {}) => {
+      calls.push({ url: input, method: init.method ?? 'GET' })
+      const src = input === `${BASE}/agents/${AGENT}` ? projection : fx
+      return new Response(src.body === null ? null : JSON.stringify(src.body), { status: src.status })
+    },
+  })
+  const result = await call(client)
+  const last = calls[calls.length - 1]!
+  return { result, raw: (fx.body ?? {}) as Record<string, unknown>, path: last.url.slice(BASE.length), method: last.method }
+}
+
+test('listArtifacts derives the selectors the engine demands and answers {artifacts, page, has_more}', async () => {
+  const { result, path } = await replayArtifacts('list-artifacts', (c) => c.listArtifacts(AGENT))
+  // The recorded path IS the selector rule on disk: owner_uid+org_id in the query, taken from
+  // the same projection this replay answers — byte-identical to what staging received.
+  expect(path).toBe(fixture('list-artifacts').path)
+  expect(result.artifacts).toEqual([])
+  // Unlike listEvents, THIS list says when it truncated.
+  expect(result.has_more).toBe(false)
+  expect(result.page).toBe(1)
+})
+
+test('the untagged warm-up recording agrees with list-artifacts byte for byte', () => {
+  // The probe's cache-warming call recorded the same endpoint under its derived slug; keeping
+  // the two equal means neither can drift alone.
+  expect(fixture('get-agents-id-artifacts').body).toEqual(fixture('list-artifacts').body)
+  expect(fixture('get-agents-id-artifacts').path).toBe(fixture('list-artifacts').path)
+})
+
+test('the artifacts route without selectors is 400 ownership_required — the ENGINE envelope', () => {
+  // The SDK cannot produce this request (it always derives and sends both selectors), so the
+  // recording is asserted raw. `{error:{type,message}}` — the engine's envelope, not the
+  // gateway's: the request got through, and the ENGINE demanded the selectors.
+  const fx = fixture('error-400-artifacts-ownership-required')
+  expect(fx.status).toBe(400)
+  expect(fx.body).toEqual({ error: { type: 'ownership_required', message: 'owner_uid and org_id are required' } })
+  expect(fx.path.includes('owner_uid')).toBe(false)
+})
+
+test('getArtifact on an unknown id is 404 not_found (hidden, not 403)', async () => {
+  const fx = fixture('error-404-artifact-not-found')
+  const projection = fixture('get-agents-id')
+  const client = createZooclawClient({
+    apiKey: 'zct_test_key',
+    baseUrl: BASE,
+    fetch: async (input: string) => {
+      const src = input === `${BASE}/agents/${AGENT}` ? projection : fx
+      return new Response(JSON.stringify(src.body), { status: src.status })
+    },
+  })
+  try {
+    await client.getArtifact(AGENT, 'art_01000000000000000000000000')
+    expect.unreachable('a nonexistent artifact resolved')
+  } catch (e) {
+    const err = e as ZooclawError
+    expect(err).toBeInstanceOf(ZooclawError)
+    expect(err.status).toBe(404)
+    expect(err.type).toBe('not_found')
+  }
+})
+
+// ── outcome (0.0.6) ────────────────────────────────────────────────────────
+
+test('createSchedule with payload.outcome answers the same bare receipt as any create', async () => {
+  const { result, method } = await replay('create-schedule-outcome', (c) =>
+    c.createSchedule(AGENT, {
+      schedule_id: 'surface-probe-outcome-schedule',
+      schedule: { kind: 'cron', expr: '0 9 1 1 *', tz: 'UTC' },
+      payload: {
+        kind: 'agentTurn',
+        message: 'x',
+        outcome: { description: 'd', evaluator: { type: 'command', command: 'true' } },
+      },
+      sessionTarget: 'isolated',
+      delivery: { mode: 'none' },
+      enabled: false,
+    }),
+  )
+  expect(method).toBe('POST')
+  expectExactKeys(result, ['schedule_name'])
+})
+
+test('getSchedule reads payload.outcome back VERBATIM — stored as written, not defaulted', async () => {
+  const { result } = await replay('get-schedule-outcome', (c) => c.getSchedule(AGENT, 'surface-probe-outcome-schedule'))
+  expect(result.payload?.outcome).toEqual({
+    publish: 'after_satisfied',
+    evaluator: { type: 'command', command: 'test -s /workspace/report.md' },
+    description: 'A non-empty report exists at /workspace/report.md.',
+    maxIterations: 2,
+  })
+})
+
+test('an agent-level outcome PUT lands in declared.outcome exactly as written — NO defaults injected', async () => {
+  const { result, method } = await replay('put-agent-outcome', (c) =>
+    c.updateAgent(AGENT, {
+      outcome: {
+        description: 'Unattended runs leave a non-empty /workspace/report.md.',
+        evaluator: { type: 'command', command: 'test -s /workspace/report.md' },
+      },
+    }),
+  )
+  expect(method).toBe('PUT')
+  const declaredOutcome = (result.declared as { outcome?: Record<string, unknown> } | undefined)?.outcome
+  // What was written is what is stored: no publish / maxIterations defaults appear. Defaulting
+  // happens at RUN time, so today's defaults are never frozen into yesterday's row.
+  expect(declaredOutcome).toEqual({
+    evaluator: { type: 'command', command: 'test -s /workspace/report.md' },
+    description: 'Unattended runs leave a non-empty /workspace/report.md.',
+  })
 })
 
 // ── declaration coverage: what the SDK promises vs what the wire carries ───
@@ -1092,6 +1279,7 @@ const ENVIRONMENT_VERSION_KEYS = [
   'e2b_template_id',
   'e2b_build_id',
   'template_ref',
+  'base_template_ref',
   'failure_stage',
   'failure_message',
   'created_by',
@@ -1112,6 +1300,39 @@ const _modelInfoCovered: Covered<ModelInfo, (typeof MODEL_INFO_KEYS)[number]> = 
 
 test('ModelInfo declares nothing the wire does not carry', () => {
   expectDeclarationCoverage(MODEL_INFO_KEYS, [], fixture('list-models').body as unknown[])
+})
+
+const SYSTEM_PROMPT_INFO_KEYS = ['agent_id', 'config_version', 'declaration', 'effective'] as const satisfies readonly DeclaredKeys<SystemPromptInfo>[]
+const _systemPromptInfoCovered: Covered<SystemPromptInfo, (typeof SYSTEM_PROMPT_INFO_KEYS)[number]> = undefined
+
+test('SystemPromptInfo declares nothing the wire does not carry', () => {
+  expectDeclarationCoverage(SYSTEM_PROMPT_INFO_KEYS, [], [body('get-system-prompt')])
+})
+
+const SYSTEM_PROMPT_PREVIEW_KEYS = ['agent_id', 'config_version', 'system_prompt', 'char_count', 'slot_hashes', 'transcript'] as const satisfies readonly DeclaredKeys<SystemPromptPreview>[]
+const _systemPromptPreviewCovered: Covered<SystemPromptPreview, (typeof SYSTEM_PROMPT_PREVIEW_KEYS)[number]> = undefined
+
+test('SystemPromptPreview declares nothing the wire does not carry', () => {
+  expectDeclarationCoverage(SYSTEM_PROMPT_PREVIEW_KEYS, [], [body('preview-system-prompt')])
+})
+
+const ARTIFACT_PAGE_KEYS = ['artifacts', 'page', 'has_more'] as const satisfies readonly DeclaredKeys<ArtifactPage>[]
+const _artifactPageCovered: Covered<ArtifactPage, (typeof ARTIFACT_PAGE_KEYS)[number]> = undefined
+
+test('ArtifactPage declares nothing the wire does not carry', () => {
+  // ArtifactRecord itself has NO coverage list yet, deliberately: every recording so far is an
+  // empty page, so no row shape has been observed. Its doc comment says as much; enroll it the
+  // first time a probe publishes a real artifact and records a populated page.
+  expectDeclarationCoverage(ARTIFACT_PAGE_KEYS, [], [body('list-artifacts')])
+})
+
+const OUTCOME_CONFIG_KEYS = ['description', 'evaluator', 'maxIterations', 'publish'] as const satisfies readonly DeclaredKeys<OutcomeConfig>[]
+const _outcomeConfigCovered: Covered<OutcomeConfig, (typeof OUTCOME_CONFIG_KEYS)[number]> = undefined
+
+test('OutcomeConfig declares nothing the wire does not carry, across both storage sites', () => {
+  const scheduleOutcome = (body('get-schedule-outcome').payload as { outcome: Record<string, unknown> }).outcome
+  const agentOutcome = (body('put-agent-outcome').declared as { outcome: Record<string, unknown> }).outcome
+  expectDeclarationCoverage(OUTCOME_CONFIG_KEYS, [], [scheduleOutcome, agentOutcome])
 })
 
 // ── coverage ───────────────────────────────────────────────────────────────

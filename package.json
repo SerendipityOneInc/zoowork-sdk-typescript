@@ -1,6 +1,6 @@
 {
   "name": "@zooclaw-agents/sdk",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "TypeScript SDK for the ZooClaw Managed Agents API (Developer Preview)",
   "keywords": [
     "zooclaw",
@@ -10,11 +10,11 @@
     "sse",
     "streaming"
   ],
-  "homepage": "https://github.com/SerendipityOneInc/zooclaw-sdk-typescript#readme",
-  "bugs": "https://github.com/SerendipityOneInc/zooclaw-sdk-typescript/issues",
+  "homepage": "https://github.com/SerendipityOneInc/zoowork-sdk-typescript#readme",
+  "bugs": "https://github.com/SerendipityOneInc/zoowork-sdk-typescript/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SerendipityOneInc/zooclaw-sdk-typescript.git"
+    "url": "git+https://github.com/SerendipityOneInc/zoowork-sdk-typescript.git"
   },
   "license": "MIT",
   "type": "module",
