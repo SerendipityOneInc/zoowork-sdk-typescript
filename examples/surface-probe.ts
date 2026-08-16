@@ -950,25 +950,38 @@ try {
     )
   })
 
-  await probe('upgrade-system-prompt is a gateway 404 (:verb hole)', async () => {
-    // The SDK wraps no upgradeSystemPrompt ON PURPOSE, and this raw call is the evidence: the
-    // gateway's tenant precheck reads ':upgrade-system-prompt' as part of the agent id and
-    // answers its own 404 — the same hole that eats ':replace-environment'. If this ever stops
-    // being 404, revisit that SDK decision.
-    rec.tag('error-404-upgrade-system-prompt-gateway')
-    const res = await rec.fetch(`${baseUrl}/agents/${agentId}:upgrade-system-prompt`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.ZOOCLAW_API_KEY ?? ''}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expected_config_version: 1 }),
-    })
+  await probe('upgradeSystemPrompt (CAS)', async () => {
+    // The `{id}:verb` grammar is reachable through the gateway since fix #3387 (2026-08-14);
+    // before that the tenant precheck read the suffix as part of the agent id and 404ed.
+    const current = (await zc.getAgent(agentId)).status?.config_version
+    if (typeof current !== 'number') {
+      record('upgradeSystemPrompt (CAS)', 'INFO', 'skipped — no config_version on the projection')
+      return
+    }
+    rec.tag('upgrade-system-prompt')
+    const up = await zc.upgradeSystemPrompt(agentId, { expected_config_version: current })
+    const bumped = typeof up.config_version === 'number' && up.config_version === current + 1
     record(
-      'upgrade-system-prompt is a gateway 404 (:verb hole)',
-      res.status === 404 ? 'DIFFERS' : 'INFO',
-      res.status === 404
-        ? 'POST /agents/{id}:upgrade-system-prompt → 404 from the GATEWAY (service_api.not_found) — the engine route exists but is unreachable here'
-        : `POST /agents/{id}:upgrade-system-prompt → HTTP ${res.status} — the :verb hole may have been fixed; revisit the no-wrapper decision`,
-      { status: res.status },
+      'upgradeSystemPrompt (CAS)',
+      bumped && up.declaration ? 'WORKS' : 'DIFFERS',
+      `config_version ${current} → ${up.config_version}; declaration=${JSON.stringify(up.declaration)} template_hash=${String(up.template_hash).slice(0, 12)}… ` +
+        '— an upgrade is a config write like any other',
+      up,
     )
+    // The CAS half: replaying the now-stale version must be a 409, never a silent re-apply.
+    try {
+      rec.tag('error-409-upgrade-config-version-changed')
+      await zc.upgradeSystemPrompt(agentId, { expected_config_version: current })
+      record('upgradeSystemPrompt stale CAS', 'DIFFERS', 'a STALE expected_config_version was accepted')
+    } catch (e) {
+      const err = e as ZooclawError
+      record(
+        'upgradeSystemPrompt stale CAS',
+        err.status === 409 ? 'WORKS' : 'DIFFERS',
+        `stale expected_config_version → HTTP ${err.status} type=${JSON.stringify(err.type)} — read fresh, then upgrade`,
+        { status: err.status, type: err.type },
+      )
+    }
   })
 
   // ── 6c. artifacts ───────────────────────────────────────────────────────────

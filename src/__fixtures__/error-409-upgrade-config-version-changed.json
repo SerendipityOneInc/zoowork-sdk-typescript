@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000:upgrade-system-prompt",
+  "status": 409,
+  "body": {
+    "error": {
+      "type": "config_version_changed",
+      "message": "Agent config version changed"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000:upgrade-system-prompt",
+  "status": 200,
+  "body": {
+    "agent_id": "agt_AGENT100000000000000000000",
+    "config_version": 6,
+    "declaration": {
+      "source": "platform",
+      "version": 1
+    },
+    "template_hash": "be68a96bcd3b1f938720f21d3cbe9597407a93654ad16179619c410dd9cf9e3f"
+  }
+}

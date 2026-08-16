@@ -128,11 +128,9 @@ export interface McpServerDeclaration {
  * (`base_version` records the platform version it derives from; the template must fill all 13
  * functional slots exactly once and stay under 64 KiB UTF-8). Create pins the platform version
  * active at that moment on its own — a plain create answered `{source:'platform',version:1}`,
- * staging-verified 2026-08-14 — and the pin NEVER follows a later activation: ordinary PUTs,
- * skill changes and rerenders keep it. The engine's escape hatch,
- * `POST /agents/{id}:upgrade-system-prompt`, is 404 through the gateway (the tenant precheck
- * reads the `:verb` suffix as part of the agent id — the `:replace-environment` hole), so for
- * an API-key caller the pin is effectively a create-time decision.
+ * staging-verified 2026-08-14 — and the pin NEVER follows a later activation on its own:
+ * ordinary PUTs, skill changes and rerenders keep it. Moving it is an explicit call,
+ * {@link ZooclawClient.upgradeSystemPrompt}.
  *
  * On PUT this section is REPLACE-ON-WRITE, like `tool_policy` — not merged.
  */
@@ -654,13 +652,25 @@ export interface SystemPromptPreview {
   [k: string]: unknown
 }
 
+/** `upgradeSystemPrompt` receipt: the new pin and the version bump it cost. */
+export interface SystemPromptUpgrade {
+  agent_id?: string
+  /** The NEW config version — the upgrade writes a config change like any other. */
+  config_version?: number
+  declaration?: SystemPromptDeclaration
+  template_hash?: string
+  [k: string]: unknown
+}
+
 /**
  * An Environment build spec. The top level accepts EXACTLY these four keys — any other key is
  * `400 invalid_environment_config`, which is why this type has no index signature.
  *
  * Package install order is fixed apt → npm → pip. Files land under
  * `/opt/zooclaw/environment/`, and a top-level `bin/*` marked executable is linked into
- * `/usr/local/bin`. No secrets, no runtime env vars, no start hooks.
+ * `/usr/local/bin`. No user-defined secrets, env vars, or start hooks — the platform injects
+ * its own runtime credentials for built-in skills, but that layer is internal and not
+ * extensible.
  */
 export interface EnvironmentConfig {
   packages?: { apt?: string[]; npm?: string[]; pip?: string[] }
@@ -848,14 +858,26 @@ export interface ZooclawClient {
    * Deterministic for fixed inputs (`transcript` is always `[]`), and `slot_hashes` names each
    * template slot for diffing. `config_version` must be the agent's CURRENT one.
    * Staging-verified 2026-08-14; the raw `:` in `system-prompt:preview` passes the gateway.
-   *
-   * There is deliberately no `upgradeSystemPrompt` here: the engine's
-   * `POST /agents/{id}:upgrade-system-prompt` is 404 through the gateway — the tenant
-   * precheck reads the `:verb` suffix as part of the agent id, the same hole that eats
-   * `:replace-environment` — so a wrapper would be a method that cannot succeed. Until the
-   * gateway fixes `:verb` routing, the pin only moves at create time.
    */
   previewSystemPrompt(agentId: string, input: SystemPromptPreviewInput): Promise<SystemPromptPreview>
+  /**
+   * Move the system-prompt pin — the ONE write that does, since nothing else ever follows a
+   * later platform activation. Omit `template_version` to upgrade to the currently ACTIVE
+   * platform version; pass one to pin a specific immutable version.
+   *
+   * `expected_config_version` is REQUIRED and it is a real CAS: it must equal the agent's
+   * current `status.config_version` or the answer is `409 config_version_changed` — read
+   * fresh, then upgrade. The 200 receipt carries the NEW `config_version` (the upgrade is a
+   * config write like any other) plus the pinned `declaration` and `template_hash`.
+   *
+   * Staging-verified 2026-08-14, the day gateway fix #3387 opened the `{id}:verb` route
+   * grammar (this route was 404 through the gateway until then — do not expect it on older
+   * gateway deployments).
+   */
+  upgradeSystemPrompt(
+    agentId: string,
+    input: { expected_config_version: number; template_version?: number },
+  ): Promise<SystemPromptUpgrade>
 
   // ── skill registry (bring your own skill) ──
   /**
@@ -1536,6 +1558,8 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
     // deployment-internal direct mode, whose HTTP server never percent-decodes the path.
     previewSystemPrompt: (agentId, input) =>
       json(`${agents(agentId)}/system-prompt:preview`, { method: 'POST', body: JSON.stringify(input) }),
+    upgradeSystemPrompt: (agentId, input) =>
+      json(`${agents(agentId)}:upgrade-system-prompt`, { method: 'POST', body: JSON.stringify(input) }),
 
     listArtifacts: async (agentId, opts = {}) => {
       const sel = await artifactSelectors(agentId)

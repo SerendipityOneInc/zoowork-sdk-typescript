@@ -11,16 +11,18 @@ through the `/service/v1` gateway on 2026-08-14 and is pinned by re-recorded fix
 
 ### Added
 
-- **`getSystemPrompt(agentId)` / `previewSystemPrompt(agentId, input)`** — the pin as declared
-  and the rendered template in effect; and deterministic assembly of the exact prompt for given
-  runtime facts, without touching a session (13 `slot_hashes`, `transcript` always `[]`).
+- **`getSystemPrompt(agentId)` / `previewSystemPrompt(agentId, input)` /
+  `upgradeSystemPrompt(agentId, input)`** — the pin as declared and the rendered template in
+  effect; deterministic assembly of the exact prompt for given runtime facts, without touching
+  a session (13 `slot_hashes`, `transcript` always `[]`); and the one write that moves the pin.
   `resource.system_prompt` is typed on `AgentResource` (`{source:'platform',version}` |
   `{source:'custom',base_version,template}`): a fresh create pins the active platform version
-  on its own, the pin never follows later activations, and on PUT the section is
-  REPLACE-ON-WRITE like `tool_policy`. There is deliberately NO `upgradeSystemPrompt`: the
-  engine's `POST /agents/{id}:upgrade-system-prompt` is 404 through the gateway (the tenant
-  precheck reads the `:verb` suffix as part of the agent id — the `:replace-environment` hole),
-  and the recorded gateway envelope is on disk as proof.
+  on its own, the pin never follows later activations on its own, and on PUT the section is
+  REPLACE-ON-WRITE like `tool_policy`. `upgradeSystemPrompt` is a real CAS —
+  `expected_config_version` must be current or the answer is `409 config_version_changed`
+  (both directions recorded as fixtures). The route uses the `{id}:verb` grammar, which the
+  gateway blocked until fix #3387 landed the same day this shipped — on older gateway
+  deployments this one method answers a gateway 404.
 - **`listArtifacts` / `getArtifact` / `downloadArtifact` / `deleteArtifact`** — the control
   plane over what the agent's own in-loop `artifact_publish` tool produced (publishing from
   outside the loop still does not exist). These routes demand `owner_uid`+`org_id` selectors
