@@ -668,7 +668,9 @@ export interface SystemPromptUpgrade {
  *
  * Package install order is fixed apt → npm → pip. Files land under
  * `/opt/zooclaw/environment/`, and a top-level `bin/*` marked executable is linked into
- * `/usr/local/bin`. No secrets, no runtime env vars, no start hooks.
+ * `/usr/local/bin`. No user-defined secrets, env vars, or start hooks — the platform injects
+ * its own runtime credentials for built-in skills, but that layer is internal and not
+ * extensible.
  */
 export interface EnvironmentConfig {
   packages?: { apt?: string[]; npm?: string[]; pip?: string[] }
