@@ -25,12 +25,10 @@ The base URL has a working default, so you do not configure an endpoint. Overrid
 `ZOOCLAW_BASE_URL`, or with `baseUrl` on the call, to point at a different deployment.
 
 ```ts
-
-// 1. Create an agent. The gateway replaces `ownership` with your key's tenant,
-//    and seeds the platform credentials the agent needs to call a model.
+// 1. Create an agent. Ownership is derived from your key, so `resource` is all you
+//    send; the gateway also seeds the platform credentials the agent needs to call a model.
 const agent = await zc.createAgent({
   resource: { name: 'research-agent', model: { primary: 'litellm/claude-sonnet-5' } },
-  ownership: { owner_uid: 'placeholder', org_id: 'placeholder' },
 })
 
 // 2. Start it. Without this, createSession() returns 409 agent_not_running.
