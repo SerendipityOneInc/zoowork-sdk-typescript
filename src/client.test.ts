@@ -14,7 +14,7 @@
  * somebody's build.
  */
 import { expect, test } from 'vitest'
-import { createZooclawClient, DEFAULT_BASE_URL, ZooclawError, type ScheduleUpdate } from './index.js'
+import { createZooclawClient, DEFAULT_BASE_URL, ZooclawError, type AgentResource, type ScheduleUpdate } from './index.js'
 
 const BASE = 'https://api.test/service/v1'
 const KEY = 'zct_test_key'
@@ -166,13 +166,28 @@ test('createAgent POSTs the envelope and sends Idempotency-Key only when given o
   const created = await client.createAgent(input, 'key-1')
   expect(created.agent_id).toBe('agt_1')
   expect([calls[0]!.method, path(calls)]).toEqual(['POST', '/agents'])
-  expect(JSON.parse(calls[0]!.body as string)).toEqual(input)
+  expect(JSON.parse(calls[0]!.body as string)).toEqual({
+    resource: { name: 'a', onboarding: false },
+    ownership: { owner_uid: 'u', org_id: 'o' },
+  })
   expect(calls[0]!.headers['Idempotency-Key']).toBe('key-1')
   expect(calls[0]!.headers['Content-Type']).toBe('application/json')
 
   const bare = harness(jsonReply({ agent_id: 'agt_1' }))
   await bare.client.createAgent(input)
   expect('Idempotency-Key' in bare.calls[0]!.headers).toBe(false)
+})
+
+test('createAgent strips warm and forces onboarding: false, and omits ownership when not given', async () => {
+  const { calls, client } = harness(jsonReply({ agent_id: 'agt_1' }))
+  // JS callers bypass the types — the runtime strip is what actually protects them:
+  // `warm` races the platform credential seeding (zooclaw-engine#791) and the
+  // onboarding interview is never what an API caller wants.
+  const resource = { name: 'a', warm: true, onboarding: true } as unknown as AgentResource
+  await client.createAgent({ resource })
+  expect(JSON.parse(calls[0]!.body as string)).toEqual({
+    resource: { name: 'a', onboarding: false },
+  })
 })
 
 test('listAgents unwraps agents and builds label.* / page query from the options supplied', async () => {
