@@ -194,24 +194,6 @@ export interface AgentResource {
   sandbox?: { scope: 'agent' | 'session' }
   environment_id?: string
   environment_version?: number
-  /**
-   * Pre-warm the agent-scope sandbox right after create, so the first tool call does not pay
-   * the 5–7s cold start.
-   *
-   * CREATE ONLY — it is never written to the declared config, and a `PUT` carrying it is a 400.
-   * It is fire-and-forget: it cannot fail the create. With `sandbox.scope: 'session'` it is
-   * ignored and the create receipt carries `warnings: ['warm-ignored-session-scope']`.
-   */
-  warm?: boolean
-  /**
-   * `false` skips the BOOTSTRAP interview — the agent is created with `bootstrap_state:
-   * 'skipped'` and answers your first message instead of interviewing you about its persona.
-   *
-   * Set it for every API-driven agent unless you actually want the onboarding turn. `skipped`
-   * is terminal: an ordinary PUT will not put the agent back into onboarding.
-   */
-  onboarding?: boolean
-  [k: string]: unknown
 }
 
 /**
@@ -786,7 +768,13 @@ export interface ZooclawClient {
   listModels(): Promise<ModelInfo[]>
 
   // ── agents ──
-  createAgent(input: { resource: AgentResource; ownership: Ownership }, idempotencyKey?: string): Promise<AgentRecord>
+  /**
+   * Create an agent. The gateway derives ownership from your API key and always skips the
+   * interactive onboarding interview — the agent answers your first message directly.
+   * `ownership` is accepted for callers that talk to the engine without the gateway;
+   * through the gateway it is overwritten and can be omitted.
+   */
+  createAgent(input: { resource: AgentResource; ownership?: Ownership }, idempotencyKey?: string): Promise<AgentRecord>
   /**
    * List the agents owned by your key's bound user (engine query: `owner_uid AND org_id`,
    * both injected by the gateway). `labels` filters on declared labels — e.g.
@@ -801,13 +789,6 @@ export interface ZooclawClient {
   /** PUT declared sections; bumps config_version on EVERY call — gate on drift, don't blind-retry. */
   updateAgent(agentId: string, sections: Record<string, unknown>): Promise<AgentRecord>
   deleteAgent(agentId: string): Promise<void>
-  /**
-   * @deprecated Not reachable with an API key — the gateway manages these credentials for you
-   * and answers 404 here. Present for deployment-internal callers only.
-   */
-  putCredential(agentId: string, app: string, body: Record<string, unknown>): Promise<void>
-  /** @deprecated 404 for API-key callers, same as {@link ZooclawClient.putCredential}. */
-  listCredentials(agentId: string): Promise<{ app: string; ref: string }[]>
   /**
    * Flip `desired_state` to `running` — the precondition for every session call.
    * Fast (sub-second on staging). The returned warnings are informational: an
@@ -1332,12 +1313,22 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
       return Array.isArray(data) ? data : (data.models ?? [])
     },
 
-    createAgent: (input, idempotencyKey) =>
-      json('/agents', {
+    createAgent: (input, idempotencyKey) => {
+      // Runtime strip, not just type-level: `warm` races the platform credential seeding
+      // (sandbox born without creds, never heals — zooclaw-engine#791), and the BOOTSTRAP
+      // interview is never what an API caller wants. JS callers bypass the types, so both
+      // are enforced here.
+      const { warm: _warm, onboarding: _onboarding, ...resource } =
+        input.resource as AgentResource & { warm?: unknown; onboarding?: unknown }
+      return json('/agents', {
         method: 'POST',
-        body: JSON.stringify(input),
+        body: JSON.stringify({
+          resource: { ...resource, onboarding: false },
+          ...(input.ownership ? { ownership: input.ownership } : {}),
+        }),
         ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
-      }),
+      })
+    },
     listAgents: async (opts = {}) => {
       const params: Record<string, string | number | undefined> = { page: opts.page }
       for (const [k, v] of Object.entries(opts.labels ?? {})) params[`label.${k}`] = v
@@ -1348,13 +1339,6 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
     updateAgent: (agentId, sections) => json(agents(agentId), { method: 'PUT', body: JSON.stringify(sections) }),
     deleteAgent: async (agentId) => {
       await json(agents(agentId), { method: 'DELETE' })
-    },
-    putCredential: async (agentId, app, body) => {
-      await json(`${agents(agentId)}/credentials/${encodeURIComponent(app)}`, { method: 'PUT', body: JSON.stringify(body) })
-    },
-    listCredentials: async (agentId) => {
-      const data = await json<{ credentials?: { app: string; ref: string }[] }>(`${agents(agentId)}/credentials`)
-      return data.credentials ?? []
     },
     startAgent: async (agentId) => {
       const data = await json<{ warnings?: string[] }>(`${agents(agentId)}/start`, { method: 'POST' })
