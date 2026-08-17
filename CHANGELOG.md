@@ -3,6 +3,36 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified against
 staging, not the day it was written.
 
+## 0.1.0 — 2026-08-17
+
+**Breaking.** A trim, not a feature release: four pieces of `createAgent`'s surface either
+raced the platform or answered 404, so they are gone rather than documented. The minor bump is
+the surface change; nothing new was added.
+
+### Removed
+
+- **`resource.warm`** — pre-warming the agent-scope sandbox at create races the platform's
+  credential injection (verified 2026-08-16, `zooclaw-engine#791`): the sandbox can come up
+  before the built-in-skill credentials land, and the env snapshot never refreshes, leaving
+  those skills permanently broken in that sandbox. Removing the parameter makes the race
+  unreachable instead of documenting it. `createAgent` also strips `warm` at runtime, so a JS
+  caller bypassing the types cannot resurrect it.
+- **`resource.onboarding`** — the interactive onboarding interview is never what an API caller
+  wants. `createAgent` now always sends `onboarding: false`, and strips a caller-supplied value
+  at runtime alongside `warm`.
+- **`putCredential()` / `listCredentials()`** — both answer 404 through the gateway. The
+  platform seeds model credentials itself at create; there is no supported way to store your
+  own or your end users' third-party credentials, so the methods no longer imply one.
+
+### Changed
+
+- **`createAgent(input)` takes `ownership` as optional.** The gateway derives the tenant
+  anchors from your API key, so `{ resource }` is the whole input. The field is kept for
+  callers that reach the engine without the gateway.
+- **`AgentResource` no longer carries an `[k: string]: unknown` index signature.** Unknown
+  fields are a type error now instead of passing silently — which is how `warm` and
+  `onboarding` would otherwise have kept compiling after removal.
+
 ## 0.0.6 — 2026-08-14
 
 Three engine surfaces that landed this week — the system-prompt pin, the artifacts control
