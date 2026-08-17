@@ -201,6 +201,12 @@ export interface AgentResource {
    * CREATE ONLY — it is never written to the declared config, and a `PUT` carrying it is a 400.
    * It is fire-and-forget: it cannot fail the create. With `sandbox.scope: 'session'` it is
    * ignored and the create receipt carries `warnings: ['warm-ignored-session-scope']`.
+   *
+   * ⚠️ Known platform issue (verified 2026-08-16): the pre-warm races the credential
+   * injection that happens at create. The sandbox can be born before the credentials for
+   * built-in platform-service skills land, and its env snapshot never refreshes — those
+   * skills come out permanently broken on that sandbox. Leave `warm` unset until this is
+   * fixed; recovery is recreating the agent without it.
    */
   warm?: boolean
   /**
