@@ -3,6 +3,27 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified against
 staging, not the day it was written.
 
+## Unreleased
+
+The two event entries were verified against staging 2026-08-19 (input echo, cursor pagination,
+pse1 stream resume, idempotent retry dedup, full-DTO receipts). `max_tokens` is not yet
+staging-verified.
+
+### Added
+
+- **`resource.model.max_tokens`** — output-token cap per model request, passed through on
+  create and config PUT.
+- **Unified event history.** The events read surface now carries your own inputs
+  (`user.message`, `user.interrupt`, `user.tool_confirmation`, `system.message`) alongside
+  engine events: `listAllEvents` follows the server's `next_cursor`/`has_more` pagination
+  (and still walks `after` against servers without it), `listEvents`/`streamEvents` accept
+  `cursor`, `listEventsPage` returns one page with its pagination fields for hand-paging,
+  streamed events carry a `cursor` resume token, and events expose `id` and `processedAt`.
+  `PUBLIC_INPUT_EVENT_TYPES` is exported next to `SESSION_EVENT_TYPES`. Passing `after`
+  anywhere selects the deprecated engine-only lane.
+- **Event-level idempotency on `postEvents`** — give each event an `idempotency_key` and
+  timeout retries stop double-delivering; accepted events come back as full event objects.
+
 ## 0.1.0 — 2026-08-17
 
 **Breaking.** A trim, not a feature release: four pieces of `createAgent`'s surface either

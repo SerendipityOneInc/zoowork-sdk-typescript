@@ -16,7 +16,9 @@ export {
   type SessionRecord,
   type SessionHistoryEntry,
   type SessionEvent,
+  type SessionEventPage,
   type OutboundEvent,
+  type PostEventReceipt,
   type ApprovalDecision,
   type ApprovalRecord,
   type ArtifactPage,
@@ -46,6 +48,8 @@ export {
 export {
   SESSION_EVENT_TYPES,
   type SessionEventType,
+  PUBLIC_INPUT_EVENT_TYPES,
+  type PublicInputEventType,
   normalizeEvent,
   isRunFinished,
   runOutcome,

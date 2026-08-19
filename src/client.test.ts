@@ -427,7 +427,28 @@ test('listEvents passes after/types/limit and normalizes the REST wire shape', a
   expect(events).toEqual([{ seq: 7, eventType: 'agent.assistant', payload: { message: {} }, runId: 'r1', createdAt: 't' }])
 })
 
-test('listAllEvents walks `after`, dedupes the boundary replay, and stops on a short page', async () => {
+test('listAllEvents follows next_cursor/has_more on the unified lane', async () => {
+  const pages = [
+    jsonReply({
+      events: [
+        { id: 'u1', seq: 1, event_type: 'user.message', payload: { content: [{ type: 'text', text: 'hi' }] }, processed_at: null, created_at: 't' },
+        { id: 'e2', seq: 2, event_type: 'agent.assistant', payload: {}, run_id: 'r1', created_at: 't' },
+      ],
+      has_more: true,
+      next_cursor: 'pse1:2',
+    }),
+    jsonReply({ events: [{ id: 'e4', seq: 4, event_type: 'run.finished', payload: {}, created_at: 't' }], has_more: false, next_cursor: null }),
+  ]
+  const { calls, client } = harness((_c, i) => pages[Math.min(i, pages.length - 1)]!)
+  const all = await client.listAllEvents('a', 's', { pageSize: 2 })
+  expect(all.map((e) => e.seq)).toEqual([1, 2, 4])
+  expect(all[0]).toMatchObject({ eventType: 'user.message', id: 'u1', processedAt: null })
+  expect(calls.length).toBe(2)
+  expect(path(calls, 0)).toBe('/agents/a/sessions/s/events?limit=2')
+  expect(path(calls, 1)).toBe('/agents/a/sessions/s/events?cursor=pse1%3A2&limit=2')
+})
+
+test('listAllEvents falls back to walking `after` on servers without cursor pagination', async () => {
   const pages = [
     jsonReply({ events: [{ seq: 1, event_type: 'x', payload: {} }, { seq: 2, event_type: 'x', payload: {} }] }),
     // The server replays the boundary event; it must not be emitted twice.
@@ -438,8 +459,36 @@ test('listAllEvents walks `after`, dedupes the boundary replay, and stops on a s
   const all = await client.listAllEvents('a', 's', { pageSize: 2 })
   expect(all.map((e) => e.seq)).toEqual([1, 2, 3])
   expect(calls.length).toBe(3)
-  expect(path(calls, 0)).toBe('/agents/a/sessions/s/events?after=0&limit=2')
+  expect(path(calls, 0)).toBe('/agents/a/sessions/s/events?limit=2')
   expect(path(calls, 1)).toBe('/agents/a/sessions/s/events?after=2&limit=2')
+})
+
+test('listEventsPage returns the page with its pagination fields', async () => {
+  const { calls, client } = harness(
+    jsonReply({ events: [{ seq: 3, event_type: 'agent.assistant', payload: {}, created_at: 't' }], has_more: true, next_cursor: 'pse1:3' }),
+  )
+  const page = await client.listEventsPage('a', 's', { cursor: 'pse1:1', limit: 1 })
+  expect(path(calls)).toBe('/agents/a/sessions/s/events?cursor=pse1%3A1&limit=1')
+  expect(page).toEqual({ events: [{ seq: 3, eventType: 'agent.assistant', payload: {}, createdAt: 't' }], hasMore: true, nextCursor: 'pse1:3' })
+})
+
+test('listAllEvents stops when the unified cursor fails to advance', async () => {
+  const stuck = jsonReply({ events: [{ seq: 2, event_type: 'x', payload: {} }], has_more: true, next_cursor: 'pse1:2' })
+  const { calls, client } = harness(() => stuck)
+  const all = await client.listAllEvents('a', 's', { pageSize: 1 })
+  expect(all.map((e) => e.seq)).toEqual([2]) // the repeated page is not re-appended
+  expect(calls.length).toBe(2) // page 1 sets the cursor; page 2 repeats it and the walk stops
+})
+
+test('listAllEvents does not switch lanes when pagination fields vanish mid-walk', async () => {
+  const pages = [
+    jsonReply({ events: [{ seq: 1, event_type: 'x', payload: {} }, { seq: 2, event_type: 'user.message', payload: {} }], has_more: true, next_cursor: 'pse1:2' }),
+    jsonReply({ events: [{ seq: 3, event_type: 'x', payload: {} }, { seq: 4, event_type: 'x', payload: {} }] }), // protocol violation: no has_more
+  ]
+  const { calls, client } = harness((_c, i) => pages[Math.min(i, pages.length - 1)]!)
+  const all = await client.listAllEvents('a', 's', { pageSize: 2 })
+  expect(all.map((e) => e.seq)).toEqual([1, 2, 3, 4])
+  expect(calls.length).toBe(2) // returns what it has instead of continuing on the engine-only lane
 })
 
 test('listAllEvents stops instead of spinning when the server ignores `after`', async () => {
@@ -449,10 +498,14 @@ test('listAllEvents stops instead of spinning when the server ignores `after`', 
   expect(calls.length).toBe(2) // the stuck-cursor guard, not an infinite walk
 })
 
-test('listAllEvents clamps pageSize to the server maximum of 500', async () => {
+test('listAllEvents with explicit `after` keeps the legacy walk and clamps pageSize', async () => {
   const { calls, client } = harness(jsonReply({ events: [] }))
-  await client.listAllEvents('a', 's', { pageSize: 5000 })
+  await client.listAllEvents('a', 's', { after: 0, pageSize: 5000 })
   expect(path(calls)).toBe('/agents/a/sessions/s/events?after=0&limit=500')
+
+  const unified = harness(jsonReply({ events: [] }))
+  await unified.client.listAllEvents('a', 's', { pageSize: 5000 })
+  expect(path(unified.calls)).toBe('/agents/a/sessions/s/events?limit=500')
 })
 
 test('streamEvents parses SSE, skips chat.delta preview frames, and resumes from `after`', async () => {
@@ -466,6 +519,19 @@ test('streamEvents parses SSE, skips chat.delta preview frames, and resumes from
   expect(seen).toEqual([5, 7])
   expect(path(calls)).toBe('/agents/a/sessions/s/events/stream?after=4')
   expect(calls[0]!.headers.Accept).toBe('text/event-stream')
+})
+
+test('streamEvents resumes from a unified `cursor` and stamps each event with its resume token', async () => {
+  const sse =
+    'id: pse1:9\ndata: {"id":"u9","seq":9,"event_type":"user.message","payload":{"content":[{"type":"text","text":"hi"}]},"processed_at":null,"created_at":"t"}\n\n' +
+    'id: pse1:10\ndata: {"id":"e10","seq":10,"event_type":"agent.assistant","payload":{},"run_id":"r1","created_at":"t"}\n\n'
+  const { calls, client } = harness(() => new Response(sse))
+  const seen = []
+  for await (const e of client.streamEvents('a', 's', { cursor: 'pse1:8' })) seen.push(e)
+  expect(path(calls)).toBe('/agents/a/sessions/s/events/stream?cursor=pse1%3A8')
+  expect(seen.map((e) => e.seq)).toEqual([9, 10])
+  expect(seen[0]).toMatchObject({ eventType: 'user.message', cursor: 'pse1:9', processedAt: null })
+  expect(seen[1]!.cursor).toBe('pse1:10')
 })
 
 test('streamEvents drops a replayed boundary event on resume', async () => {

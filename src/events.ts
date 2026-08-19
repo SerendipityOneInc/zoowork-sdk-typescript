@@ -1,17 +1,20 @@
 /**
  * Session event normalization.
  *
- * The wire presents the SAME event in two different shapes depending on where you read it:
+ * The wire presents the SAME event in different shapes depending on where you read it:
  *
- *   REST  GET /events        → { seq, run_id, turn, event_type, payload, created_at }
- *   SSE   GET /events/stream → { seq, runId, turn, eventType, payload, createdAt, version, engine, sessionId }
+ *   unified lane (default)     → { id, seq, event_type, run_id, turn, payload, processed_at, created_at }
+ *                                on BOTH transports; the SSE `id:` line carries a `pse1:` resume token
+ *   deprecated `after` lane    → REST { seq, run_id, ... } stays snake_case, SSE frames arrive
+ *                                camelCase { seq, runId, eventType, createdAt, ... }
  *
- * Neither carries a top-level `type`. `normalizeEvent` absorbs both shapes once, so callers
- * switch on a single field. Verified against staging 2026-08-05.
+ * No shape carries a top-level `type`. `normalizeEvent` absorbs all of them once, so callers
+ * switch on a single field. Legacy shapes verified against staging 2026-08-05; unified lane
+ * (input echo, pse1 cursors, idempotent postEvents) verified 2026-08-19.
  *
- * The vocabulary is SESSION_EVENT_TYPES mirrored from the API. Unknown
- * types pass through unchanged rather than throwing — the API is Developer Preview and may
- * add types within a version.
+ * The vocabulary is SESSION_EVENT_TYPES plus PUBLIC_INPUT_EVENT_TYPES, mirrored from the API.
+ * Unknown types pass through unchanged rather than throwing — the API is Developer Preview
+ * and may add types within a version.
  */
 
 /** SESSION_EVENT_TYPES, mirrored from the API. */
@@ -39,15 +42,31 @@ export const SESSION_EVENT_TYPES = [
 
 export type SessionEventType = (typeof SESSION_EVENT_TYPES)[number]
 
+/** Your own inputs, echoed back in the unified event history. */
+export const PUBLIC_INPUT_EVENT_TYPES = [
+  'user.message',
+  'user.interrupt',
+  'user.tool_confirmation',
+  'system.message',
+] as const
+
+export type PublicInputEventType = (typeof PUBLIC_INPUT_EVENT_TYPES)[number]
+
 /** A durable session event, normalized across the REST and SSE shapes. */
 export interface SessionEvent {
-  /** Durable per-session sequence. Use as the `after` cursor when resuming. */
+  /** Durable per-session sequence: strictly increasing, not necessarily contiguous. */
   seq: number
-  eventType: SessionEventType | string
+  eventType: SessionEventType | PublicInputEventType | string
   payload: Record<string, unknown>
   runId?: string
   turn?: number
   createdAt?: string
+  /** Event id, when the server sends one. */
+  id?: string
+  /** Input events only: `null` while queued, set once the agent has consumed it. */
+  processedAt?: string | null
+  /** Resume token for `streamEvents({ cursor })`, present on streamed events. */
+  cursor?: string
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object'
@@ -57,11 +76,16 @@ const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : und
 export function normalizeEvent(raw: unknown, sseId?: string): SessionEvent {
   const r = isObj(raw) ? raw : {}
   let seq = typeof r.seq === 'number' ? r.seq : -1
+  // A bare-integer id is the deprecated lane's seq; any other id is an opaque resume token,
+  // so a future token version keeps stamping `cursor` (only the seq fallback pins `pse1:`).
+  const numericId = sseId !== undefined ? Number(sseId) : Number.NaN
+  const cursor = sseId !== undefined && !Number.isFinite(numericId) ? sseId : undefined
   if (seq < 0 && sseId !== undefined) {
-    const n = Number(sseId)
+    const n = cursor === undefined ? numericId : Number(sseId.startsWith('pse1:') ? sseId.slice(5) : Number.NaN)
     if (Number.isFinite(n)) seq = n
   }
   const turn = typeof r.turn === 'number' ? r.turn : undefined
+  const processedAt = 'processed_at' in r ? (str(r.processed_at) ?? null) : undefined
   return {
     seq,
     eventType: str(r.eventType) ?? str(r.event_type) ?? '',
@@ -69,6 +93,9 @@ export function normalizeEvent(raw: unknown, sseId?: string): SessionEvent {
     ...(str(r.runId) ?? str(r.run_id) ? { runId: (str(r.runId) ?? str(r.run_id))! } : {}),
     ...(turn !== undefined ? { turn } : {}),
     ...(str(r.createdAt) ?? str(r.created_at) ? { createdAt: (str(r.createdAt) ?? str(r.created_at))! } : {}),
+    ...(str(r.id) ? { id: str(r.id)! } : {}),
+    ...(processedAt !== undefined ? { processedAt } : {}),
+    ...(cursor !== undefined ? { cursor } : {}),
   }
 }
 
