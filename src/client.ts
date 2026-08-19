@@ -174,7 +174,8 @@ export interface OutcomeConfig {
 
 export interface AgentResource {
   name: string
-  model?: { primary: string; input?: string[] }
+  /** `max_tokens` caps output tokens per model request. Omit to use the platform default. */
+  model?: { primary: string; input?: string[]; max_tokens?: number }
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
   skills?: { skill_id: string; version?: number | 'latest' }[]
   labels?: Record<string, string>
@@ -339,6 +340,21 @@ export interface OutboundEvent {
   type: string
   content?: unknown
   [k: string]: unknown
+}
+
+/** One `postEvents` receipt. An accepted event carries the full event object's fields too. */
+export interface PostEventReceipt {
+  id?: string | null
+  type?: string
+  accepted?: boolean
+  [k: string]: unknown
+}
+
+/** One page of the unified event history, with its pagination fields when the server sends them. */
+export interface SessionEventPage {
+  events: SessionEvent[]
+  hasMore?: boolean
+  nextCursor?: string | null
 }
 
 /**
@@ -925,24 +941,34 @@ export interface ZooclawClient {
   archiveSession(agentId: string, sessionId: string): Promise<{ session_id?: string; archived: boolean }>
   /** Soft delete (204). An in-flight run is cancelled first; transcripts and events survive for audit. */
   deleteSession(agentId: string, sessionId: string): Promise<void>
-  /** 202; `user.interrupt` with no in-flight run returns `accepted:false` — not an error. */
-  postEvents(agentId: string, sessionId: string, events: OutboundEvent[]): Promise<{ events: { id?: string; type?: string; accepted?: boolean }[] }>
   /**
-   * ONE page of durable events: `limit` defaults to 100 and is capped at 500, and a full page
-   * is TRUNCATED SILENTLY — there is no `has_more`, no total, no next cursor. A session with
-   * 600 events answers 500 of them and looks complete. Use {@link ZooclawClient.listAllEvents}
-   * unless you are paging by hand.
+   * 202; `user.interrupt` with no in-flight run returns `accepted:false` — not an error.
+   * Accepted events come back as full event objects (with `seq`) where the server supports the
+   * unified history; give each event an `idempotency_key` to make timeout retries safe.
    */
-  listEvents(agentId: string, sessionId: string, opts?: { after?: number; types?: string[]; limit?: number }): Promise<SessionEvent[]>
+  postEvents(agentId: string, sessionId: string, events: OutboundEvent[]): Promise<{ events: PostEventReceipt[] }>
   /**
-   * Every durable event, by walking `after` until a short page comes back.
-   *
-   * This exists because `listEvents` truncates at 500 with nothing in the response to say so.
-   * The loop also stops if the highest `seq` in a page fails to advance the cursor, so a server
-   * that ignored `after` would return a duplicate page instead of spinning forever.
+   * ONE page of durable events — the unified history, which includes your own inputs
+   * (`user.message`, …) alongside engine events. `limit` defaults to 100 and is capped at 500;
+   * the page's pagination fields are dropped, so use {@link ZooclawClient.listAllEvents}, or
+   * {@link ZooclawClient.listEventsPage} to page by hand.
+   * Passing `after` selects the deprecated engine-only lane — old cursors only.
+   */
+  listEvents(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; types?: string[]; limit?: number }): Promise<SessionEvent[]>
+  /**
+   * The page-returning primitive under `listEvents`: same options, plus the page's `hasMore`
+   * and `nextCursor` (absent on servers without cursor pagination). Feed `nextCursor` back as
+   * `cursor` to page by hand.
+   */
+  listEventsPage(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; types?: string[]; limit?: number }): Promise<SessionEventPage>
+  /**
+   * Every durable event: follows the server's `next_cursor` until `has_more` is false, and
+   * falls back to walking `after` against servers without cursor pagination (that walk stops
+   * when a page fails to advance, so a server that ignored `after` cannot spin it forever).
    *
    * `pageSize` is the per-request `limit` (default and maximum 500). Events come back in
-   * ascending `seq`, deduplicated across page boundaries.
+   * ascending `seq`, deduplicated across page boundaries. Passing `after` forces the
+   * deprecated engine-only lane.
    */
   listAllEvents(
     agentId: string,
@@ -950,14 +976,15 @@ export interface ZooclawClient {
     opts?: { after?: number; types?: string[]; pageSize?: number },
   ): Promise<SessionEvent[]>
   /**
-   * Durable event stream with server-side resume (`?after=<seq>`).
+   * Durable event stream with server-side resume.
    *
    * The stream is SESSION-scoped and unbounded: it does NOT close when a turn ends, and the
-   * server closes it on idle. Detect turn end with `isRunFinished`, and resume the next
-   * window from the last seq you saw. `chat.delta` preview frames are skipped — they are
-   * snapshot-replace frames on a separate Redis-only lane, not durable events.
+   * server closes it on idle. Detect turn end with `isRunFinished`, and resume by passing the
+   * last event's `cursor` (its `after` fallback selects the deprecated engine-only lane).
+   * `chat.delta` preview frames are skipped — they are snapshot-replace frames on a separate
+   * Redis-only lane, not durable events.
    */
-  streamEvents(agentId: string, sessionId: string, opts?: { after?: number; signal?: AbortSignal }): AsyncGenerator<SessionEvent>
+  streamEvents(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; signal?: AbortSignal }): AsyncGenerator<SessionEvent>
 
   // ── approvals ──
   /**
@@ -1465,21 +1492,51 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
       )
       return { events: data.events ?? [] }
     },
-    listEvents: async (agentId, sessionId, opts = {}) => {
-      const q = new URLSearchParams()
-      if (opts.after !== undefined) q.set('after', String(opts.after))
-      if (opts.types !== undefined) q.set('types', opts.types.join(','))
-      if (opts.limit !== undefined) q.set('limit', String(opts.limit))
-      const qs = q.toString()
-      const data = await json<{ events?: unknown[] }>(
-        `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events${qs ? `?${qs}` : ''}`,
+    listEvents: async (agentId, sessionId, opts = {}) => (await client.listEventsPage(agentId, sessionId, opts)).events,
+    listEventsPage: async (agentId, sessionId, opts = {}) => {
+      const data = await json<{ events?: unknown[]; has_more?: boolean; next_cursor?: string | null }>(
+        `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events${query({
+          after: opts.after,
+          cursor: opts.cursor,
+          types: opts.types?.join(','),
+          limit: opts.limit,
+        })}`,
       )
-      return (data.events ?? []).map((e) => normalizeEvent(e))
+      return {
+        events: (data.events ?? []).map((e) => normalizeEvent(e)),
+        ...(data.has_more !== undefined ? { hasMore: data.has_more } : {}),
+        ...(data.next_cursor !== undefined ? { nextCursor: data.next_cursor } : {}),
+      }
     },
     listAllEvents: async (agentId, sessionId, opts = {}) => {
       const pageSize = Math.min(Math.max(opts.pageSize ?? 500, 1), 500)
       const out: SessionEvent[] = []
-      let cursor = opts.after ?? 0
+      // Unified lane (default): follow the server's cursor until has_more is false.
+      if (opts.after === undefined) {
+        let pageCursor: string | undefined
+        for (;;) {
+          const page = await client.listEventsPage(agentId, sessionId, {
+            ...(pageCursor !== undefined ? { cursor: pageCursor } : {}),
+            ...(opts.types ? { types: opts.types } : {}),
+            limit: pageSize,
+          })
+          // A cursor that fails to advance means the same page again — stop before
+          // re-appending it rather than refetching it forever.
+          if (page.hasMore !== undefined && page.nextCursor === pageCursor) return out
+          out.push(...page.events)
+          if (page.hasMore === undefined) {
+            // Before the first cursor this is a server without cursor pagination: a short
+            // page already ends the history, a full one continues on the `after` walk below.
+            // Mid-walk it is a protocol violation — return what we have rather than silently
+            // switching to the engine-only lane and dropping input events.
+            if (pageCursor !== undefined || page.events.length < pageSize) return out
+            break
+          }
+          if (!page.hasMore || !page.nextCursor || page.events.length === 0) return out
+          pageCursor = page.nextCursor
+        }
+      }
+      let cursor = opts.after ?? out.reduce((max, e) => (e.seq > max ? e.seq : max), 0)
       for (;;) {
         const page = await client.listEvents(agentId, sessionId, {
           after: cursor,
@@ -1499,7 +1556,8 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
     async *streamEvents(agentId, sessionId, opts = {}) {
       const after = opts.after ?? 0
       let lastSeq = after
-      const path = `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events/stream${after > 0 ? `?after=${after}` : ''}`
+      const qs = query(opts.cursor !== undefined ? { cursor: opts.cursor } : { after: after > 0 ? after : undefined })
+      const path = `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events/stream${qs}`
       try {
         const res = await doFetch(`${base}${path}`, {
           headers: { Authorization: `Bearer ${bearer}`, Accept: 'text/event-stream' },
