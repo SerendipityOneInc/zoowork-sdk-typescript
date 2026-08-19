@@ -3,26 +3,27 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified against
 staging, not the day it was written.
 
-## Unreleased
+## 0.2.0 — 2026-08-19
 
-The two event entries were verified against staging 2026-08-19 (input echo, cursor pagination,
-pse1 stream resume, idempotent retry dedup, full-DTO receipts). `max_tokens` is not yet
-staging-verified.
+Everything below was verified against staging on 2026-08-19: input echo with the
+`processedAt` lifecycle, cursor pagination, `pse1:` stream resume, idempotent retry dedup,
+full-object receipts, and `max_tokens` visibly capping a reply.
 
 ### Added
 
-- **`resource.model.max_tokens`** — output-token cap per model request, passed through on
-  create and config PUT.
 - **Unified event history.** The events read surface now carries your own inputs
   (`user.message`, `user.interrupt`, `user.tool_confirmation`, `system.message`) alongside
-  engine events: `listAllEvents` follows the server's `next_cursor`/`has_more` pagination
-  (and still walks `after` against servers without it), `listEvents`/`streamEvents` accept
-  `cursor`, `listEventsPage` returns one page with its pagination fields for hand-paging,
-  streamed events carry a `cursor` resume token, and events expose `id` and `processedAt`.
-  `PUBLIC_INPUT_EVENT_TYPES` is exported next to `SESSION_EVENT_TYPES`. Passing `after`
-  anywhere selects the deprecated engine-only lane.
+  engine events — the log alone renders the whole conversation: `listAllEvents` follows the
+  server's `next_cursor`/`has_more` pagination (and still walks `after` against servers
+  without it), `listEvents`/`streamEvents` accept `cursor`, `listEventsPage` returns one page
+  with its pagination fields for hand-paging, streamed events carry a `cursor` resume token,
+  and events expose `id` and `processedAt`. `PUBLIC_INPUT_EVENT_TYPES` is exported next to
+  `SESSION_EVENT_TYPES`. Passing `after` anywhere selects the deprecated engine-only lane.
 - **Event-level idempotency on `postEvents`** — give each event an `idempotency_key` and
-  timeout retries stop double-delivering; accepted events come back as full event objects.
+  timeout retries stop double-delivering; accepted events come back as full event objects
+  (`PostEventReceipt`).
+- **`resource.model.max_tokens`** — output-token cap per model request, passed through on
+  create and config PUT and enforced by the platform.
 
 ## 0.1.0 — 2026-08-17
 
