@@ -1,7 +1,48 @@
 # Changelog
 
-All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
-not the day it was written.
+All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
+day the behaviour was verified, not the day it was written.
+
+## 0.4.1 — 2026-08-25
+
+### Internal
+
+- **Trailing slashes are stripped from the base URL by a scan rather than `/\/+$/`.** Same
+  output for every input; the regex retried at every start position on a long run of
+  slashes, which CodeQL flags as polynomial. Nothing hostile reaches it — the input is the
+  caller's own base URL — so this closes an alert rather than a vulnerability.
+
+### Documentation
+
+- **`account` on `addChannel` / `startFeishuSetup` now documents what it actually is.** It
+  names a binding and is part of its identity — `updateChannel` and `removeChannel` look a
+  binding up by `platform` + `account`, and nothing renames one. The four constraints, all
+  staging-verified 2026-08-25:
+  - the name is unique per USER across every agent, not per agent;
+  - `'default'` is usually taken already by a binding the app made, which this API will not
+    adopt — it answers `409 channel.conflict`;
+  - the format is `^[a-z0-9][a-z0-9_-]{0,63}$` plus three reserved words, and nothing is
+    normalized for you;
+  - this SDK cannot pre-check a name, because `listChannels` is scoped to one agent while the
+    constraint spans the whole account.
+- **`startFeishuSetup` warns that a name clash surfaces after the scan.** Approving the QR
+  registers a new app in the Feishu workspace before the binding is written, so a clash costs
+  a scan and leaves that app behind; retrying under the same name repeats both.
+
+No runtime change — comments only.
+
+## 0.4.0 — 2026-08-25
+
+### Changed (breaking)
+
+- **Renamed to `@zoowork-ai/sdk`.** The package, exports, and environment variables all
+  move from the ZooClaw name to ZooWork, with no compatibility aliases:
+  - Install `@zoowork-ai/sdk` instead of `@zooclaw-agents/sdk`.
+  - `createZooclawClient` → `createZooworkClient`; `ZooclawClient`, `ZooclawError`,
+    `ZooclawAuth`, `ZooclawConfig` → `Zoowork*`.
+  - `ZOOCLAW_API_KEY` / `ZOOCLAW_BASE_URL` → `ZOOWORK_API_KEY` / `ZOOWORK_BASE_URL`.
+- Server-side identifiers are unchanged: API keys still start with `zct_`, and skill or
+  environment names the API returns (e.g. `zooclaw-tts`) are whatever the server says.
 
 ## 0.3.4 — 2026-08-25
 

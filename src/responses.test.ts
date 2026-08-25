@@ -16,8 +16,8 @@
  */
 import { expect, test } from 'vitest'
 import {
-  createZooclawClient,
-  ZooclawError,
+  createZooworkClient,
+  ZooworkError,
   type AgentChannel,
   type AgentRecord,
   type AgentSkill,
@@ -38,7 +38,7 @@ import {
   type SessionHistoryEntry,
   type SessionRecord,
   type SkillRecord,
-  type ZooclawClient,
+  type ZooworkClient,
 } from './index.js'
 
 const BASE = 'https://api.test/service/v1'
@@ -101,9 +101,9 @@ interface Replayed<T> {
  * `body: null` in a fixture means the response carried NO body (the 204s), which is also the only
  * thing `new Response` accepts for a 204 — a `''` body throws at construction.
  */
-function stub(fx: Fixture): { client: ZooclawClient; calls: { url: string; method: string }[] } {
+function stub(fx: Fixture): { client: ZooworkClient; calls: { url: string; method: string }[] } {
   const calls: { url: string; method: string }[] = []
-  const client = createZooclawClient({
+  const client = createZooworkClient({
     apiKey: 'zct_test_key',
     baseUrl: BASE,
     fetch: async (input: string, init: RequestInit = {}) => {
@@ -114,7 +114,7 @@ function stub(fx: Fixture): { client: ZooclawClient; calls: { url: string; metho
   return { client, calls }
 }
 
-async function replay<T>(name: string, call: (client: ZooclawClient) => Promise<T>): Promise<Replayed<T>> {
+async function replay<T>(name: string, call: (client: ZooworkClient) => Promise<T>): Promise<Replayed<T>> {
   const fx = fixture(name)
   const { client, calls } = stub(fx)
   const result = await call(client)
@@ -127,13 +127,13 @@ async function replay<T>(name: string, call: (client: ZooclawClient) => Promise<
 }
 
 /** The rejection half: error fixtures are replayed the same way, and the thrown error is asserted. */
-async function replayError(name: string, call: (client: ZooclawClient) => Promise<unknown>): Promise<ZooclawError> {
+async function replayError(name: string, call: (client: ZooworkClient) => Promise<unknown>): Promise<ZooworkError> {
   const fx = fixture(name)
   const { client } = stub(fx)
   try {
     await call(client)
   } catch (e) {
-    return e as ZooclawError
+    return e as ZooworkError
   }
   throw new Error(`expected ${name} to reject, got a resolved promise`)
 }
@@ -311,7 +311,7 @@ test('the agents family answers a DIFFERENT error envelope — {code, detail}, n
 
 test('the sessions family answers the {error:{type,message}} envelope', async () => {
   const err = await replayError('error-404-session-not-found', (c) => c.getSession(AGENT, MISSING_SESSION))
-  expect(err).toBeInstanceOf(ZooclawError)
+  expect(err).toBeInstanceOf(ZooworkError)
   expect(err.status).toBe(404)
   expect(err.type).toBe('not_found')
   expect(err.message).toBe('session not found')
@@ -948,11 +948,11 @@ test('a stale expected_config_version is 409 config_version_changed — a real C
  * artifact call — so their replays answer the projection from its own recorded fixture and
  * everything else from `name`. `path`/`method` describe the LAST call.
  */
-async function replayArtifacts<T>(name: string, call: (client: ZooclawClient) => Promise<T>): Promise<Replayed<T>> {
+async function replayArtifacts<T>(name: string, call: (client: ZooworkClient) => Promise<T>): Promise<Replayed<T>> {
   const projection = fixture('get-agents-id')
   const fx = fixture(name)
   const calls: { url: string; method: string }[] = []
-  const client = createZooclawClient({
+  const client = createZooworkClient({
     apiKey: 'zct_test_key',
     baseUrl: BASE,
     fetch: async (input: string, init: RequestInit = {}) => {
@@ -997,7 +997,7 @@ test('the artifacts route without selectors is 400 ownership_required — the EN
 test('getArtifact on an unknown id is 404 not_found (hidden, not 403)', async () => {
   const fx = fixture('error-404-artifact-not-found')
   const projection = fixture('get-agents-id')
-  const client = createZooclawClient({
+  const client = createZooworkClient({
     apiKey: 'zct_test_key',
     baseUrl: BASE,
     fetch: async (input: string) => {
@@ -1009,8 +1009,8 @@ test('getArtifact on an unknown id is 404 not_found (hidden, not 403)', async ()
     await client.getArtifact(AGENT, 'art_01000000000000000000000000')
     expect.unreachable('a nonexistent artifact resolved')
   } catch (e) {
-    const err = e as ZooclawError
-    expect(err).toBeInstanceOf(ZooclawError)
+    const err = e as ZooworkError
+    expect(err).toBeInstanceOf(ZooworkError)
     expect(err.status).toBe(404)
     expect(err.type).toBe('not_found')
   }

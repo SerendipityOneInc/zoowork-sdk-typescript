@@ -1,7 +1,7 @@
 /**
  * Surface probe — exercises the SDK surfaces added after `capability-probe.ts`, live.
  *
- *   ZOOCLAW_API_KEY=zct_... pnpm exec tsx examples/surface-probe.ts
+ *   ZOOWORK_API_KEY=zct_... pnpm exec tsx examples/surface-probe.ts
  *
  * `capability-probe.ts` walks the agent LIFECYCLE (create → turn → interrupt → stop).
  * This one walks everything that hangs off a running agent: the skill registry, schedules,
@@ -14,21 +14,21 @@
  * the run.
  *
  * Env knobs:
- *   ZOOCLAW_API_KEY            required
- *   ZOOCLAW_BASE_URL           optional; defaults to the public API
+ *   ZOOWORK_API_KEY            required
+ *   ZOOWORK_BASE_URL           optional; defaults to the public API
  *   PROBE_KEEP=1               skip cleanup entirely, for manual poking (prints what it left)
  *   PROBE_OUT=<path>           write the full JSON record here (default: ./surface-probe-report.json)
- *   ZOOCLAW_RECORD_FIXTURES=1  additionally write every RAW response to `src/__fixtures__/`,
+ *   ZOOWORK_RECORD_FIXTURES=1  additionally write every RAW response to `src/__fixtures__/`,
  *                              scrubbed, for the offline replay suite to assert against
  */
 import {
-  createZooclawClient,
-  ZooclawError,
+  createZooworkClient,
+  ZooworkError,
   assistantText,
   isRunFinished,
   runOutcome,
   DEFAULT_BASE_URL,
-  type ZooclawClient,
+  type ZooworkClient,
   type SessionEvent,
   type ScheduleRecord,
 } from '../src/index.js'
@@ -36,19 +36,19 @@ import { createFixtureRecorder } from './fixture-recorder.js'
 
 // ── setup ────────────────────────────────────────────────────────────────────
 
-const baseUrl = process.env.ZOOCLAW_BASE_URL ?? DEFAULT_BASE_URL
+const baseUrl = process.env.ZOOWORK_BASE_URL ?? DEFAULT_BASE_URL
 
 /**
- * With `ZOOCLAW_RECORD_FIXTURES=1`, every response this run receives is copied to
+ * With `ZOOWORK_RECORD_FIXTURES=1`, every response this run receives is copied to
  * `src/__fixtures__/` BEFORE the SDK parses it, so the offline suite asserts against real
  * staging bytes rather than against the same guess the types make. Off by default, and when
  * off the recorder's `fetch` is the platform one — the probe behaves identically either way.
  */
-const rec = createFixtureRecorder({ baseUrl, enabled: process.env.ZOOCLAW_RECORD_FIXTURES === '1' })
+const rec = createFixtureRecorder({ baseUrl, enabled: process.env.ZOOWORK_RECORD_FIXTURES === '1' })
 
 // apiKey and baseUrl both resolve from the environment; only `fetch` is passed in, and the key
 // is never read into a local so it cannot be logged by accident.
-const zc: ZooclawClient = createZooclawClient({ fetch: rec.fetch })
+const zc: ZooworkClient = createZooworkClient({ fetch: rec.fetch })
 
 // Placeholders on purpose: the API substitutes the tenant bound to your key.
 const ownership = { owner_uid: 'probe-owner', org_id: 'probe-org' }
@@ -71,13 +71,13 @@ const record = (id: string, verdict: Verdict, note: string, observed?: unknown):
   console.log(`  ${mark} ${id}: ${note}`)
 }
 
-/** Run one probe; a thrown ZooclawError is an observation, not a crash. */
+/** Run one probe; a thrown ZooworkError is an observation, not a crash. */
 async function probe(id: string, fn: () => Promise<void>): Promise<void> {
   console.log(`\n▸ ${id}`)
   try {
     await fn()
   } catch (e) {
-    if (e instanceof ZooclawError) {
+    if (e instanceof ZooworkError) {
       record(id, 'BROKEN', `HTTP ${e.status} ${e.type ?? ''} — ${e.message}`)
     } else {
       record(id, 'BROKEN', `threw: ${(e as Error).message}`)
@@ -89,7 +89,7 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 /** Shape a caught error into something a note can carry without leaking a stack. */
 const errNote = (e: unknown): string =>
-  e instanceof ZooclawError ? `HTTP ${e.status} ${e.type ?? ''} — ${e.message}` : `threw: ${(e as Error).message}`
+  e instanceof ZooworkError ? `HTTP ${e.status} ${e.type ?? ''} — ${e.message}` : `threw: ${(e as Error).message}`
 
 /** Drive a turn to completion, returning the outcome and the assembled text. */
 async function runTurn(
@@ -136,7 +136,7 @@ async function buildSkillZip(skillName: string): Promise<Uint8Array> {
   const { promisify } = await import('node:util')
   const run = promisify(execFile)
 
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zooclaw-surface-probe-'))
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zoowork-surface-probe-'))
   try {
     const pkg = path.join(root, 'pkg')
     const dir = path.join(pkg, skillName)
@@ -453,7 +453,7 @@ try {
     rec.tag('error-400-schedule-server-derived-fields')
     const unstripped = await rec.fetch(`${baseUrl}/agents/${agentId}/schedules/${scheduleId}`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${process.env.ZOOCLAW_API_KEY ?? ''}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${process.env.ZOOWORK_API_KEY ?? ''}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(roundTrip),
     })
     record(
@@ -492,7 +492,7 @@ try {
     const res = await rec.fetch(`${baseUrl}/agents/${agentId}/schedules/${scheduleId}`, {
       method: 'PUT',
       headers: {
-        Authorization: `Bearer ${process.env.ZOOCLAW_API_KEY ?? ''}`,
+        Authorization: `Bearer ${process.env.ZOOWORK_API_KEY ?? ''}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -673,7 +673,7 @@ try {
   await probe('exec', async () => {
     // The sandbox may still be cold or the config unrendered right after create; both are
     // 409s with a specific type, and both clear on their own. Retry only those.
-    let out: Awaited<ReturnType<ZooclawClient['exec']>> | undefined
+    let out: Awaited<ReturnType<ZooworkClient['exec']>> | undefined
     let attempts = 0
     let lastErr = ''
     const t0 = Date.now()
@@ -687,7 +687,7 @@ try {
       } catch (e) {
         lastErr = errNote(e)
         const retriable =
-          e instanceof ZooclawError && e.status === 409 && /not_ready|cold|starting/i.test(`${e.type} ${e.message}`)
+          e instanceof ZooworkError && e.status === 409 && /not_ready|cold|starting/i.test(`${e.type} ${e.message}`)
         if (!retriable) throw e
         await sleep(4000)
       }
@@ -733,7 +733,7 @@ try {
 
   await probe('getAgent 404 envelope', async () => {
     // A 404 body is a fixture in its own right, because the SDK digs `error.type` and
-    // `error.message` out of it and hands them to every caller who catches a ZooclawError.
+    // `error.message` out of it and hands them to every caller who catches a ZooworkError.
     //
     // The agents family does not use that envelope. It answers `{code, detail}`, which
     // `readResponse` cannot read, so an agent 404 arrives with `type: undefined` and the
@@ -745,12 +745,12 @@ try {
       await zc.getAgent('agt_01000000000000000000000000')
       record('getAgent 404 envelope', 'DIFFERS', 'reading a nonexistent agent SUCCEEDED')
     } catch (e) {
-      const err = e as ZooclawError
+      const err = e as ZooworkError
       record(
         'getAgent 404 envelope',
         err.type === undefined ? 'DIFFERS' : 'WORKS',
         `HTTP ${err.status} type=${JSON.stringify(err.type)} message=${JSON.stringify(err.message)} ` +
-          '— the agents family answers {code, detail}, not {error:{type,message}}, so ZooclawError.type is undefined here',
+          '— the agents family answers {code, detail}, not {error:{type,message}}, so ZooworkError.type is undefined here',
         { status: err.status, type: err.type },
       )
     }
@@ -864,7 +864,7 @@ try {
       await zc.postEvents(agentId, mainSession, [{ type: 'user.message', content: 'after archive' }])
       record('archiveSession blocks writes', 'DIFFERS', 'a post-archive write was ACCEPTED — no session_archived guard')
     } catch (e) {
-      const err = e as ZooclawError
+      const err = e as ZooworkError
       record(
         'archiveSession blocks writes',
         err.status === 409 ? 'WORKS' : 'DIFFERS',
@@ -974,7 +974,7 @@ try {
       await zc.upgradeSystemPrompt(agentId, { expected_config_version: current })
       record('upgradeSystemPrompt stale CAS', 'DIFFERS', 'a STALE expected_config_version was accepted')
     } catch (e) {
-      const err = e as ZooclawError
+      const err = e as ZooworkError
       record(
         'upgradeSystemPrompt stale CAS',
         err.status === 409 ? 'WORKS' : 'DIFFERS',
@@ -1001,7 +1001,7 @@ try {
     // The selector rule, on disk: the same route bare is a 400.
     rec.tag('error-400-artifacts-ownership-required')
     const bare = await rec.fetch(`${baseUrl}/agents/${agentId}/artifacts`, {
-      headers: { Authorization: `Bearer ${process.env.ZOOCLAW_API_KEY ?? ''}` },
+      headers: { Authorization: `Bearer ${process.env.ZOOWORK_API_KEY ?? ''}` },
     })
     record(
       'listArtifacts without selectors',
@@ -1018,7 +1018,7 @@ try {
       await zc.getArtifact(agentId, 'art_01000000000000000000000000')
       record('getArtifact (unknown id)', 'DIFFERS', 'reading a nonexistent artifact SUCCEEDED')
     } catch (e) {
-      const err = e as ZooclawError
+      const err = e as ZooworkError
       record(
         'getArtifact (unknown id)',
         err.status === 404 ? 'WORKS' : 'DIFFERS',
@@ -1162,7 +1162,7 @@ try {
         { agent_id: stray.agent_id },
       )
     } catch (e) {
-      const err = e as ZooclawError
+      const err = e as ZooworkError
       record(
         'createAgent pinned to a not-ready version (409)',
         err.status === 409 ? 'WORKS' : 'DIFFERS',

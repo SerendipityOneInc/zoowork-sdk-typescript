@@ -1,28 +1,28 @@
-# @zooclaw-agents/sdk
+# @zoowork-ai/sdk
 
-TypeScript SDK for the [ZooClaw Managed Agents](https://github.com/SerendipityOneInc/zoowork-agents-docs) API. Developer Preview.
+TypeScript SDK for the [ZooWork Managed Agents](https://github.com/SerendipityOneInc/zoowork-agents-docs) API. Developer Preview.
 
 Zero runtime dependencies — it uses the platform `fetch`, which you can override for edge runtimes and tests. ESM only, Node 20+.
 
 ```bash
-npm install @zooclaw-agents/sdk
+npm install @zoowork-ai/sdk
 ```
 
 ## Quickstart
 
-You need an API key (`zct_...`) issued for your organization — create one in the ZooClaw App under **Settings → API Keys** (any personal org; enterprise orgs need the admin role), or ask your org admin for one. The secret is shown exactly once at creation. Keep it server-side: it authenticates as your whole organization, not as one end user.
+You need an API key (`zct_...`) issued for your organization — create one in the ZooWork App under **Settings → API Keys** (any personal org; enterprise orgs need the admin role), or ask your org admin for one. The secret is shown exactly once at creation. Keep it server-side: it authenticates as your whole organization, not as one end user.
 
 ```ts
-import { createZooclawClient } from '@zooclaw-agents/sdk'
+import { createZooworkClient } from '@zoowork-ai/sdk'
 
-const zc = createZooclawClient({ apiKey: process.env.ZOOCLAW_API_KEY })
+const zc = createZooworkClient({ apiKey: process.env.ZOOWORK_API_KEY })
 
-// Or set ZOOCLAW_API_KEY and pass nothing at all:
-// const zc = createZooclawClient()
+// Or set ZOOWORK_API_KEY and pass nothing at all:
+// const zc = createZooworkClient()
 ```
 
 The base URL has a working default, so you do not configure an endpoint. Override it with
-`ZOOCLAW_BASE_URL`, or with `baseUrl` on the call, to point at a different deployment.
+`ZOOWORK_BASE_URL`, or with `baseUrl` on the call, to point at a different deployment.
 
 ```ts
 // 1. Create an agent. Ownership is derived from your key, so `resource` is all you
@@ -44,13 +44,13 @@ const session = await zc.createSession(agent.agent_id, {
 
 | Option | Environment variable | Default |
 |---|---|---|
-| `apiKey` | `ZOOCLAW_API_KEY` | none - construction throws without one |
-| `baseUrl` | `ZOOCLAW_BASE_URL` | the public gateway (`DEFAULT_BASE_URL`) |
+| `apiKey` | `ZOOWORK_API_KEY` | none - construction throws without one |
+| `baseUrl` | `ZOOWORK_BASE_URL` | the public gateway (`DEFAULT_BASE_URL`) |
 | `fetch` | - | `globalThis.fetch` |
 
 An explicit option always beats the environment variable.
 
-> **Finding the agent you built in the app.** The first path segment of a ZooClaw chat URL
+> **Finding the agent you built in the app.** The first path segment of a ZooWork chat URL
 > (`/chat/<32-hex>/sessions/…`) is a *workspace* id, not an `agt_…`. Resolve it with
 > `zc.listAgents({ labels: { workspace_id: '<32-hex>' } })`; a bare `zc.listAgents()` lists
 > everything your key can see. Scope is `owner_uid AND org_id` — an agent a *colleague*
@@ -67,7 +67,7 @@ An explicit option always beats the environment variable.
 `run.finished` ends a turn; assistant text arrives on `agent.assistant`.
 
 ```ts
-import { assistantText, isRunFinished, runOutcome, toolCall } from '@zooclaw-agents/sdk'
+import { assistantText, isRunFinished, runOutcome, toolCall } from '@zoowork-ai/sdk'
 
 for await (const ev of zc.streamEvents(agent.agent_id, session.session_id)) {
   process.stdout.write(assistantText(ev)) // '' for every non-assistant event
@@ -186,7 +186,7 @@ and `listEvents` truncates at 500 events with nothing in the response to say it 
 
 ## Documentation
 
-Full guides and the capability matrix: **[zooclaw-docs](https://github.com/SerendipityOneInc/zoowork-agents-docs)**.
+Full guides and the capability matrix: **[zoowork-agents-docs](https://github.com/SerendipityOneInc/zoowork-agents-docs)**.
 
 Runnable examples in [`examples/`](examples):
 

@@ -9,8 +9,8 @@
  * Wiring (see `examples/surface-probe.ts`):
  *
  * ```ts
- * const rec = createFixtureRecorder({ baseUrl, enabled: process.env.ZOOCLAW_RECORD_FIXTURES === '1' })
- * const zc = createZooclawClient({ fetch: rec.fetch })
+ * const rec = createFixtureRecorder({ baseUrl, enabled: process.env.ZOOWORK_RECORD_FIXTURES === '1' })
+ * const zc = createZooworkClient({ fetch: rec.fetch })
  * rec.tag('get-agent')                 // names the NEXT response
  * await zc.getAgent(agentId)
  * await rec.flush()                    // scrub, dedupe, write
@@ -31,7 +31,7 @@
 import { writeFile, mkdir, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { ZooclawConfig } from '../src/index.js'
+import type { ZooworkConfig } from '../src/index.js'
 
 /** The on-disk shape. The request is kept with the response so a fixture is self-describing. */
 export interface Fixture {
@@ -44,8 +44,8 @@ export interface Fixture {
 }
 
 export interface FixtureRecorder {
-  /** Drop-in for `ZooclawConfig['fetch']`. */
-  fetch: NonNullable<ZooclawConfig['fetch']>
+  /** Drop-in for `ZooworkConfig['fetch']`. */
+  fetch: NonNullable<ZooworkConfig['fetch']>
   /** Name the NEXT recorded response. Un-tagged responses fall back to a derived endpoint slug. */
   tag: (name: string) => void
   /** Register a value to scrub, when the auto-scan cannot find it (e.g. a name you generated). */
@@ -184,7 +184,7 @@ export function createFixtureRecorder(opts: {
     for (const real of needles) out = out.split(real).join(scrub.get(real) as string)
     // Belt and braces. The key is never recorded (headers are not captured at all); this only
     // guarantees that a server that ECHOED it back cannot smuggle it onto disk.
-    const key = typeof process !== 'undefined' ? process.env?.ZOOCLAW_API_KEY : undefined
+    const key = typeof process !== 'undefined' ? process.env?.ZOOWORK_API_KEY : undefined
     if (key && key.length >= MIN_SCRUB_LEN) out = out.split(key).join('REDACTED')
     out = out.replace(/zct_[A-Za-z0-9_-]{8,}/g, 'zct_REDACTED')
     out = out.replace(/(Bearer )[A-Za-z0-9._~+/-]{8,}=*/g, '$1REDACTED')
@@ -197,9 +197,9 @@ export function createFixtureRecorder(opts: {
     return out.replace(JSON_STRING_RE, (lit) => (CJK_RE.test(lit) ? '"<non-English text removed>"' : lit))
   }
 
-  const baseFetch: NonNullable<ZooclawConfig['fetch']> = (input, init) => fetch(input, init)
+  const baseFetch: NonNullable<ZooworkConfig['fetch']> = (input, init) => fetch(input, init)
 
-  const recorderFetch: NonNullable<ZooclawConfig['fetch']> = async (input, init) => {
+  const recorderFetch: NonNullable<ZooworkConfig['fetch']> = async (input, init) => {
     const tag = pendingTag
     pendingTag = undefined
     const res = await baseFetch(input, init)

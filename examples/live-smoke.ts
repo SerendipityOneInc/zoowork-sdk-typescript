@@ -1,13 +1,13 @@
 /**
  * Live smoke test. Not a unit test — it drives a real agent through a real turn.
  *
- *   ZOOCLAW_API_KEY=zct_... AGENT_ID=agt_... pnpm exec tsx examples/live-smoke.ts
+ *   ZOOWORK_API_KEY=zct_... AGENT_ID=agt_... pnpm exec tsx examples/live-smoke.ts
  *
- * Set ZOOCLAW_API_KEY and AGENT_ID; nothing else is required. The base URL defaults to
+ * Set ZOOWORK_API_KEY and AGENT_ID; nothing else is required. The base URL defaults to
  * the public API.
  */
 import {
-  createZooclawClient,
+  createZooworkClient,
   assistantText,
   thinkingText,
   toolCall,
@@ -22,7 +22,7 @@ const need = (n: string): string => {
 }
 
 // apiKey and baseUrl both resolve from the environment / the built-in default.
-const zc = createZooclawClient()
+const zc = createZooworkClient()
 
 const agentId = need('AGENT_ID')
 
