@@ -14,7 +14,7 @@
  * somebody's build.
  */
 import { expect, test } from 'vitest'
-import { createZooclawClient, DEFAULT_BASE_URL, ZooclawError, type AgentResource, type ScheduleUpdate } from './index.js'
+import { createZooworkClient, DEFAULT_BASE_URL, ZooworkError, type AgentResource, type ScheduleUpdate } from './index.js'
 
 const BASE = 'https://api.test/service/v1'
 const KEY = 'zct_test_key'
@@ -59,7 +59,7 @@ function harness(responder: Responder | Reply) {
     // `null`, not `''`: 204/205/304 reject a non-null body at construction.
     return new Response(out.body ?? null, { status: out.status ?? 200 })
   }
-  const client = createZooclawClient({ apiKey: KEY, baseUrl: BASE, fetch: fetchImpl })
+  const client = createZooworkClient({ apiKey: KEY, baseUrl: BASE, fetch: fetchImpl })
   return { calls, client }
 }
 
@@ -68,11 +68,11 @@ const jsonReply = (value: unknown): Reply => ({ body: JSON.stringify(value) })
 /** The path (with query) of the n-th recorded call, base stripped. */
 const path = (calls: Recorded[], n = 0): string => calls[n]!.url.slice(BASE.length)
 
-async function rejection(p: Promise<unknown>): Promise<ZooclawError> {
+async function rejection(p: Promise<unknown>): Promise<ZooworkError> {
   try {
     await p
   } catch (e) {
-    return e as ZooclawError
+    return e as ZooworkError
   }
   throw new Error('expected a rejection, got a resolved promise')
 }
@@ -94,24 +94,24 @@ const stalledFetch = async (_input: string, init: RequestInit = {}): Promise<Res
 
 test('construction refuses to build a client with no key at all', () => {
   const env = procEnv()
-  const saved = env.ZOOCLAW_API_KEY
-  delete env.ZOOCLAW_API_KEY
+  const saved = env.ZOOWORK_API_KEY
+  delete env.ZOOWORK_API_KEY
   try {
-    expect(() => createZooclawClient({ baseUrl: BASE })).toThrow(/No ZooClaw API key/)
+    expect(() => createZooworkClient({ baseUrl: BASE })).toThrow(/No ZooWork API key/)
   } finally {
-    if (saved !== undefined) env.ZOOCLAW_API_KEY = saved
+    if (saved !== undefined) env.ZOOWORK_API_KEY = saved
   }
 })
 
-test('construction falls back to ZOOCLAW_API_KEY / ZOOCLAW_BASE_URL, and strips trailing slashes', async () => {
+test('construction falls back to ZOOWORK_API_KEY / ZOOWORK_BASE_URL, and strips trailing slashes', async () => {
   const env = procEnv()
-  const savedKey = env.ZOOCLAW_API_KEY
-  const savedUrl = env.ZOOCLAW_BASE_URL
-  env.ZOOCLAW_API_KEY = 'zct_from_env'
-  env.ZOOCLAW_BASE_URL = 'https://env.test/service/v1///'
+  const savedKey = env.ZOOWORK_API_KEY
+  const savedUrl = env.ZOOWORK_BASE_URL
+  env.ZOOWORK_API_KEY = 'zct_from_env'
+  env.ZOOWORK_BASE_URL = 'https://env.test/service/v1///'
   try {
     const calls: Recorded[] = []
-    const client = createZooclawClient({
+    const client = createZooworkClient({
       fetch: async (input, init = {}) => {
         calls.push({ url: input, method: init.method ?? 'GET', headers: (init.headers ?? {}) as Record<string, string>, body: init.body })
         return new Response('[]')
@@ -121,16 +121,16 @@ test('construction falls back to ZOOCLAW_API_KEY / ZOOCLAW_BASE_URL, and strips 
     expect(calls[0]!.url).toBe('https://env.test/service/v1/models')
     expect(calls[0]!.headers.Authorization).toBe('Bearer zct_from_env')
   } finally {
-    if (savedKey === undefined) delete env.ZOOCLAW_API_KEY
-    else env.ZOOCLAW_API_KEY = savedKey
-    if (savedUrl === undefined) delete env.ZOOCLAW_BASE_URL
-    else env.ZOOCLAW_BASE_URL = savedUrl
+    if (savedKey === undefined) delete env.ZOOWORK_API_KEY
+    else env.ZOOWORK_API_KEY = savedKey
+    if (savedUrl === undefined) delete env.ZOOWORK_BASE_URL
+    else env.ZOOWORK_BASE_URL = savedUrl
   }
 })
 
 test('construction accepts the privileged serviceToken auth as the bearer', async () => {
   const calls: Recorded[] = []
-  const client = createZooclawClient({
+  const client = createZooworkClient({
     auth: { serviceToken: 'svc_internal' },
     baseUrl: BASE,
     fetch: async (input, init = {}) => {
@@ -251,7 +251,7 @@ test('waitUntilRunning polls desired_state and IGNORES actual_state', async () =
 test('waitUntilRunning throws 408/timeout when the agent never gets there', async () => {
   const { client } = harness(jsonReply({ agent_id: 'a', status: { desired_state: 'stopped' } }))
   const err = await rejection(client.waitUntilRunning('a', { timeoutMs: 120, intervalMs: 20 }))
-  expect(err).toBeInstanceOf(ZooclawError)
+  expect(err).toBeInstanceOf(ZooworkError)
   expect([err.status, err.type]).toEqual([408, 'timeout'])
   expect(err.message).toContain('last seen: stopped')
 })
@@ -268,7 +268,7 @@ test('waitUntilRunning throws 0/aborted for a signal that is already aborted', a
 test('waitUntilRunning honors timeoutMs while a request is IN FLIGHT (stalled gateway)', async () => {
   // Regression: `fetch` has no default timeout, so an unbounded poll parks the promise
   // forever on a gateway that accepts the connection and then stalls.
-  const client = createZooclawClient({ apiKey: KEY, baseUrl: BASE, fetch: stalledFetch })
+  const client = createZooworkClient({ apiKey: KEY, baseUrl: BASE, fetch: stalledFetch })
   const started = Date.now()
   const err = await rejection(client.waitUntilRunning('a', { timeoutMs: 150, intervalMs: 50 }))
   expect([err.status, err.type]).toEqual([408, 'timeout'])
@@ -276,7 +276,7 @@ test('waitUntilRunning honors timeoutMs while a request is IN FLIGHT (stalled ga
 })
 
 test('waitUntilRunning honors an abort while a request is IN FLIGHT', async () => {
-  const client = createZooclawClient({ apiKey: KEY, baseUrl: BASE, fetch: stalledFetch })
+  const client = createZooworkClient({ apiKey: KEY, baseUrl: BASE, fetch: stalledFetch })
   const ctl = new AbortController()
   setTimeout(() => ctl.abort(), 30)
   const started = Date.now()
@@ -288,7 +288,7 @@ test('waitUntilRunning honors an abort while a request is IN FLIGHT', async () =
 test('waitUntilRunning does not sleep out the rest of its interval after an abort', async () => {
   // The abort lands DURING the request, on a stub that ignores signals — so it is the
   // sleep, not the fetch, that has to notice an already-aborted signal.
-  const client = createZooclawClient({
+  const client = createZooworkClient({
     apiKey: KEY,
     baseUrl: BASE,
     fetch: async () =>
@@ -775,10 +775,10 @@ test('archiveEnvironment percent-encodes the colon — a raw ":" is a 404 on the
 
 // ── error envelope ─────────────────────────────────────────────────────────
 
-test('an API error envelope becomes a ZooclawError carrying status, type and message', async () => {
+test('an API error envelope becomes a ZooworkError carrying status, type and message', async () => {
   const { client } = harness({ status: 409, body: JSON.stringify({ error: { type: 'agent_not_running', message: 'agent is not running' } }) })
   const err = await rejection(client.createSession('a', {}))
-  expect(err).toBeInstanceOf(ZooclawError)
+  expect(err).toBeInstanceOf(ZooworkError)
   expect([err.status, err.type, err.message]).toEqual([409, 'agent_not_running', 'agent is not running'])
 })
 

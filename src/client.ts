@@ -1,5 +1,5 @@
 /**
- * ZooClaw Managed Agents SDK — core client. Developer Preview.
+ * ZooWork Managed Agents SDK — core client. Developer Preview.
  *
  * Authenticate with your organization API key (`zct_…`). It carries full tenant
  * authority, so it is SERVER-SIDE ONLY: never ship it in a browser or mobile bundle.
@@ -14,7 +14,7 @@ import { normalizeEvent, type SessionEvent } from './events.js'
 
 /**
  * The production API base URL — the default. You should not need to set this:
- * `ZOOCLAW_BASE_URL` overrides it, and so does the `baseUrl` option, only when you
+ * `ZOOWORK_BASE_URL` overrides it, and so does the `baseUrl` option, only when you
  * need to point at a different deployment.
  */
 export const DEFAULT_BASE_URL = 'https://clawapi.ecap.gsmo.ai/service/v1'
@@ -31,17 +31,17 @@ function readEnv(name: string): string | undefined {
   return value === undefined || value === '' ? undefined : value
 }
 
-export type ZooclawAuth = { serviceToken: string } | { apiKey: string }
+export type ZooworkAuth = { serviceToken: string } | { apiKey: string }
 
-export interface ZooclawConfig {
+export interface ZooworkConfig {
   /**
-   * Your API key (`zct_...`). Defaults to `ZOOCLAW_API_KEY`.
+   * Your API key (`zct_...`). Defaults to `ZOOWORK_API_KEY`.
    *
    * Server-side only: it authenticates as your whole organization, not as one end user.
    */
   apiKey?: string
   /**
-   * API base including the version prefix. Defaults to `ZOOCLAW_BASE_URL`, then to
+   * API base including the version prefix. Defaults to `ZOOWORK_BASE_URL`, then to
    * {@link DEFAULT_BASE_URL} (production). Set it only to point at a deployment other
    * than the production one.
    */
@@ -51,12 +51,12 @@ export interface ZooclawConfig {
    * selects a privileged deployment-internal credential and is not available to API-key
    * callers.
    */
-  auth?: ZooclawAuth
+  auth?: ZooworkAuth
   /** Injected fetch for edge runtimes/tests; defaults to globalThis.fetch. */
   fetch?: (input: string, init?: RequestInit) => Promise<Response>
 }
 
-export class ZooclawError extends Error {
+export class ZooworkError extends Error {
   status: number
   /**
    * The machine-readable error code. Match on this, never on the message.
@@ -71,7 +71,7 @@ export class ZooclawError extends Error {
   type?: string
   constructor(status: number, message: string, type?: string) {
     super(message)
-    this.name = 'ZooclawError'
+    this.name = 'ZooworkError'
     this.status = status
     if (type) this.type = type
   }
@@ -131,7 +131,7 @@ export interface McpServerDeclaration {
  * active at that moment on its own — a plain create answered `{source:'platform',version:1}`,
  * staging-verified 2026-08-14 — and the pin NEVER follows a later activation on its own:
  * ordinary PUTs, skill changes and rerenders keep it. Moving it is an explicit call,
- * {@link ZooclawClient.upgradeSystemPrompt}.
+ * {@link ZooworkClient.upgradeSystemPrompt}.
  *
  * On PUT this section is REPLACE-ON-WRITE, like `tool_policy` — not merged.
  */
@@ -591,7 +591,7 @@ export interface ScheduleRecord {
   delivery?: Record<string, unknown>
   enabled?: boolean
   deleteAfterRun?: boolean
-  /** Server-derived, and rejected on the way back in — see {@link ZooclawClient.updateSchedule}. */
+  /** Server-derived, and rejected on the way back in — see {@link ZooworkClient.updateSchedule}. */
   originMetadata?: Record<string, unknown>
   /** Server-derived, and rejected on the way back in. */
   contextSnapshot?: unknown[]
@@ -886,7 +886,7 @@ export interface WakeResult {
 
 export type { SessionEvent } from './events.js'
 
-export interface ZooclawClient {
+export interface ZooworkClient {
   listModels(): Promise<ModelInfo[]>
 
   // ── agents ──
@@ -901,7 +901,7 @@ export interface ZooclawClient {
    * List the agents owned by your key's bound user (engine query: `owner_uid AND org_id`,
    * both injected by the gateway). `labels` filters on declared labels — e.g.
    * `{ labels: { workspace_id: '…' } }` resolves an app workspace id (the first path
-   * segment of a ZooClaw chat URL) to its agent. Page size is fixed at 100 by the engine.
+   * segment of a ZooWork chat URL) to its agent. Page size is fixed at 100 by the engine.
    *
    * Note the scope is `owner_uid AND org_id`: an agent a colleague created in your org is
    * fetchable by `getAgent` but will not appear here.
@@ -935,7 +935,7 @@ export interface ZooclawClient {
    * loop we have seen gets this wrong.
    *
    * Defaults: 30s budget, 500ms between polls — start is sub-second on staging, so the budget
-   * is for a bad day, not the normal one. On timeout it throws a {@link ZooclawError} with
+   * is for a bad day, not the normal one. On timeout it throws a {@link ZooworkError} with
    * `status: 408` / `type: 'timeout'`; on abort, `status: 0` / `type: 'aborted'`. Both are
    * synthesized locally — the server never sends either.
    *
@@ -1039,7 +1039,7 @@ export interface ZooclawClient {
    *
    * But a session can also stop existing, and then polling answers
    * `404 channel.feishu_session_not_found`, which surfaces here as a thrown
-   * {@link ZooclawError} carrying that `type`. Confirmed for a cancelled session
+   * {@link ZooworkError} carrying that `type`. Confirmed for a cancelled session
    * (staging 2026-08-25); whether a session that simply runs past `expires_in` reports
    * `status: 'expired'` in a 200 or disappears into this 404 was NOT observed — handle both.
    *
@@ -1113,7 +1113,7 @@ export interface ZooclawClient {
   ): Promise<SkillRecord>
   /**
    * Publish a new version of an existing skill from a zip. Same zip rules as
-   * {@link ZooclawClient.uploadSkill}, plus: the frontmatter `name` must match the target
+   * {@link ZooworkClient.uploadSkill}, plus: the frontmatter `name` must match the target
    * skill's name. `description` overrides the one in the frontmatter.
    *
    * Agents that installed the skill unpinned follow the new version on their own — the registry
@@ -1163,8 +1163,8 @@ export interface ZooclawClient {
   /**
    * ONE page of durable events — the unified history, which includes your own inputs
    * (`user.message`, …) alongside engine events. `limit` defaults to 100 and is capped at 500;
-   * the page's pagination fields are dropped, so use {@link ZooclawClient.listAllEvents}, or
-   * {@link ZooclawClient.listEventsPage} to page by hand.
+   * the page's pagination fields are dropped, so use {@link ZooworkClient.listAllEvents}, or
+   * {@link ZooworkClient.listEventsPage} to page by hand.
    * Passing `after` selects the deprecated engine-only lane — old cursors only.
    */
   listEvents(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; types?: string[]; limit?: number }): Promise<SessionEvent[]>
@@ -1369,8 +1369,8 @@ export interface ZooclawClient {
  * Create a client.
  *
  * ```ts
- * const zc = createZooclawClient({ apiKey: 'zct_...' })
- * const zc = createZooclawClient()            // reads ZOOCLAW_API_KEY
+ * const zc = createZooworkClient({ apiKey: 'zct_...' })
+ * const zc = createZooworkClient()            // reads ZOOWORK_API_KEY
  * ```
  *
  * Resolution order for both settings is the same: explicit argument, then environment
@@ -1379,29 +1379,29 @@ export interface ZooclawClient {
  * @throws if no API key can be resolved — a missing key is a setup mistake worth failing
  *         loudly at construction rather than as a 401 on the first call.
  */
-export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
+export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
   const doFetch = cfg.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init))
-  const base = (cfg.baseUrl ?? readEnv('ZOOCLAW_BASE_URL') ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
+  const base = (cfg.baseUrl ?? readEnv('ZOOWORK_BASE_URL') ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
 
-  const auth: ZooclawAuth | undefined =
+  const auth: ZooworkAuth | undefined =
     cfg.auth ??
     (cfg.apiKey !== undefined
       ? { apiKey: cfg.apiKey }
       : (() => {
-          const fromEnv = readEnv('ZOOCLAW_API_KEY')
+          const fromEnv = readEnv('ZOOWORK_API_KEY')
           return fromEnv ? { apiKey: fromEnv } : undefined
         })())
 
   if (!auth) {
     throw new Error(
-      'No ZooClaw API key. Pass createZooclawClient({ apiKey }) or set ZOOCLAW_API_KEY. ' +
+      'No ZooWork API key. Pass createZooworkClient({ apiKey }) or set ZOOWORK_API_KEY. ' +
         'Keys look like zct_… and are issued by an organization administrator.',
     )
   }
   const bearer = 'serviceToken' in auth ? auth.serviceToken : auth.apiKey
 
   /**
-   * TWO error envelopes, one ZooclawError shape, for every helper below.
+   * TWO error envelopes, one ZooworkError shape, for every helper below.
    *
    * The API does not answer failures the same way everywhere — staging-verified 2026-08-07. Most
    * families send `{ error: { type, message } }`; the agents family sends `{ code, detail }`.
@@ -1426,13 +1426,13 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
       } catch {
         /* non-JSON error body → keep clean status */
       }
-      throw new ZooclawError(res.status, msg, type)
+      throw new ZooworkError(res.status, msg, type)
     }
     if (!text) return {} as T
     try {
       return JSON.parse(text) as T
     } catch {
-      throw new ZooclawError(res.status, `non-JSON response: ${path}`)
+      throw new ZooworkError(res.status, `non-JSON response: ${path}`)
     }
   }
 
@@ -1535,7 +1535,7 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
     const projection = await json<AgentRecord>(agents(agentId))
     const own = projection.ownership
     if (!own?.owner_uid || !own.org_id) {
-      throw new ZooclawError(
+      throw new ZooworkError(
         500,
         `agent ${agentId} projection carries no ownership — cannot derive the owner_uid/org_id ` +
           'selectors the artifact routes require',
@@ -1547,7 +1547,7 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
     return sel
   }
 
-  const client: ZooclawClient = {
+  const client: ZooworkClient = {
     listModels: async () => {
       const data = await json<ModelInfo[] | { models?: ModelInfo[] }>('/models')
       return Array.isArray(data) ? data : (data.models ?? [])
@@ -1593,9 +1593,9 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
       const intervalMs = opts.intervalMs ?? 500
       const deadline = Date.now() + timeoutMs
       let lastSeen = 'unknown'
-      const abortedError = (): ZooclawError => new ZooclawError(0, `waitUntilRunning(${agentId}) aborted`, 'aborted')
-      const timeoutError = (): ZooclawError =>
-        new ZooclawError(
+      const abortedError = (): ZooworkError => new ZooworkError(0, `waitUntilRunning(${agentId}) aborted`, 'aborted')
+      const timeoutError = (): ZooworkError =>
+        new ZooworkError(
           408,
           `agent ${agentId} did not reach status.desired_state=running within ${timeoutMs}ms ` +
             `(last seen: ${lastSeen})`,
@@ -1680,10 +1680,10 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
       const timeoutMs = opts.timeoutMs ?? 600_000
       const deadline = Date.now() + timeoutMs
       let lastStatus = 'unknown'
-      const abortedError = (): ZooclawError =>
-        new ZooclawError(0, `waitForFeishuSetup(${agentId}, ${sessionId}) aborted`, 'aborted')
-      const timeoutError = (): ZooclawError =>
-        new ZooclawError(
+      const abortedError = (): ZooworkError =>
+        new ZooworkError(0, `waitForFeishuSetup(${agentId}, ${sessionId}) aborted`, 'aborted')
+      const timeoutError = (): ZooworkError =>
+        new ZooworkError(
           408,
           `Feishu setup session ${sessionId} still '${lastStatus}' after ${timeoutMs}ms — ` +
             'the QR may simply not have been scanned yet; the session itself expires server-side',
@@ -1855,7 +1855,7 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
           headers: { Authorization: `Bearer ${bearer}`, Accept: 'text/event-stream' },
           ...(opts.signal ? { signal: opts.signal } : {}),
         })
-        if (!res.ok) throw new ZooclawError(res.status, `events stream HTTP ${res.status}`)
+        if (!res.ok) throw new ZooworkError(res.status, `events stream HTTP ${res.status}`)
         if (!res.body) return
 
         for await (const msg of parseSSE(res.body)) {

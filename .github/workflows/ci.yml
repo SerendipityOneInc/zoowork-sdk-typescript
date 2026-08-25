@@ -6,7 +6,7 @@
 # be green on exactly the bugs the suite was written to catch.
 #
 # Note what is NOT here: nothing runs `examples/`. Those are staging probes — they need a real
-# ZOOCLAW_API_KEY and they create, drive and delete real agents, skills, schedules and Environments
+# ZOOWORK_API_KEY and they create, drive and delete real agents, skills, schedules and Environments
 # in a live tenant. `vitest.config.ts` restricts the test glob to `src/**/*.test.ts` so they cannot
 # be picked up by accident, and no API key is ever exposed to this workflow.
 name: CI

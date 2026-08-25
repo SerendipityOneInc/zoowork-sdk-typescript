@@ -28,7 +28,7 @@ recorded bugs, not typos.
 Written by `examples/surface-probe.ts` with recording enabled:
 
 ```sh
-ZOOCLAW_API_KEY=zct_… ZOOCLAW_RECORD_FIXTURES=1 pnpm exec tsx examples/surface-probe.ts
+ZOOWORK_API_KEY=zct_… ZOOWORK_RECORD_FIXTURES=1 pnpm exec tsx examples/surface-probe.ts
 ```
 
 The probe creates its own throwaway agent, skill, schedule and environment, drives the whole

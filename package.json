@@ -1,9 +1,9 @@
 {
-  "name": "@zooclaw-agents/sdk",
-  "version": "0.3.4",
-  "description": "TypeScript SDK for the ZooClaw Managed Agents API (Developer Preview)",
+  "name": "@zoowork-ai/sdk",
+  "version": "0.4.0",
+  "description": "TypeScript SDK for the ZooWork Managed Agents API (Developer Preview)",
   "keywords": [
-    "zooclaw",
+    "zoowork",
     "agents",
     "sdk",
     "llm",

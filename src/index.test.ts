@@ -60,9 +60,9 @@ import type {
   UpdateChannelInput,
   ToolCall,
   WakeResult,
-  ZooclawAuth,
-  ZooclawClient,
-  ZooclawConfig,
+  ZooworkAuth,
+  ZooworkClient,
+  ZooworkConfig,
 } from './index.js'
 
 /** Every value the package promises. Sorted, and exhaustive in both directions. */
@@ -70,9 +70,9 @@ const PUBLIC_VALUES = [
   'DEFAULT_BASE_URL',
   'PUBLIC_INPUT_EVENT_TYPES',
   'SESSION_EVENT_TYPES',
-  'ZooclawError',
+  'ZooworkError',
   'assistantText',
-  'createZooclawClient',
+  'createZooworkClient',
   'isRunFinished',
   'messageText',
   'normalizeEvent',
@@ -87,17 +87,17 @@ test('the entry point exports exactly the documented value surface', () => {
 })
 
 test('every exported value is the kind of thing it claims to be', () => {
-  for (const name of ['createZooclawClient', 'normalizeEvent', 'isRunFinished', 'runOutcome', 'messageText', 'assistantText', 'thinkingText', 'toolCall', 'parseSSE']) {
+  for (const name of ['createZooworkClient', 'normalizeEvent', 'isRunFinished', 'runOutcome', 'messageText', 'assistantText', 'thinkingText', 'toolCall', 'parseSSE']) {
     expect(typeof (sdk as unknown as Record<string, unknown>)[name]).toBe('function')
   }
   expect(typeof sdk.DEFAULT_BASE_URL).toBe('string')
   expect(Array.isArray(sdk.SESSION_EVENT_TYPES)).toBe(true)
   // A class, not a factory: callers `instanceof` it.
-  expect(new sdk.ZooclawError(404, 'x', 'not_found')).toBeInstanceOf(Error)
+  expect(new sdk.ZooworkError(404, 'x', 'not_found')).toBeInstanceOf(Error)
 })
 
 test('the client built from the entry point exposes every documented method', () => {
-  const client = sdk.createZooclawClient({ apiKey: 'zct_test_key', baseUrl: 'https://api.test/service/v1' })
+  const client = sdk.createZooworkClient({ apiKey: 'zct_test_key', baseUrl: 'https://api.test/service/v1' })
   const methods = [
     'listModels',
     'createAgent',
@@ -216,9 +216,9 @@ type PublicTypes = [
   UpdateChannelInput,
   ToolCall,
   WakeResult,
-  ZooclawAuth,
-  ZooclawClient,
-  ZooclawConfig,
+  ZooworkAuth,
+  ZooworkClient,
+  ZooworkConfig,
 ]
 
 test('the type surface is re-exported too (checked by tsc, counted here)', () => {

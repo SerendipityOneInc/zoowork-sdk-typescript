@@ -1,7 +1,20 @@
 # Changelog
 
-All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
-not the day it was written.
+All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
+day the behaviour was verified, not the day it was written.
+
+## 0.4.0 — 2026-08-25
+
+### Changed (breaking)
+
+- **Renamed to `@zoowork-ai/sdk`.** The package, exports, and environment variables all
+  move from the ZooClaw name to ZooWork, with no compatibility aliases:
+  - Install `@zoowork-ai/sdk` instead of `@zooclaw-agents/sdk`.
+  - `createZooclawClient` → `createZooworkClient`; `ZooclawClient`, `ZooclawError`,
+    `ZooclawAuth`, `ZooclawConfig` → `Zoowork*`.
+  - `ZOOCLAW_API_KEY` / `ZOOCLAW_BASE_URL` → `ZOOWORK_API_KEY` / `ZOOWORK_BASE_URL`.
+- Server-side identifiers are unchanged: API keys still start with `zct_`, and skill or
+  environment names the API returns (e.g. `zooclaw-tts`) are whatever the server says.
 
 ## 0.3.4 — 2026-08-25
 

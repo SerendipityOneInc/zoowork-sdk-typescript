@@ -1,7 +1,7 @@
 /**
  * Capability probe — exercises the SDK surfaces that ship but have never been run.
  *
- *   ZOOCLAW_API_KEY=zct_... pnpm exec tsx examples/capability-probe.ts
+ *   ZOOWORK_API_KEY=zct_... pnpm exec tsx examples/capability-probe.ts
  *
  * Unlike `live-smoke.ts` (which drives one pre-existing agent through one turn),
  * this creates a THROWAWAY agent from zero, walks its whole lifecycle, and deletes
@@ -9,20 +9,20 @@
  * an observation instead of a reading of the server source.
  *
  * Env knobs:
- *   ZOOCLAW_API_KEY     required
- *   ZOOCLAW_BASE_URL    optional; defaults to the public API
+ *   ZOOWORK_API_KEY     required
+ *   ZOOWORK_BASE_URL    optional; defaults to the public API
  *   PROBE_KEEP=1        leave the agent alive (skips stop/delete) for manual poking
  *   PROBE_OUT=<path>    write the full JSON record here (default: ./probe-report.json)
  */
 import {
-  createZooclawClient,
-  ZooclawError,
+  createZooworkClient,
+  ZooworkError,
   assistantText,
   isRunFinished,
   runOutcome,
   type SessionEvent,
-  type ZooclawClient,
-  type ZooclawConfig,
+  type ZooworkClient,
+  type ZooworkConfig,
   DEFAULT_BASE_URL,
 } from '../src/index.js'
 
@@ -34,14 +34,14 @@ const need = (n: string): string => {
   return v
 }
 
-const bearer = need('ZOOCLAW_API_KEY')
-const baseUrl = process.env.ZOOCLAW_BASE_URL ?? DEFAULT_BASE_URL
-const config: ZooclawConfig = { baseUrl, apiKey: bearer }
+const bearer = need('ZOOWORK_API_KEY')
+const baseUrl = process.env.ZOOWORK_BASE_URL ?? DEFAULT_BASE_URL
+const config: ZooworkConfig = { baseUrl, apiKey: bearer }
 
 // Placeholders on purpose: the API substitutes the tenant bound to your key.
 const ownership = { owner_uid: 'probe-owner', org_id: 'probe-org' }
 
-const zc: ZooclawClient = createZooclawClient(config)
+const zc: ZooworkClient = createZooworkClient(config)
 
 /** Escape hatch for routes the SDK does not expose yet (agent skills, skill catalog). */
 async function raw(path: string, init: RequestInit = {}): Promise<{ status: number; body: unknown }> {
@@ -75,13 +75,13 @@ const record = (id: string, verdict: Verdict, note: string, observed?: unknown):
   console.log(`  ${mark} ${id}: ${note}`)
 }
 
-/** Run one probe; a thrown ZooclawError is an observation, not a crash. */
+/** Run one probe; a thrown ZooworkError is an observation, not a crash. */
 async function probe(id: string, fn: () => Promise<void>): Promise<void> {
   console.log(`\n▸ ${id}`)
   try {
     await fn()
   } catch (e) {
-    if (e instanceof ZooclawError) {
+    if (e instanceof ZooworkError) {
       record(id, 'BROKEN', `HTTP ${e.status} ${e.type ?? ''} — ${e.message}`)
     } else {
       record(id, 'BROKEN', `threw: ${(e as Error).message}`)
@@ -278,7 +278,7 @@ try {
         put,
       )
     } catch (e) {
-      const err = e as ZooclawError
+      const err = e as ZooworkError
       record(
         'putAgentSkill',
         'DIFFERS',
@@ -444,7 +444,7 @@ try {
       await zc.createSession(agentId, { initial_events: [{ type: 'user.message', content: 'hello' }] })
       record('createSession on a stopped agent', 'DIFFERS', 'succeeded — no running-agent precondition after all')
     } catch (e) {
-      const err = e as ZooclawError
+      const err = e as ZooworkError
       record(
         'createSession on a stopped agent',
         err.status === 409 && err.type === 'agent_not_running' ? 'WORKS' : 'DIFFERS',
