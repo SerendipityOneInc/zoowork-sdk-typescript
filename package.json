@@ -1,6 +1,6 @@
 {
   "name": "@zooclaw-agents/sdk",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "TypeScript SDK for the ZooClaw Managed Agents API (Developer Preview)",
   "keywords": [
     "zooclaw",

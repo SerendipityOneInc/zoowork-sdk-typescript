@@ -252,9 +252,15 @@ export interface AgentChannel {
 /**
  * The chat platforms you can bind, staging-verified 2026-08-25.
  *
- * WeChat (`'weixin'`/`'wechat'`) is deliberately absent: it answers
- * `400 channel.weixin_setup_required` naming a QR flow this API does not expose, so it cannot
- * be bound here at all. Any other name answers `400 channel.invalid_request`.
+ * Only `'feishu'` has a server-driven QR flow here, and the two reasons the others lack one
+ * are different. Slack structurally cannot have one — a Slack app is created by a person, and
+ * its tokens only ever exist in that person's browser — so `addChannel` with `botToken` +
+ * `appToken` is its permanent path. WeCom's flow exists in the product but is not exposed on
+ * this API yet, so today it also binds through `addChannel`.
+ *
+ * WeChat (`'weixin'`/`'wechat'`) is absent because it cannot be bound here at all: it answers
+ * `400 channel.weixin_setup_required`, naming a QR flow this API does not expose. Any other
+ * name answers `400 channel.invalid_request`.
  */
 export type ChannelPlatform = 'feishu' | 'slack' | 'wecom'
 
@@ -270,7 +276,15 @@ export interface AddChannelInput {
   group_policy?: string
   /** Write-once at create; updates cannot edit it. */
   allow_from?: string[]
-  /** Platform credentials/config for the direct (non-QR) path — keys are platform-specific. */
+  /**
+   * Platform credentials for the direct (non-QR) path. Keys are platform-specific and
+   * **camelCase**; anything else is stored and ignored:
+   *
+   * - `slack` — `{ botToken: 'xoxb-…', appToken: 'xapp-…' }`, both required (socket mode
+   *   needs the app-level token as well as the bot token)
+   * - `wecom` — `{ botId, secret }`, both required
+   * - `feishu` — `{ appId, appSecret, domain }`, only when skipping the QR flow
+   */
   config?: Record<string, unknown>
 }
 
