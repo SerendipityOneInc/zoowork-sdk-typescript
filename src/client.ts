@@ -13,10 +13,11 @@ import { parseSSE, isObj } from './sse.js'
 import { normalizeEvent, type SessionEvent } from './events.js'
 
 /**
- * The default API base URL. You should not need to set this — `ZOOCLAW_BASE_URL`
- * overrides it, and so does the `baseUrl` option, when you need a different deployment.
+ * The production API base URL — the default. You should not need to set this:
+ * `ZOOCLAW_BASE_URL` overrides it, and so does the `baseUrl` option, only when you
+ * need to point at a different deployment.
  */
-export const DEFAULT_BASE_URL = 'https://claw-interface.ecap.yesy.live/service/v1'
+export const DEFAULT_BASE_URL = 'https://clawapi.ecap.gsmo.ai/service/v1'
 
 /**
  * Read an environment variable without assuming a Node runtime.
@@ -41,8 +42,8 @@ export interface ZooclawConfig {
   apiKey?: string
   /**
    * API base including the version prefix. Defaults to `ZOOCLAW_BASE_URL`, then to
-   * {@link DEFAULT_BASE_URL}. Set it to pin an environment, or to point at a deployment
-   * other than the public one.
+   * {@link DEFAULT_BASE_URL} (production). Set it only to point at a deployment other
+   * than the production one.
    */
   baseUrl?: string
   /**
