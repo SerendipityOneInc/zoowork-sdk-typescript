@@ -31,6 +31,18 @@ function readEnv(name: string): string | undefined {
   return value === undefined || value === '' ? undefined : value
 }
 
+/**
+ * Trailing `/` removed by scanning, not by `/\/+$/`. That regex retries at every start
+ * position on a long run of slashes, which is quadratic and which CodeQL flags. Nothing
+ * hostile can reach it — the input is the caller's own base URL — but one pass is simpler
+ * than arguing with the scanner about it.
+ */
+function stripTrailingSlashes(url: string): string {
+  let end = url.length
+  while (end > 0 && url.charCodeAt(end - 1) === 47 /* '/' */) end--
+  return end === url.length ? url : url.slice(0, end)
+}
+
 export type ZooworkAuth = { serviceToken: string } | { apiKey: string }
 
 export interface ZooworkConfig {
@@ -1431,7 +1443,7 @@ export interface ZooworkClient {
  */
 export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
   const doFetch = cfg.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init))
-  const base = (cfg.baseUrl ?? readEnv('ZOOWORK_BASE_URL') ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
+  const base = stripTrailingSlashes(cfg.baseUrl ?? readEnv('ZOOWORK_BASE_URL') ?? DEFAULT_BASE_URL)
 
   const auth: ZooworkAuth | undefined =
     cfg.auth ??

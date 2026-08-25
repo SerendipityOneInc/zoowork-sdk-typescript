@@ -5,6 +5,13 @@ day the behaviour was verified, not the day it was written.
 
 ## 0.4.1 — 2026-08-25
 
+### Internal
+
+- **Trailing slashes are stripped from the base URL by a scan rather than `/\/+$/`.** Same
+  output for every input; the regex retried at every start position on a long run of
+  slashes, which CodeQL flags as polynomial. Nothing hostile reaches it — the input is the
+  caller's own base URL — so this closes an alert rather than a vulnerability.
+
 ### Documentation
 
 - **`account` on `addChannel` / `startFeishuSetup` now documents what it actually is.** It
