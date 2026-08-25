@@ -11,6 +11,8 @@
 import { expect, test } from 'vitest'
 import * as sdk from './index.js'
 import type {
+  AddChannelInput,
+  AgentChannel,
   AgentRecord,
   AgentResource,
   AgentSkill,
@@ -25,6 +27,9 @@ import type {
   EnvironmentResource,
   EnvironmentVersionRecord,
   ExecResult,
+  FeishuPollResult,
+  FeishuSetupInput,
+  FeishuSetupSession,
   McpServerDeclaration,
   ModelInfo,
   OutboundEvent,
@@ -51,6 +56,7 @@ import type {
   SystemPromptPreview,
   SystemPromptPreviewInput,
   SystemPromptUpgrade,
+  UpdateChannelInput,
   ToolCall,
   WakeResult,
   ZooclawAuth,
@@ -104,6 +110,14 @@ test('the client built from the entry point exposes every documented method', ()
     'listAgentSkills',
     'putAgentSkill',
     'deleteAgentSkill',
+    'listChannels',
+    'addChannel',
+    'updateChannel',
+    'removeChannel',
+    'startFeishuSetup',
+    'pollFeishuSetup',
+    'cancelFeishuSetup',
+    'waitForFeishuSetup',
     'uploadSkill',
     'uploadSkillVersion',
     'listSkills',
@@ -152,6 +166,8 @@ test('the client built from the entry point exposes every documented method', ()
  * evaluated, only checked.
  */
 type PublicTypes = [
+  AddChannelInput,
+  AgentChannel,
   AgentRecord,
   AgentResource,
   AgentSkill,
@@ -166,6 +182,9 @@ type PublicTypes = [
   EnvironmentResource,
   EnvironmentVersionRecord,
   ExecResult,
+  FeishuPollResult,
+  FeishuSetupInput,
+  FeishuSetupSession,
   McpServerDeclaration,
   ModelInfo,
   OutboundEvent,
@@ -192,6 +211,7 @@ type PublicTypes = [
   SystemPromptPreview,
   SystemPromptPreviewInput,
   SystemPromptUpgrade,
+  UpdateChannelInput,
   ToolCall,
   WakeResult,
   ZooclawAuth,

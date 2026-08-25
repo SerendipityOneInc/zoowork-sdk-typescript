@@ -230,6 +230,87 @@ export interface AgentSkill {
   [k: string]: unknown
 }
 
+/**
+ * One platform account bound to an agent, as the channel service reports it.
+ * `dm_policy` / `group_policy` are the reachability policies (`'open'` is the
+ * server default); `health`/`status`/`status_code` are the connection's state
+ * as the platform adapter sees it.
+ */
+export interface AgentChannel {
+  platform: string
+  account: string
+  display_name?: string | null
+  dm_policy?: string
+  group_policy?: string
+  enabled?: boolean
+  health?: string
+  status?: string
+  status_code?: string | null
+  [k: string]: unknown
+}
+
+export interface AddChannelInput {
+  platform: string
+  /** Server default: `'default'`. */
+  account?: string
+  display_name?: string
+  /** Server default: `'open'`. */
+  dm_policy?: string
+  /** Server default: `'open'`. */
+  group_policy?: string
+  /** Write-once at create; updates cannot edit it. */
+  allow_from?: string[]
+  /** Platform credentials/config for the direct (non-QR) path — keys are platform-specific. */
+  config?: Record<string, unknown>
+}
+
+export interface UpdateChannelInput {
+  /** Which platform account to touch. Server default: `'default'`. */
+  account?: string
+  dm_policy?: string
+  group_policy?: string
+  enabled?: boolean
+}
+
+export interface FeishuSetupInput {
+  /** `'feishu'` (default) or `'lark'` — the international brand of the same platform. */
+  brand?: 'feishu' | 'lark'
+  /** Server default: `'default'`. */
+  account?: string
+  /** Server default: `'open'`. */
+  dm_policy?: string
+  /** Server default: `'open'`. */
+  group_policy?: string
+}
+
+/**
+ * A running Feishu QR registration. Render `verification_uri_complete` to the person
+ * doing the binding (typically as a QR code), then poll with `pollFeishuSetup` /
+ * `waitForFeishuSetup` until it leaves `pending`. The session expires after
+ * `expires_in` seconds.
+ */
+export interface FeishuSetupSession {
+  session_id: string
+  verification_uri_complete: string
+  expires_in: number
+  /** Suggested seconds between polls; the server may omit it. */
+  poll_interval?: number | null
+  [k: string]: unknown
+}
+
+/**
+ * One poll of a Feishu setup session. The gateway's own vocabulary for `status` is
+ * `pending | success | expired | denied | error`; treat anything unknown as
+ * still-in-flight rather than throwing.
+ */
+export interface FeishuPollResult {
+  status: string
+  channel_configured?: boolean
+  message?: string | null
+  poll_interval?: number | null
+  [k: string]: unknown
+}
+
 export interface AgentRecord {
   agent_id: string
   computer_id?: string
@@ -805,6 +886,12 @@ export interface ZooclawClient {
   getAgent(agentId: string): Promise<AgentRecord>
   /** PUT declared sections; bumps config_version on EVERY call — gate on drift, don't blind-retry. */
   updateAgent(agentId: string, sections: Record<string, unknown>): Promise<AgentRecord>
+  /**
+   * Soft delete: the agent stops resolving on the API, but this is not a resource purge.
+   * On gateway releases that carry the channels surface, a successful delete also
+   * best-effort disables the agent's bound channels — a failure there never turns the
+   * delete into an error, so a chat binding can in rare cases outlive its agent.
+   */
   deleteAgent(agentId: string): Promise<void>
   /**
    * Flip `desired_state` to `running` — the precondition for every session call.
@@ -843,6 +930,61 @@ export interface ZooclawClient {
    */
   putAgentSkill(agentId: string, skillId: string, opts?: { enabled?: boolean; versionPin?: number | null }): Promise<{ config_version?: number; warnings?: string[] }>
   deleteAgentSkill(agentId: string, skillId: string): Promise<void>
+
+  // ── channels ──
+  //
+  // Bind chat platforms (Feishu/Lark today) to an API-created agent, so the same agent that
+  // answers your `/sessions` calls also answers people in a chat app. Two paths in: the Feishu
+  // QR device flow (`startFeishuSetup` → show the URI → poll), and `addChannel` with explicit
+  // platform credentials in `config`. One caveat worth designing for: a chat conversation and
+  // an API session are SEPARATE sessions with separate context — binding a channel does not
+  // let your API calls see what the agent said in the chat app, or vice versa.
+  //
+  // NOT YET VERIFIED against a live deployment: this family ships ahead of the gateway release
+  // that carries the routes (2026-08-25). Shapes mirror the gateway's own schemas; verification
+  // stamps land with the first recorded probe. On older gateways every route here answers 404.
+
+  /** Channels currently bound to the agent. Empty for a pure API agent. */
+  listChannels(agentId: string): Promise<AgentChannel[]>
+  /**
+   * Bind a channel from explicit platform config (the non-QR path) — `config` carries the
+   * platform's own credential keys. Answers the created channel (HTTP 201).
+   */
+  addChannel(agentId: string, input: AddChannelInput): Promise<AgentChannel>
+  /**
+   * Change `dm_policy` / `group_policy` / `enabled` on one bound platform account.
+   * `allow_from` is deliberately not editable — it is write-once at create.
+   */
+  updateChannel(agentId: string, platform: string, input?: UpdateChannelInput): Promise<AgentChannel>
+  /** Unbind one platform account (server default account: `'default'`). */
+  removeChannel(agentId: string, platform: string, opts?: { account?: string }): Promise<void>
+  /**
+   * Start the Feishu/Lark QR registration. YOU own the UI: render
+   * `verification_uri_complete` (usually as a QR code) and drive the poll loop —
+   * `waitForFeishuSetup` does the loop part for you.
+   */
+  startFeishuSetup(agentId: string, input?: FeishuSetupInput): Promise<FeishuSetupSession>
+  /** One poll of a setup session. `status: 'pending'` means keep going. */
+  pollFeishuSetup(agentId: string, sessionId: string): Promise<FeishuPollResult>
+  /** Abandon a setup session (idempotent as far as the caller is concerned). */
+  cancelFeishuSetup(agentId: string, sessionId: string): Promise<void>
+  /**
+   * Poll a Feishu setup session until it leaves `pending`, then hand back that terminal
+   * poll (`success` / `expired` / `denied` / `error` — the helper returns them all rather
+   * than throwing, because "the person never scanned" is an outcome, not an exception).
+   *
+   * Pacing follows the server's `poll_interval` when present (fallback 5s). The default
+   * budget is 600s — pass the session's `expires_in` when you have it. On timeout it throws
+   * a {@link ZooclawError} with `status: 408` / `type: 'timeout'`; on abort, `status: 0` /
+   * `type: 'aborted'` — both synthesized locally, and every in-flight poll is bounded the
+   * same way {@link waitUntilRunning} bounds its polls. `onPoll` fires after every poll,
+   * terminal one included, for progress UI.
+   */
+  waitForFeishuSetup(
+    agentId: string,
+    sessionId: string,
+    opts?: { timeoutMs?: number; signal?: AbortSignal; onPoll?: (poll: FeishuPollResult) => void },
+  ): Promise<FeishuPollResult>
 
   // ── system prompt ──
   /**
@@ -1436,6 +1578,85 @@ export function createZooclawClient(cfg: ZooclawConfig = {}): ZooclawClient {
       }),
     deleteAgentSkill: async (agentId, skillId) => {
       await json(`${agents(agentId)}/skills/${encodeURIComponent(skillId)}`, { method: 'DELETE' })
+    },
+
+    listChannels: async (agentId) => {
+      const data = await json<{ channels?: AgentChannel[] }>(`${agents(agentId)}/channels`)
+      return data.channels ?? []
+    },
+    addChannel: (agentId, input) =>
+      json(`${agents(agentId)}/channels`, { method: 'POST', body: JSON.stringify(input) }),
+    updateChannel: (agentId, platform, input = {}) =>
+      json(`${agents(agentId)}/channels/${encodeURIComponent(platform)}/update`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    removeChannel: async (agentId, platform, opts = {}) => {
+      await json(`${agents(agentId)}/channels/${encodeURIComponent(platform)}/remove`, {
+        method: 'POST',
+        body: JSON.stringify({ account: opts.account ?? 'default' }),
+      })
+    },
+    startFeishuSetup: (agentId, input = {}) =>
+      json(`${agents(agentId)}/channels/feishu/setup`, { method: 'POST', body: JSON.stringify(input) }),
+    pollFeishuSetup: (agentId, sessionId) =>
+      json(`${agents(agentId)}/channels/feishu/poll${query({ session_id: sessionId })}`),
+    cancelFeishuSetup: async (agentId, sessionId) => {
+      await json(`${agents(agentId)}/channels/feishu/setup/cancel${query({ session_id: sessionId })}`, {
+        method: 'POST',
+      })
+    },
+    waitForFeishuSetup: async (agentId, sessionId, opts = {}) => {
+      const timeoutMs = opts.timeoutMs ?? 600_000
+      const deadline = Date.now() + timeoutMs
+      let lastStatus = 'unknown'
+      const abortedError = (): ZooclawError =>
+        new ZooclawError(0, `waitForFeishuSetup(${agentId}, ${sessionId}) aborted`, 'aborted')
+      const timeoutError = (): ZooclawError =>
+        new ZooclawError(
+          408,
+          `Feishu setup session ${sessionId} still '${lastStatus}' after ${timeoutMs}ms — ` +
+            'the QR may simply not have been scanned yet; the session itself expires server-side',
+          'timeout',
+        )
+      for (;;) {
+        if (opts.signal?.aborted) throw abortedError()
+        const remaining = deadline - Date.now()
+        if (remaining <= 0) throw timeoutError()
+
+        // Same in-flight bound as waitUntilRunning: without it, a stalled gateway would park
+        // this promise past both the budget and the caller's signal.
+        const poll = new AbortController()
+        const cancelPoll = (): void => poll.abort()
+        opts.signal?.addEventListener('abort', cancelPoll, { once: true })
+        const budget = setTimeout(cancelPoll, remaining)
+        let result: FeishuPollResult
+        try {
+          result = await json<FeishuPollResult>(
+            `${agents(agentId)}/channels/feishu/poll${query({ session_id: sessionId })}`,
+            { signal: poll.signal },
+          )
+        } catch (e) {
+          if (poll.signal.aborted) throw opts.signal?.aborted ? abortedError() : timeoutError()
+          throw e
+        } finally {
+          clearTimeout(budget)
+          opts.signal?.removeEventListener('abort', cancelPoll)
+        }
+
+        opts.onPoll?.(result)
+        lastStatus = result.status ?? 'unknown'
+        // Only a literal 'pending' keeps the loop alive… except that an UNKNOWN status is
+        // treated as still-in-flight too (see FeishuPollResult): a new intermediate state on
+        // the server should stretch the wait, not end it with a fake terminal result.
+        const terminal = ['success', 'expired', 'denied', 'error'].includes(lastStatus)
+        if (terminal) return result
+        // Server semantics: poll_interval is in SECONDS. The floor only guards a 0/negative
+        // value from ever busy-looping the gateway.
+        const intervalMs = Math.max(250, (result.poll_interval ?? 5) * 1000)
+        if (Date.now() + intervalMs > deadline) throw timeoutError()
+        await sleep(intervalMs, opts.signal)
+      }
     },
 
     uploadSkill: (zip, opts) => {

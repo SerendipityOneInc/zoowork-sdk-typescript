@@ -804,3 +804,109 @@ test('a 200 whose body is not JSON is an error, not a silent empty object', asyn
   expect(err.status).toBe(200)
   expect(err.message).toBe('non-JSON response: /agents/a')
 })
+
+// ── channels ───────────────────────────────────────────────────────────────
+
+test('listChannels GETs the collection and unwraps { channels }', async () => {
+  const { calls, client } = harness(jsonReply({ channels: [{ platform: 'feishu', account: 'default' }] }))
+  const channels = await client.listChannels('a')
+  expect([calls[0]!.method, path(calls)]).toEqual(['GET', '/agents/a/channels'])
+  expect(channels).toEqual([{ platform: 'feishu', account: 'default' }])
+
+  const empty = harness(jsonReply({}))
+  expect(await empty.client.listChannels('a')).toEqual([])
+})
+
+test('addChannel POSTs the input verbatim to the collection', async () => {
+  const { calls, client } = harness(jsonReply({ platform: 'feishu', account: 'default' }))
+  await client.addChannel('a', { platform: 'feishu', config: { app_id: 'x', app_secret: 'y' } })
+  expect([calls[0]!.method, path(calls)]).toEqual(['POST', '/agents/a/channels'])
+  expect(JSON.parse(calls[0]!.body as string)).toEqual({
+    platform: 'feishu',
+    config: { app_id: 'x', app_secret: 'y' },
+  })
+})
+
+test('updateChannel and removeChannel POST platform actions; platform is URL-encoded', async () => {
+  const upd = harness(jsonReply({ platform: 'feishu', account: 'default', enabled: false }))
+  await upd.client.updateChannel('a', 'feishu', { enabled: false })
+  expect([upd.calls[0]!.method, path(upd.calls)]).toEqual(['POST', '/agents/a/channels/feishu/update'])
+  expect(JSON.parse(upd.calls[0]!.body as string)).toEqual({ enabled: false })
+
+  // No input still POSTs a JSON object — the route validates a body, `undefined` would 400.
+  const bare = harness(jsonReply({ platform: 'feishu', account: 'default' }))
+  await bare.client.updateChannel('a', 'we com')
+  expect(path(bare.calls)).toBe('/agents/a/channels/we%20com/update')
+  expect(JSON.parse(bare.calls[0]!.body as string)).toEqual({})
+
+  const rem = harness(jsonReply({ ok: true }))
+  await rem.client.removeChannel('a', 'feishu')
+  expect([rem.calls[0]!.method, path(rem.calls)]).toEqual(['POST', '/agents/a/channels/feishu/remove'])
+  // account is sent explicitly so the wire shows what the server would have defaulted to.
+  expect(JSON.parse(rem.calls[0]!.body as string)).toEqual({ account: 'default' })
+
+  const remNamed = harness(jsonReply({ ok: true }))
+  await remNamed.client.removeChannel('a', 'feishu', { account: 'sales' })
+  expect(JSON.parse(remNamed.calls[0]!.body as string)).toEqual({ account: 'sales' })
+})
+
+test('Feishu setup / poll / cancel hit the setup routes with session_id in the query', async () => {
+  const setup = harness(jsonReply({ session_id: 's1', verification_uri_complete: 'https://x', expires_in: 600 }))
+  const session = await setup.client.startFeishuSetup('a')
+  expect([setup.calls[0]!.method, path(setup.calls)]).toEqual(['POST', '/agents/a/channels/feishu/setup'])
+  expect(JSON.parse(setup.calls[0]!.body as string)).toEqual({})
+  expect(session.session_id).toBe('s1')
+
+  const branded = harness(jsonReply({ session_id: 's1', verification_uri_complete: 'https://x', expires_in: 600 }))
+  await branded.client.startFeishuSetup('a', { brand: 'lark', dm_policy: 'contacts' })
+  expect(JSON.parse(branded.calls[0]!.body as string)).toEqual({ brand: 'lark', dm_policy: 'contacts' })
+
+  const poll = harness(jsonReply({ status: 'pending' }))
+  await poll.client.pollFeishuSetup('a', 's 1')
+  expect([poll.calls[0]!.method, path(poll.calls)]).toEqual(['GET', '/agents/a/channels/feishu/poll?session_id=s+1'])
+
+  const cancel = harness(jsonReply({ ok: true }))
+  await cancel.client.cancelFeishuSetup('a', 's1')
+  expect([cancel.calls[0]!.method, path(cancel.calls)]).toEqual([
+    'POST',
+    '/agents/a/channels/feishu/setup/cancel?session_id=s1',
+  ])
+})
+
+// ── waitForFeishuSetup ─────────────────────────────────────────────────────
+
+test('waitForFeishuSetup polls until a terminal status and returns it (denied included)', async () => {
+  const pages = [
+    jsonReply({ status: 'pending', poll_interval: 0.01 }),
+    jsonReply({ status: 'scanned', poll_interval: 0.01 }), // unknown status → still in flight
+    jsonReply({ status: 'success', channel_configured: true }),
+  ]
+  const seen: string[] = []
+  const { calls, client } = harness((_c, i) => pages[Math.min(i, pages.length - 1)]!)
+  const done = await client.waitForFeishuSetup('a', 's1', { onPoll: (p) => seen.push(p.status) })
+  expect(done.status).toBe('success')
+  expect(seen).toEqual(['pending', 'scanned', 'success'])
+  expect(calls.length).toBe(3)
+  expect(path(calls)).toBe('/agents/a/channels/feishu/poll?session_id=s1')
+
+  // 'denied' is an outcome, not an exception.
+  const denied = harness(jsonReply({ status: 'denied' }))
+  const result = await denied.client.waitForFeishuSetup('a', 's1')
+  expect(result.status).toBe('denied')
+})
+
+test('waitForFeishuSetup throws 408/timeout while pending, 0/aborted on a pre-aborted signal', async () => {
+  // First poll answers pending with a 5s suggested interval; a 100ms budget cannot fit the
+  // next sleep, so the helper throws timeout WITHOUT sleeping five seconds first.
+  const { client } = harness(jsonReply({ status: 'pending', poll_interval: 5 }))
+  const err = await rejection(client.waitForFeishuSetup('a', 's1', { timeoutMs: 100 }))
+  expect([err.status, err.type]).toEqual([408, 'timeout'])
+  expect(err.message).toContain("still 'pending'")
+
+  const aborted = harness(jsonReply({ status: 'pending' }))
+  const ctl = new AbortController()
+  ctl.abort()
+  const abortErr = await rejection(aborted.client.waitForFeishuSetup('a', 's1', { signal: ctl.signal }))
+  expect([abortErr.status, abortErr.type]).toEqual([0, 'aborted'])
+  expect(aborted.calls.length).toBe(0)
+})
