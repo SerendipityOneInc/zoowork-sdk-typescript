@@ -13,6 +13,7 @@ import * as sdk from './index.js'
 import type {
   AddChannelInput,
   AgentChannel,
+  ChannelPlatform,
   AgentRecord,
   AgentResource,
   AgentSkill,
@@ -168,6 +169,7 @@ test('the client built from the entry point exposes every documented method', ()
 type PublicTypes = [
   AddChannelInput,
   AgentChannel,
+  ChannelPlatform,
   AgentRecord,
   AgentResource,
   AgentSkill,

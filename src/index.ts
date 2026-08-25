@@ -12,6 +12,7 @@ export {
   type AgentStatus,
   type AgentSkill,
   type AgentChannel,
+  type ChannelPlatform,
   type AddChannelInput,
   type UpdateChannelInput,
   type FeishuSetupInput,

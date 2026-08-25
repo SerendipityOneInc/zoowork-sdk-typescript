@@ -850,6 +850,24 @@ test('updateChannel and removeChannel POST platform actions; platform is URL-enc
   expect(JSON.parse(remNamed.calls[0]!.body as string)).toEqual({ account: 'sales' })
 })
 
+test('addChannel accepts every bindable platform without a cast', async () => {
+  // ChannelPlatform is a union widened with (string & {}), so a known platform is checked and an
+  // unreleased one still compiles. Both halves matter: narrowing to a closed union would make a
+  // newly supported platform a breaking change.
+  const { calls, client } = harness(jsonReply({ platform: 'slack', account: 'default' }))
+  for (const platform of ['feishu', 'slack', 'wecom', 'mattermost'] as const) {
+    await client.addChannel('a', { platform })
+  }
+  await client.addChannel('a', { platform: 'a-platform-that-ships-later' })
+  expect(calls.map((c) => JSON.parse(c.body as string).platform)).toEqual([
+    'feishu',
+    'slack',
+    'wecom',
+    'mattermost',
+    'a-platform-that-ships-later',
+  ])
+})
+
 test('Feishu setup / poll / cancel hit the setup routes with session_id in the query', async () => {
   const setup = harness(jsonReply({ session_id: 's1', verification_uri_complete: 'https://x', expires_in: 600 }))
   const session = await setup.client.startFeishuSetup('a')

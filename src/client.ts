@@ -249,12 +249,24 @@ export interface AgentChannel {
   [k: string]: unknown
 }
 
+/**
+ * Platforms a service-API caller can actually bind, staging-verified 2026-08-25.
+ *
+ * `'mattermost'` binds and is manageable, but the server filters it out of every
+ * {@link ZooclawClient.listChannels} response — bind it only if you keep your own record.
+ * WeChat (`'weixin'`/`'wechat'`) is deliberately absent: it answers
+ * `400 channel.weixin_setup_required` naming a QR flow this API does not expose, so it cannot
+ * be bound here at all. Any other name answers `400 channel.invalid_request`.
+ */
+export type ChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'mattermost'
+
 export interface AddChannelInput {
-  platform: string
+  /** See {@link ChannelPlatform}. Typed loosely so a newly supported platform needs no SDK release. */
+  platform: ChannelPlatform | (string & {})
   /** Server default: `'default'`. */
   account?: string
   display_name?: string
-  /** Server default: `'open'`. */
+  /** Server default: `'open'`. `'pairing'` is rejected with `400 channel.pairing_unsupported`. */
   dm_policy?: string
   /** Server default: `'open'`. */
   group_policy?: string
@@ -950,11 +962,22 @@ export interface ZooclawClient {
   //   `channel.not_found`               — the agent has no binding on that platform
   //   `service_api.not_found`           — unknown agent, or unknown action on the path
 
-  /** Channels currently bound to the agent. Empty for a pure API agent. */
+  /**
+   * Channels currently bound to the agent. Empty for a pure API agent.
+   *
+   * ⚠️ **Not a complete inventory.** The server filters `mattermost` out of this response, so a
+   * Mattermost binding is real, manageable, and invisible here — an empty list does not prove
+   * nothing is bound.
+   */
   listChannels(agentId: string): Promise<AgentChannel[]>
   /**
    * Bind a channel from explicit platform config (the non-QR path) — `config` carries the
-   * platform's own credential keys. Answers the created channel (HTTP 201).
+   * platform's own credential keys. Answers the created channel (HTTP 201). This is the ONLY
+   * path for Slack and WeCom; Feishu also has the QR flow. See {@link ChannelPlatform} for what
+   * binds and what does not.
+   *
+   * **It is an upsert, not a create.** Binding the same `platform` + `account` twice answers
+   * `201` again and overwrites the first binding rather than conflicting.
    *
    * ⚠️ **201 means STORED, not WORKING.** Credentials are not validated at bind time: a channel
    * created from deliberately bogus credentials still answered 201 with `health: 'unknown'`,
@@ -973,7 +996,12 @@ export interface ZooclawClient {
    * `404 channel.not_found`.
    */
   updateChannel(agentId: string, platform: string, input?: UpdateChannelInput): Promise<AgentChannel>
-  /** Unbind one platform account (server default account: `'default'`). */
+  /**
+   * Unbind one platform account (server default account: `'default'`).
+   *
+   * Idempotent, unlike {@link updateChannel}: removing a binding that is not there answers
+   * `200 { ok: true }` rather than `404 channel.not_found`.
+   */
   removeChannel(agentId: string, platform: string, opts?: { account?: string }): Promise<void>
   /**
    * Start the Feishu/Lark QR registration. YOU own the UI: render
