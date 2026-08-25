@@ -1,7 +1,18 @@
 # Changelog
 
-All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified against
-staging, not the day it was written.
+All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
+not the day it was written.
+
+## 0.2.1 — 2026-08-25
+
+### Changed
+
+- **`DEFAULT_BASE_URL` now points at the production API** (`https://clawapi.ecap.gsmo.ai/service/v1`).
+  A client with no `baseUrl` and no `ZOOCLAW_BASE_URL` — the recommended setup — now reaches
+  production, which is where API keys are issued. Verified end to end on 2026-08-25: create →
+  start → session → a real model turn → replay, all against production with a production key.
+  If you were relying on the previous default while pointing at another deployment, set
+  `ZOOCLAW_BASE_URL` (or pass `baseUrl`) explicitly.
 
 ## 0.2.0 — 2026-08-19
 
