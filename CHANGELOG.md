@@ -3,6 +3,27 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.4.1 — 2026-08-25
+
+### Documentation
+
+- **`account` on `addChannel` / `startFeishuSetup` now documents what it actually is.** It
+  names a binding and is part of its identity — `updateChannel` and `removeChannel` look a
+  binding up by `platform` + `account`, and nothing renames one. The four constraints, all
+  staging-verified 2026-08-25:
+  - the name is unique per USER across every agent, not per agent;
+  - `'default'` is usually taken already by a binding the app made, which this API will not
+    adopt — it answers `409 channel.conflict`;
+  - the format is `^[a-z0-9][a-z0-9_-]{0,63}$` plus three reserved words, and nothing is
+    normalized for you;
+  - this SDK cannot pre-check a name, because `listChannels` is scoped to one agent while the
+    constraint spans the whole account.
+- **`startFeishuSetup` warns that a name clash surfaces after the scan.** Approving the QR
+  registers a new app in the Feishu workspace before the binding is written, so a clash costs
+  a scan and leaves that app behind; retrying under the same name repeats both.
+
+No runtime change — comments only.
+
 ## 0.4.0 — 2026-08-25
 
 ### Changed (breaking)
