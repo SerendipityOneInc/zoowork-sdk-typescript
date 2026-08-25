@@ -3,6 +3,15 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
 not the day it was written.
 
+## 0.3.3 — 2026-08-25
+
+### Changed
+
+- **`ChannelPlatform` is `'feishu' | 'slack' | 'wecom'`.** 0.3.2 also listed `'mattermost'`,
+  which is the deployment's own internal connection rather than something an API caller binds;
+  it is filtered out of `listChannels` server-side and does not belong on this surface. The
+  type stays widened with `(string & {})`, so nothing that compiled before stops compiling.
+
 ## 0.3.2 — 2026-08-25
 
 Probed the platform axis, which 0.3.1 had not: the routes only name Feishu, but `platform`

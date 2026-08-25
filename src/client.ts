@@ -250,15 +250,13 @@ export interface AgentChannel {
 }
 
 /**
- * Platforms a service-API caller can actually bind, staging-verified 2026-08-25.
+ * The chat platforms you can bind, staging-verified 2026-08-25.
  *
- * `'mattermost'` binds and is manageable, but the server filters it out of every
- * {@link ZooclawClient.listChannels} response — bind it only if you keep your own record.
  * WeChat (`'weixin'`/`'wechat'`) is deliberately absent: it answers
  * `400 channel.weixin_setup_required` naming a QR flow this API does not expose, so it cannot
  * be bound here at all. Any other name answers `400 channel.invalid_request`.
  */
-export type ChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'mattermost'
+export type ChannelPlatform = 'feishu' | 'slack' | 'wecom'
 
 export interface AddChannelInput {
   /** See {@link ChannelPlatform}. Typed loosely so a newly supported platform needs no SDK release. */
@@ -965,9 +963,8 @@ export interface ZooclawClient {
   /**
    * Channels currently bound to the agent. Empty for a pure API agent.
    *
-   * ⚠️ **Not a complete inventory.** The server filters `mattermost` out of this response, so a
-   * Mattermost binding is real, manageable, and invisible here — an empty list does not prove
-   * nothing is bound.
+   * Lists the platforms in {@link ChannelPlatform}. The deployment's own internal channels are
+   * filtered out server-side and never appear here.
    */
   listChannels(agentId: string): Promise<AgentChannel[]>
   /**
