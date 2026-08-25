@@ -3,6 +3,20 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
 not the day it was written.
 
+## 0.3.4 — 2026-08-25
+
+### Fixed (documentation)
+
+- **`config` keys are documented per platform**, which is what a caller actually needs:
+  `slack` takes `{ botToken, appToken }` (socket mode needs the app-level token too),
+  `wecom` takes `{ botId, secret }`, `feishu` takes `{ appId, appSecret, domain }` when you
+  skip the QR flow. They are camelCase; other keys are stored and ignored.
+- **`ChannelPlatform` explains why only Feishu has a QR flow here**, because the two absences
+  are different. Slack structurally cannot have one — a Slack app is created by a person and
+  its tokens only exist in that person's browser, so guided setup anywhere ends in the same
+  two tokens you pass to `addChannel`. WeCom's flow exists in the product but is not exposed
+  on this API yet.
+
 ## 0.3.3 — 2026-08-25
 
 ### Changed
