@@ -940,20 +940,37 @@ export interface ZooclawClient {
   // an API session are SEPARATE sessions with separate context — binding a channel does not
   // let your API calls see what the agent said in the chat app, or vice versa.
   //
-  // NOT YET VERIFIED against a live deployment: this family ships ahead of the gateway release
-  // that carries the routes (2026-08-25). Shapes mirror the gateway's own schemas; verification
-  // stamps land with the first recorded probe. On older gateways every route here answers 404.
+  // Staging-verified 2026-08-25, the day the gateway release carrying these routes reached it.
+  // A deployment WITHOUT that release answers the engine passthrough 404
+  // (`{error:{type:'not_found'}}`) rather than this family's own `{code, detail}` — that
+  // envelope difference is how you tell "not deployed here" from "not found".
+  //
+  // Three distinct 404 codes, and they send you to different fixes:
+  //   `channel.feishu_session_not_found` — the QR session is gone or was cancelled; start a new one
+  //   `channel.not_found`               — the agent has no binding on that platform
+  //   `service_api.not_found`           — unknown agent, or unknown action on the path
 
   /** Channels currently bound to the agent. Empty for a pure API agent. */
   listChannels(agentId: string): Promise<AgentChannel[]>
   /**
    * Bind a channel from explicit platform config (the non-QR path) — `config` carries the
    * platform's own credential keys. Answers the created channel (HTTP 201).
+   *
+   * ⚠️ **201 means STORED, not WORKING.** Credentials are not validated at bind time: a channel
+   * created from deliberately bogus credentials still answered 201 with `health: 'unknown'`,
+   * `status: 'configured'`, and only turned `health: 'unhealthy'` / `status: 'error'` moments
+   * later (staging-verified 2026-08-25). Read the verdict from `health`/`status` on a follow-up
+   * {@link listChannels}; treating the 201 as success ships a silently broken binding.
    */
   addChannel(agentId: string, input: AddChannelInput): Promise<AgentChannel>
   /**
-   * Change `dm_policy` / `group_policy` / `enabled` on one bound platform account.
-   * `allow_from` is deliberately not editable — it is write-once at create.
+   * Change `dm_policy` / `group_policy` / `enabled` on one bound platform account, and get the
+   * channel back in its NEW state. `allow_from` is deliberately not editable — write-once at
+   * create.
+   *
+   * `enabled: false` is not just a flag: it was observed moving `status` to `'disabled'` and
+   * resetting `health` to `'unknown'`. Updating a platform with no binding answers
+   * `404 channel.not_found`.
    */
   updateChannel(agentId: string, platform: string, input?: UpdateChannelInput): Promise<AgentChannel>
   /** Unbind one platform account (server default account: `'default'`). */
@@ -962,23 +979,37 @@ export interface ZooclawClient {
    * Start the Feishu/Lark QR registration. YOU own the UI: render
    * `verification_uri_complete` (usually as a QR code) and drive the poll loop —
    * `waitForFeishuSetup` does the loop part for you.
+   *
+   * Observed defaults: `expires_in: 600`, `poll_interval: 5`. `brand` picks the real host —
+   * `'feishu'` answers an `open.feishu.cn` URI, `'lark'` an `open.larksuite.com` one, so the
+   * brand has to match the workspace the person will approve it in.
    */
   startFeishuSetup(agentId: string, input?: FeishuSetupInput): Promise<FeishuSetupSession>
-  /** One poll of a setup session. `status: 'pending'` means keep going. */
+  /**
+   * One poll of a setup session. `status: 'pending'` means keep going; a cancelled or expired
+   * session answers `404 channel.feishu_session_not_found` rather than a terminal status, so
+   * a hand-rolled loop must treat that 404 as an end condition, not as a transport error.
+   */
   pollFeishuSetup(agentId: string, sessionId: string): Promise<FeishuPollResult>
-  /** Abandon a setup session (idempotent as far as the caller is concerned). */
+  /** Abandon a setup session. Afterwards polling it answers `404 channel.feishu_session_not_found`. */
   cancelFeishuSetup(agentId: string, sessionId: string): Promise<void>
   /**
-   * Poll a Feishu setup session until it leaves `pending`, then hand back that terminal
-   * poll (`success` / `expired` / `denied` / `error` — the helper returns them all rather
-   * than throwing, because "the person never scanned" is an outcome, not an exception).
+   * Poll a Feishu setup session until it leaves `pending`, then hand back that terminal poll.
+   * A status the server reports in the body — `success` / `expired` / `denied` / `error` — is
+   * RETURNED, not thrown: "the person rejected it" is an outcome, not an exception.
    *
-   * Pacing follows the server's `poll_interval` when present (fallback 5s). The default
-   * budget is 600s — pass the session's `expires_in` when you have it. On timeout it throws
-   * a {@link ZooclawError} with `status: 408` / `type: 'timeout'`; on abort, `status: 0` /
-   * `type: 'aborted'` — both synthesized locally, and every in-flight poll is bounded the
-   * same way {@link waitUntilRunning} bounds its polls. `onPoll` fires after every poll,
-   * terminal one included, for progress UI.
+   * But a session can also stop existing, and then polling answers
+   * `404 channel.feishu_session_not_found`, which surfaces here as a thrown
+   * {@link ZooclawError} carrying that `type`. Confirmed for a cancelled session
+   * (staging 2026-08-25); whether a session that simply runs past `expires_in` reports
+   * `status: 'expired'` in a 200 or disappears into this 404 was NOT observed — handle both.
+   *
+   * Pacing follows the server's `poll_interval` when present (observed default 5s; the local
+   * fallback matches). The default budget is 600s, which is also the observed `expires_in` —
+   * pass the session's own value when you have it. On timeout it throws `status: 408` /
+   * `type: 'timeout'`; on abort, `status: 0` / `type: 'aborted'` — both synthesized locally,
+   * and every in-flight poll is bounded the way {@link waitUntilRunning} bounds its polls.
+   * `onPoll` fires after every poll, terminal one included, for progress UI.
    */
   waitForFeishuSetup(
     agentId: string,

@@ -18,6 +18,7 @@ import { expect, test } from 'vitest'
 import {
   createZooclawClient,
   ZooclawError,
+  type AgentChannel,
   type AgentRecord,
   type AgentSkill,
   type AgentStatus,
@@ -1344,6 +1345,148 @@ test('OutcomeConfig declares nothing the wire does not carry, across both storag
   const scheduleOutcome = (body('get-schedule-outcome').payload as { outcome: Record<string, unknown> }).outcome
   const agentOutcome = (body('put-agent-outcome').declared as { outcome: Record<string, unknown> }).outcome
   expectDeclarationCoverage(OUTCOME_CONFIG_KEYS, [], [scheduleOutcome, agentOutcome])
+})
+
+// ── channels ───────────────────────────────────────────────────────────────
+//
+// Recorded against staging 2026-08-25, the day ecap-workspace #3502 reached it. Production did
+// not carry these routes that day (verified: an existing production agent answered the engine
+// passthrough 404), so every note below is a staging observation.
+
+const AGENT_CHANNEL_KEYS = [
+  'platform',
+  'account',
+  'display_name',
+  'dm_policy',
+  'group_policy',
+  'enabled',
+  'health',
+  'status',
+  'status_code',
+] as const satisfies readonly DeclaredKeys<AgentChannel>[]
+const _agentChannelCovered: Covered<AgentChannel, (typeof AGENT_CHANNEL_KEYS)[number]> = undefined
+
+test('AgentChannel declares exactly what the wire carries, in every state it passes through', () => {
+  expectDeclarationCoverage(AGENT_CHANNEL_KEYS, [], [
+    body('post-agents-id-channels'),
+    body('post-agents-id-channels-feishu-update'),
+    rows('get-agents-id-channels-bound', 'channels')[0]!,
+  ])
+})
+
+test('listChannels unwraps { channels } and survives the empty case', async () => {
+  const empty = await replay('get-agents-id-channels', (c) => c.listChannels('agt_AGENT100000000000000000000'))
+  expect(empty.result).toEqual([])
+  expect(empty.path).toBe('/agents/agt_AGENT100000000000000000000/channels')
+
+  const bound = await replay('get-agents-id-channels-bound', (c) => c.listChannels('agt_AGENT100000000000000000000'))
+  expect(bound.result.length).toBe(1)
+  expectExactKeys(bound.result[0], [...AGENT_CHANNEL_KEYS])
+  expectKinds(bound.result[0], {
+    platform: 'string',
+    account: 'string',
+    display_name: 'null',
+    dm_policy: 'string',
+    group_policy: 'string',
+    enabled: 'boolean',
+    health: 'string',
+    status: 'string',
+    status_code: 'null',
+  })
+})
+
+test('addChannel answers 201 with a channel that is CONFIGURED, not working', async () => {
+  // The recorded call passed deliberately bogus credentials and still got a 201. Binding does not
+  // validate them; the server reports the verdict afterwards through health/status. A caller that
+  // treats 201 as "the channel works" ships a broken binding — hence health: 'unknown' here, and
+  // health: 'unhealthy' / status: 'error' on the list fixture recorded moments later.
+  const { result, raw } = await replay('post-agents-id-channels', (c) =>
+    c.addChannel('agt_AGENT100000000000000000000', { platform: 'feishu', config: { app_id: 'x', app_secret: 'y' } }),
+  )
+  expect([result.health, result.status]).toEqual(['unknown', 'configured'])
+  expect([raw['health'], raw['status']]).toEqual(['unknown', 'configured'])
+
+  const listed = rows('get-agents-id-channels-bound', 'channels')[0]!
+  expect([listed['health'], listed['status']]).toEqual(['unhealthy', 'error'])
+})
+
+test('updateChannel returns the channel in its NEW state, and disabling moves both fields', async () => {
+  const { result } = await replay('post-agents-id-channels-feishu-update', (c) =>
+    c.updateChannel('agt_AGENT100000000000000000000', 'feishu', { enabled: false }),
+  )
+  // enabled:false is not merely a flag: status becomes 'disabled' and health resets to 'unknown'.
+  expect([result.enabled, result.status, result.health]).toEqual([false, 'disabled', 'unknown'])
+})
+
+test('removeChannel resolves void off an { ok } body', async () => {
+  const { result, path, method } = await replay('post-agents-id-channels-feishu-remove', (c) =>
+    c.removeChannel('agt_AGENT100000000000000000000', 'feishu'),
+  )
+  expect(result).toBeUndefined()
+  expect([method, path]).toEqual(['POST', '/agents/agt_AGENT100000000000000000000/channels/feishu/remove'])
+})
+
+test('startFeishuSetup carries the device-flow fields the caller has to render', async () => {
+  const { result, raw } = await replay('post-agents-id-channels-feishu-setup', (c) =>
+    c.startFeishuSetup('agt_AGENT100000000000000000000'),
+  )
+  expectExactKeys(raw, ['session_id', 'verification_uri_complete', 'expires_in', 'poll_interval'])
+  expectKinds(result, {
+    session_id: 'string',
+    verification_uri_complete: 'string',
+    expires_in: 'number',
+    poll_interval: 'number',
+  })
+  // Observed defaults — waitForFeishuSetup's 5s fallback and 600s budget are these, not guesses.
+  expect([result.expires_in, result.poll_interval]).toEqual([600, 5])
+  expect(result.verification_uri_complete).toContain('open.feishu.cn')
+})
+
+test('pollFeishuSetup pending carries channel_configured:false and a null message', async () => {
+  const { result, raw } = await replay('get-agents-id-channels-feishu-poll', (c) =>
+    c.pollFeishuSetup('agt_AGENT100000000000000000000', 'SESSION-FEISHU-SETUP-0000000000'),
+  )
+  expectExactKeys(raw, ['status', 'channel_configured', 'message', 'poll_interval'])
+  expect([result.status, result.channel_configured]).toEqual(['pending', false])
+  // null, not absent — a caller narrowing on `message !== undefined` would read it as present.
+  expect(kindOf(raw['message'])).toBe('null')
+})
+
+test('cancelFeishuSetup resolves void, and the body carries more than { ok }', async () => {
+  const { result } = await replay('post-agents-id-channels-feishu-cancel', (c) =>
+    c.cancelFeishuSetup('agt_AGENT100000000000000000000', 'SESSION-FEISHU-SETUP-0000000000'),
+  )
+  expect(result).toBeUndefined()
+  expect(body('post-agents-id-channels-feishu-cancel')).toEqual({ ok: true, message: '' })
+})
+
+test('the channels family speaks THREE distinct 404 codes, and they mean different things', async () => {
+  // Confusing these sends a caller down the wrong path: retry the bind, re-open the QR session,
+  // or stop trusting the agent id.
+  const goneSession = await replayError('get-agents-id-channels-feishu-poll-404', (c) =>
+    c.pollFeishuSetup('agt_AGENT100000000000000000000', 'SESSION-FEISHU-SETUP-0000000000'),
+  )
+  expect([goneSession.status, goneSession.type]).toEqual([404, 'channel.feishu_session_not_found'])
+
+  const unbound = await replayError('post-agents-id-channels-feishu-update-404', (c) =>
+    c.updateChannel('agt_AGENT100000000000000000000', 'feishu'),
+  )
+  expect([unbound.status, unbound.type]).toEqual([404, 'channel.not_found'])
+
+  // `service_api.not_found` is the third — an unknown agent or an unknown action — and it is
+  // already pinned by the agents-family fixtures.
+})
+
+test('an invalid channel body answers 400 with per-field validation errors', async () => {
+  const err = await replayError('post-agents-id-channels-invalid-body', (c) =>
+    // @ts-expect-error platform is required — this is exactly the mistake the fixture records
+    c.addChannel('agt_AGENT100000000000000000000', {}),
+  )
+  expect([err.status, err.type]).toEqual([400, 'service_api.invalid_body'])
+  // detail is an OBJECT here, not a string: the SDK's error unpacking must not stringify it into
+  // the message and lose the field list.
+  const detail = (body('post-agents-id-channels-invalid-body')['detail'] as { errors: unknown[] })
+  expect(detail.errors.length).toBe(1)
 })
 
 // ── coverage ───────────────────────────────────────────────────────────────

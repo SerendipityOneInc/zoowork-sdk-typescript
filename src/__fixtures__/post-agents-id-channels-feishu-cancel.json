@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/channels/feishu/setup/cancel?session_id=SESSION-FEISHU-SETUP-0000000000",
+  "status": 200,
+  "body": {
+    "ok": true,
+    "message": ""
+  }
+}

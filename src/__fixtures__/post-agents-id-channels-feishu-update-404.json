@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/channels/feishu/update",
+  "status": 404,
+  "body": {
+    "code": "channel.not_found",
+    "detail": "channel not found"
+  }
+}
