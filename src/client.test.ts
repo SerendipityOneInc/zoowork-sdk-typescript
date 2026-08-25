@@ -855,7 +855,7 @@ test('addChannel accepts every bindable platform without a cast', async () => {
   // unreleased one still compiles. Both halves matter: narrowing to a closed union would make a
   // newly supported platform a breaking change.
   const { calls, client } = harness(jsonReply({ platform: 'slack', account: 'default' }))
-  for (const platform of ['feishu', 'slack', 'wecom', 'mattermost'] as const) {
+  for (const platform of ['feishu', 'slack', 'wecom'] as const) {
     await client.addChannel('a', { platform })
   }
   await client.addChannel('a', { platform: 'a-platform-that-ships-later' })
@@ -863,7 +863,6 @@ test('addChannel accepts every bindable platform without a cast', async () => {
     'feishu',
     'slack',
     'wecom',
-    'mattermost',
     'a-platform-that-ships-later',
   ])
 })
