@@ -3,6 +3,30 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
 not the day it was written.
 
+## 0.3.2 — 2026-08-25
+
+Probed the platform axis, which 0.3.1 had not: the routes only name Feishu, but `platform`
+is a free string and the server knows more than one.
+
+### Added
+
+- **`ChannelPlatform`** — `'feishu' | 'slack' | 'wecom' | 'mattermost'`, widened with
+  `(string & {})` so a platform that ships later needs no SDK release.
+
+### Fixed (documentation)
+
+- **Slack and WeCom bind through `addChannel`** — 0.3.1 read as though channels meant Feishu.
+- **A Mattermost binding is invisible.** It binds, updates and removes normally, but the server
+  filters it out of every `listChannels` response, so an empty list is not proof nothing is bound.
+- **WeChat cannot be bound here.** `weixin`/`wechat` answer `400 channel.weixin_setup_required`
+  naming a QR flow this API does not expose. Any other platform name answers
+  `400 channel.invalid_request`.
+- **`addChannel` is an upsert**: the same `platform` + `account` twice answers 201 again and
+  overwrites, rather than conflicting.
+- **`removeChannel` is idempotent, `updateChannel` is not** — removing an absent binding is
+  `200 { ok: true }`; updating one is `404 channel.not_found`.
+- `dm_policy: 'pairing'` is rejected with `400 channel.pairing_unsupported`.
+
 ## 0.3.1 — 2026-08-25
 
 Channels, verified. 0.3.0 shipped the surface ahead of the deployment; this replaces its
