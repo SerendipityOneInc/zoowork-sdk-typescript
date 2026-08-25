@@ -3,6 +3,25 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
 not the day it was written.
 
+## 0.3.0 — unreleased
+
+Publishes only after the channel routes are probed live; shapes below mirror the gateway's
+own request/response schemas.
+
+### Added
+
+- **Channels.** Bind chat platforms to an API-created agent: `listChannels`, `addChannel`
+  (explicit platform config), `updateChannel`, `removeChannel`, and the Feishu/Lark QR device
+  flow — `startFeishuSetup` / `pollFeishuSetup` / `cancelFeishuSetup` plus `waitForFeishuSetup`,
+  which drives the poll loop at the server's suggested interval, returns every terminal
+  outcome (`success` / `expired` / `denied` / `error`) instead of throwing on the human ones,
+  and bounds in-flight polls the way `waitUntilRunning` does. New types: `AgentChannel`,
+  `AddChannelInput`, `UpdateChannelInput`, `FeishuSetupInput`, `FeishuSetupSession`,
+  `FeishuPollResult`. On gateway deployments without the channels release every route here
+  answers 404.
+- `deleteAgent` doc: it is a soft delete, and on channel-capable gateways a successful delete
+  best-effort disables the agent's bound channels (cleanup failures never gate the delete).
+
 ## 0.2.1 — 2026-08-25
 
 ### Changed
