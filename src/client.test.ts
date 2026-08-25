@@ -895,6 +895,17 @@ test('waitForFeishuSetup polls until a terminal status and returns it (denied in
   expect(result.status).toBe('denied')
 })
 
+test('waitForFeishuSetup surfaces a vanished session as its own 404, not as a terminal status', async () => {
+  // Cancelling (or, possibly, outliving expires_in) makes the session 404 rather than report
+  // status:'expired'. The helper must not swallow that into a fake outcome — staging 2026-08-25.
+  const { client } = harness({
+    status: 404,
+    body: JSON.stringify({ code: 'channel.feishu_session_not_found', detail: 'Setup session not found' }),
+  })
+  const err = await rejection(client.waitForFeishuSetup('a', 's1'))
+  expect([err.status, err.type]).toEqual([404, 'channel.feishu_session_not_found'])
+})
+
 test('waitForFeishuSetup throws 408/timeout while pending, 0/aborted on a pre-aborted signal', async () => {
   // First poll answers pending with a 5s suggested interval; a 100ms budget cannot fit the
   // next sleep, so the helper throws timeout WITHOUT sleeping five seconds first.

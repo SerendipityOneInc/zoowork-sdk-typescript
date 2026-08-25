@@ -1,0 +1,20 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/channels",
+  "status": 400,
+  "body": {
+    "code": "service_api.invalid_body",
+    "detail": {
+      "message": "Request body failed validation",
+      "errors": [
+        {
+          "loc": [
+            "platform"
+          ],
+          "msg": "Field required",
+          "type": "missing"
+        }
+      ]
+    }
+  }
+}

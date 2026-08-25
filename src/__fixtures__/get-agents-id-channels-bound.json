@@ -1,0 +1,20 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/channels",
+  "status": 200,
+  "body": {
+    "channels": [
+      {
+        "platform": "feishu",
+        "account": "default",
+        "display_name": null,
+        "dm_policy": "open",
+        "group_policy": "open",
+        "enabled": true,
+        "health": "unhealthy",
+        "status": "error",
+        "status_code": null
+      }
+    ]
+  }
+}

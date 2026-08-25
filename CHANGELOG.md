@@ -3,10 +3,35 @@
 All notable changes to `@zooclaw-agents/sdk`. Dates are the day the behaviour was verified,
 not the day it was written.
 
-## 0.3.0 — unreleased
+## 0.3.1 — 2026-08-25
 
-Publishes only after the channel routes are probed live; shapes below mirror the gateway's
-own request/response schemas.
+Channels, verified. 0.3.0 shipped the surface ahead of the deployment; this replaces its
+guesses with what staging actually answered on 2026-08-25 (11 recorded fixtures, 10 new
+response-contract tests). No signature changed — the corrections are in the docs and the
+tests, and two of them would have cost you a debugging session:
+
+### Fixed (documentation and contract, not behaviour)
+
+- **`addChannel`'s 201 means STORED, not WORKING.** Credentials are not validated at bind
+  time: bogus ones still answered 201 with `health: 'unknown'` / `status: 'configured'`, and
+  only turned `health: 'unhealthy'` / `status: 'error'` moments later. Read the verdict from a
+  follow-up `listChannels`.
+- **`waitForFeishuSetup` does not return a terminal status for a session that stopped
+  existing.** A cancelled session answers `404 channel.feishu_session_not_found`, which the
+  helper surfaces as a thrown `ZooclawError` — 0.3.0's docs implied every ending came back as
+  a value. Whether natural expiry takes this path or reports `status: 'expired'` is still
+  unobserved; handle both.
+- Three distinct 404 codes documented (`channel.feishu_session_not_found` /
+  `channel.not_found` / `service_api.not_found`), plus the tell for a deployment that lacks
+  the routes entirely: the engine passthrough envelope `{error:{type:'not_found'}}` instead of
+  this family's `{code, detail}`.
+- Observed defaults recorded: `expires_in: 600`, `poll_interval: 5`; `enabled: false` moves
+  `status` to `'disabled'` and resets `health`; `brand: 'lark'` really does switch the URI host
+  to `open.larksuite.com`.
+
+## 0.3.0 — 2026-08-25
+
+The surface, published the day the gateway release reached staging. Verified in 0.3.1.
 
 ### Added
 

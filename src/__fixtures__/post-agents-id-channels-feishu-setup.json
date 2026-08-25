@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/channels/feishu/setup",
+  "status": 200,
+  "body": {
+    "session_id": "SESSION-FEISHU-SETUP-0000000000",
+    "verification_uri_complete": "https://open.feishu.cn/page/launcher?user_code=XXXX-XXXX",
+    "expires_in": 600,
+    "poll_interval": 5
+  }
+}

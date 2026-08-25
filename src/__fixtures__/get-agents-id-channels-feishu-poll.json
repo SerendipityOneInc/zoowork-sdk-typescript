@@ -1,0 +1,11 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/channels/feishu/poll?session_id=SESSION-FEISHU-SETUP-0000000000",
+  "status": 200,
+  "body": {
+    "status": "pending",
+    "channel_configured": false,
+    "message": null,
+    "poll_interval": 5
+  }
+}

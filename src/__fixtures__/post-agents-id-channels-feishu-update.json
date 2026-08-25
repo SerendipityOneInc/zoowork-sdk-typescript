@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "path": "/agents/agt_AGENT100000000000000000000/channels/feishu/update",
+  "status": 200,
+  "body": {
+    "platform": "feishu",
+    "account": "default",
+    "display_name": null,
+    "dm_policy": "open",
+    "group_policy": "open",
+    "enabled": false,
+    "health": "unknown",
+    "status": "disabled",
+    "status_code": null
+  }
+}

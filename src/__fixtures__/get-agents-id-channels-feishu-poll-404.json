@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "path": "/agents/agt_AGENT100000000000000000000/channels/feishu/poll?session_id=SESSION-FEISHU-SETUP-0000000000",
+  "status": 404,
+  "body": {
+    "code": "channel.feishu_session_not_found",
+    "detail": "Setup session not found"
+  }
+}
