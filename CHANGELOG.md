@@ -3,6 +3,18 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.4.2 — 2026-08-25
+
+### Documentation
+
+- **`addChannel` is idempotent, not an upsert — 0.3.4 said the opposite.** Re-posting an
+  identical body for the same `platform` + `account` replays the binding you already have and
+  answers `201` again; that same pair with a **different** `config` answers
+  `409 channel.conflict`. Rotating credentials therefore means `removeChannel` and then a
+  fresh `addChannel` — a plain re-add fails. The earlier note came from re-posting the same
+  body, where a replay cannot be told apart from an overwrite; the conflict path was measured
+  on staging 2026-08-25. No signature or behaviour change.
+
 ## 0.4.1 — 2026-08-25
 
 ### Internal

@@ -1043,8 +1043,12 @@ export interface ZooworkClient {
    * path for Slack and WeCom; Feishu also has the QR flow. See {@link ChannelPlatform} for what
    * binds and what does not.
    *
-   * **It is an upsert, not a create.** Binding the same `platform` + `account` twice answers
-   * `201` again and overwrites the first binding rather than conflicting.
+   * **It is idempotent, not an upsert.** Re-posting an identical body for the same
+   * `platform` + `account` answers `201` again and replays the binding you already have — it
+   * neither creates a second channel nor overwrites the first. That same pair with a DIFFERENT
+   * `config` answers `409 channel.conflict`, so rotating credentials means
+   * {@link removeChannel} and then a fresh `addChannel`; a plain re-add fails
+   * (staging-verified 2026-08-25).
    *
    * ⚠️ **201 means STORED, not WORKING.** Credentials are not validated at bind time: a channel
    * created from deliberately bogus credentials still answered 201 with `health: 'unknown'`,
