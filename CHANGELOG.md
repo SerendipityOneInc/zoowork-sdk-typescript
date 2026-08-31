@@ -3,6 +3,72 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.5.1 — 2026-08-31
+
+### Added
+
+- **`ZooworkError` keeps the evidence: `contentType`, `bodySnippet`, `cfRay`, `requestId`,
+  `retryable`.** A production `postEvents` failure surfaced as `HTTP 502, type: undefined`
+  and cost the reporter a day of black-box contrast experiments (2026-08-30,
+  `notes/probes/system-message-cold-session-probe.mts`): the edge replaces an origin 502/504
+  body wholesale with a branded `text/html` page, so no JSON envelope ever reaches the SDK —
+  and 0.5.0 then dropped the only three facts that survived. Now every transport error keeps
+  the response `Content-Type`, the first 600 characters of the raw body, and the `cf-ray`
+  header (present on JSON errors too, verified 2026-08-31) — the id to quote when reporting
+  a gateway failure. `requestId` reads `request_id` from either error envelope once the
+  server starts sending one; today it is usually absent. `retryable` is a transport-class
+  hint (`408/429/502/503/504`): it says the failure class tends to pass, not that a replay
+  is safe — pair it with `idempotency_key` before looping on it.
+  SDK-synthesized wait timeouts keep `retryable: false`: they report that the caller's own
+  polling budget expired, not that an HTTP 408 came back from the service.
+
+### Changed
+
+- **The fallback error message names what actually came back.** A non-JSON error body used
+  to read a bare `HTTP 502`; it now reads
+  `HTTP 502 (text/html; charset=UTF-8) [cf-ray a338c539…]`. Messages parsed from a server
+  envelope are unchanged — keep matching on `type`/`status`, never on message text.
+- **`streamEvents` raises the same enriched envelope** on a non-ok response instead of the
+  bare `events stream HTTP <status>` string, so SSE failures are diagnosable the same way.
+- **A structured `detail` object no longer stringifies into the message.** The agents-family
+  envelope may carry `detail` as an object; it previously became the literal message
+  `[object Object]`, now it falls through to the status line and stays readable in
+  `bodySnippet`.
+
+## 0.5.0 — 2026-08-28
+
+### Added
+
+- **The QR flow now covers WeCom and WeChat, not just Feishu** — gateway PR #3512 shipped
+  `/channels/{wecom,weixin}/{setup,poll,setup-cancel}`, and 0.4.x had no way to call them.
+  Four platform-taking methods replace the four Feishu-only ones:
+  `startChannelSetup(agentId, platform, input?)`, `pollChannelSetup`, `cancelChannelSetup`,
+  `waitForChannelSetup`. New types `ChannelSetupInput`, `ChannelSetupSession`,
+  `ChannelPollResult`, `GuidedSetupPlatform` (`'feishu' | 'wecom' | 'weixin'`) and
+  `AddChannelPlatform`.
+- **`startFeishuSetup` / `pollFeishuSetup` / `cancelFeishuSetup` / `waitForFeishuSetup` still
+  work** — they now delegate to the platform-taking versions. `FeishuSetupInput` and
+  `FeishuPollResult` are aliases of the new names; `FeishuSetupSession` narrows
+  `ChannelSetupSession` to the one platform that always answers `verification_uri_complete`.
+  Only the message text of a thrown timeout/abort changed (it names `waitForChannelSetup` and
+  the platform); `status` and `type` are unchanged.
+
+### Documentation
+
+- **`ChannelPlatform` gains `'weixin'`, and WeChat is no longer described as unbindable.**
+  0.3.2–0.4.2 said WeChat "answers `400 channel.weixin_setup_required`, naming a QR flow this
+  API does not expose". The flow exists now; that error is a signpost to it, not a dead end.
+  `addChannel` still refuses WeChat, so `AddChannelPlatform` is the type that lists what it
+  takes.
+- **Per-platform shapes, staging-verified 2026-08-28** (`notes/probes/channels-guided-probe.mts`):
+  Feishu answers `verification_uri_complete` + `poll_interval: 5`, `expires_in: 600`; WeCom and
+  WeChat answer `qrcode_url` with no `poll_interval` and `expires_in: 300`; WeChat's
+  `qrcode_url` may be an inline `data:image/…` payload rather than a URL. WeChat reads only
+  `dm_policy` and only `'open'`/`'disabled'` — `'allowlist'` is
+  `400 channel.allowlist_unsupported` — pins the account to `'default'`, and ignores anything
+  else in the body. Cancelled sessions 404 per platform:
+  `channel.{feishu,wecom,weixin}_session_not_found`.
+
 ## 0.4.2 — 2026-08-25
 
 ### Documentation
