@@ -252,7 +252,7 @@ test('waitUntilRunning throws 408/timeout when the agent never gets there', asyn
   const { client } = harness(jsonReply({ agent_id: 'a', status: { desired_state: 'stopped' } }))
   const err = await rejection(client.waitUntilRunning('a', { timeoutMs: 120, intervalMs: 20 }))
   expect(err).toBeInstanceOf(ZooworkError)
-  expect([err.status, err.type]).toEqual([408, 'timeout'])
+  expect([err.status, err.type, err.retryable]).toEqual([408, 'timeout', false])
   expect(err.message).toContain('last seen: stopped')
 })
 
@@ -782,10 +782,71 @@ test('an API error envelope becomes a ZooworkError carrying status, type and mes
   expect([err.status, err.type, err.message]).toEqual([409, 'agent_not_running', 'agent is not running'])
 })
 
-test('a non-JSON error body keeps a clean HTTP status message and no type', async () => {
-  const { client } = harness({ status: 502, body: '<html>bad gateway</html>' })
+// The edge replaces an origin 502/504 body wholesale with a branded HTML page (observed
+// 2026-08-30 on both deployments): no JSON envelope reaches the client, and content-type +
+// raw body + `cf-ray` are the only diagnostics left. The SDK must keep all three — dropping
+// them is what reduced a reproducible server bug to "HTTP 502, type: undefined".
+test('a non-JSON error body names status, content-type and ray id, and keeps the evidence', async () => {
+  const page = '<!DOCTYPE html><html>bad gateway</html>'
+  const { client } = harness(
+    () =>
+      new Response(page, {
+        status: 502,
+        headers: { 'content-type': 'text/html; charset=UTF-8', 'cf-ray': '999aabbccddee-SJC' },
+      }),
+  )
   const err = await rejection(client.getAgent('a'))
-  expect([err.status, err.type, err.message]).toEqual([502, undefined, 'HTTP 502'])
+  expect([err.status, err.type, err.message]).toEqual([
+    502,
+    undefined,
+    'HTTP 502 (text/html; charset=UTF-8) [cf-ray 999aabbccddee-SJC]',
+  ])
+  expect(err.contentType).toBe('text/html; charset=UTF-8')
+  expect(err.cfRay).toBe('999aabbccddee-SJC')
+  expect(err.bodySnippet).toBe(page)
+  expect(err.retryable).toBe(true)
+})
+
+test('an envelope request_id is kept, and a 4xx is not retryable', async () => {
+  const { client } = harness({
+    status: 409,
+    body: JSON.stringify({ error: { type: 'agent_not_running', message: 'agent is not running', request_id: 'req-1' } }),
+  })
+  const err = await rejection(client.createSession('a', {}))
+  expect([err.requestId, err.retryable]).toEqual(['req-1', false])
+})
+
+test('bodySnippet is bounded even when the error page is not', async () => {
+  const { client } = harness({ status: 502, body: 'x'.repeat(5000) })
+  const err = await rejection(client.getAgent('a'))
+  expect(err.bodySnippet!.length).toBe(600)
+})
+
+// The agents family may send `detail` as an object; stringifying it made the message the
+// literal `[object Object]`. It now falls through to the status line and stays in bodySnippet.
+test('a structured detail object never stringifies into the message', async () => {
+  const { client } = harness(
+    () =>
+      new Response(JSON.stringify({ code: 'service_api.invalid', detail: { field: 'x' } }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      }),
+  )
+  const err = await rejection(client.getAgent('a'))
+  expect([err.type, err.message]).toEqual(['service_api.invalid', 'HTTP 400 (application/json)'])
+  expect(err.bodySnippet).toContain('"field":"x"')
+})
+
+test('a non-ok events stream raises the same enriched envelope as the JSON path', async () => {
+  const { client } = harness(
+    () => new Response('<html>bad gateway</html>', { status: 502, headers: { 'cf-ray': 'ray-2', 'content-type': 'text/html' } }),
+  )
+  const err = await rejection(
+    (async () => {
+      for await (const ev of client.streamEvents('a', 's')) void ev
+    })(),
+  )
+  expect([err.status, err.cfRay, err.retryable]).toEqual([502, 'ray-2', true])
 })
 
 test('the multipart path raises the same envelope as the JSON path', async () => {
@@ -888,6 +949,53 @@ test('Feishu setup / poll / cancel hit the setup routes with session_id in the q
     'POST',
     '/agents/a/channels/feishu/setup/cancel?session_id=s1',
   ])
+})
+
+test('the guided setup routes are per platform, and the Feishu spellings delegate to them', async () => {
+  // wecom/weixin answer `qrcode_url` and no poll_interval — staging 2026-08-28.
+  const wecom = harness(jsonReply({ session_id: 's1', qrcode_url: 'https://work.weixin.qq.com/ai/qc/c?s=x', expires_in: 300 }))
+  const session = await wecom.client.startChannelSetup('a', 'wecom', { account: 'agt-1' })
+  expect([wecom.calls[0]!.method, path(wecom.calls)]).toEqual(['POST', '/agents/a/channels/wecom/setup'])
+  expect(JSON.parse(wecom.calls[0]!.body as string)).toEqual({ account: 'agt-1' })
+  expect([session.qrcode_url, session.verification_uri_complete]).toEqual([
+    'https://work.weixin.qq.com/ai/qc/c?s=x',
+    undefined,
+  ])
+
+  const weixin = harness(jsonReply({ status: 'pending' }))
+  await weixin.client.pollChannelSetup('a', 'weixin', 's 1')
+  expect([weixin.calls[0]!.method, path(weixin.calls)]).toEqual(['GET', '/agents/a/channels/weixin/poll?session_id=s+1'])
+
+  const cancel = harness(jsonReply({ ok: true }))
+  await cancel.client.cancelChannelSetup('a', 'weixin', 's1')
+  expect(path(cancel.calls)).toBe('/agents/a/channels/weixin/setup/cancel?session_id=s1')
+
+  // The 0.3.x–0.4.x spellings are the same calls with the platform filled in.
+  const legacy = harness(jsonReply({ session_id: 's1', verification_uri_complete: 'https://x', expires_in: 600 }))
+  await legacy.client.startFeishuSetup('a', { brand: 'lark' })
+  expect(path(legacy.calls)).toBe('/agents/a/channels/feishu/setup')
+  expect(JSON.parse(legacy.calls[0]!.body as string)).toEqual({ brand: 'lark' })
+})
+
+test('waitForChannelSetup polls the platform it was given, and a vanished session throws its own 404', async () => {
+  const { calls, client } = harness(jsonReply({ status: 'success', channel_configured: true }))
+  const done = await client.waitForChannelSetup('a', 'wecom', 's1')
+  expect(done.status).toBe('success')
+  expect(path(calls)).toBe('/agents/a/channels/wecom/poll?session_id=s1')
+
+  // wecom/weixin never send poll_interval, so the local 5s fallback paces the loop: a 100ms
+  // budget cannot fit that sleep and the helper times out instead of sleeping five seconds.
+  const pending = harness(jsonReply({ status: 'pending' }))
+  const slow = await rejection(pending.client.waitForChannelSetup('a', 'wecom', 's1', { timeoutMs: 100 }))
+  expect([slow.status, slow.type, slow.retryable]).toEqual([408, 'timeout', false])
+  expect(slow.message).toContain('wecom setup session')
+
+  const gone = harness({
+    status: 404,
+    body: JSON.stringify({ code: 'channel.weixin_session_not_found', detail: 'Setup session not found' }),
+  })
+  const err = await rejection(gone.client.waitForChannelSetup('a', 'weixin', 's1'))
+  expect([err.status, err.type]).toEqual([404, 'channel.weixin_session_not_found'])
 })
 
 // ── waitForFeishuSetup ─────────────────────────────────────────────────────

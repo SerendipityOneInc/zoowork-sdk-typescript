@@ -68,6 +68,13 @@ export interface ZooworkConfig {
   fetch?: (input: string, init?: RequestInit) => Promise<Response>
 }
 
+/** Statuses whose failure class tends to pass on its own: timeout, throttle, gateway. */
+const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504])
+
+/** Bound on `ZooworkError.bodySnippet` — enough to keep a whole error envelope or the
+ * opening of an HTML error page, small enough to log unconditionally. */
+const BODY_SNIPPET_LIMIT = 600
+
 export class ZooworkError extends Error {
   status: number
   /**
@@ -81,12 +88,97 @@ export class ZooworkError extends Error {
    * you only need the class of failure.
    */
   type?: string
-  constructor(status: number, message: string, type?: string) {
+  /**
+   * `Content-Type` of the error response. The field that tells an edge error page apart from an
+   * API answer: both envelopes above are `application/json`, while a gateway 502/504 arrives as
+   * `text/html` — the edge replaces the origin's body wholesale, so no JSON survives to parse
+   * (verified 2026-08-30 against both deployments;
+   * `notes/probes/system-message-cold-session-probe.mts`).
+   */
+  contentType?: string
+  /** First {@link BODY_SNIPPET_LIMIT} characters of the raw error body, whatever it was.
+   * Without it a non-JSON failure cannot be reconstructed from `status` alone. */
+  bodySnippet?: string
+  /**
+   * Cloudflare ray id (`cf-ray` response header), when the response crossed Cloudflare. It
+   * survives even the replaced-body case above — on an HTML 502 it is the only correlation id
+   * left, and the value to quote when reporting a gateway failure.
+   */
+  cfRay?: string
+  /** Correlation id from the error envelope (`request_id` on either vocabulary), when the
+   * server includes one. Usually absent today. */
+  requestId?: string
+  /**
+   * Transport-class transient hint: `true` for 408, 429, 502, 503 and 504. It says the failure
+   * CLASS tends to pass, not that a replay is safe — retrying a `postEvents` without an
+   * `idempotency_key` can still deliver twice. Pair it with idempotency keys before looping.
+   */
+  retryable: boolean
+  constructor(
+    status: number,
+    message: string,
+    type?: string,
+    extra?: { contentType?: string; bodySnippet?: string; cfRay?: string; requestId?: string; retryable?: boolean },
+  ) {
     super(message)
     this.name = 'ZooworkError'
     this.status = status
     if (type) this.type = type
+    if (extra?.contentType) this.contentType = extra.contentType
+    if (extra?.bodySnippet) this.bodySnippet = extra.bodySnippet
+    if (extra?.cfRay) this.cfRay = extra.cfRay
+    if (extra?.requestId) this.requestId = extra.requestId
+    this.retryable = extra?.retryable ?? RETRYABLE_STATUSES.has(status)
   }
+}
+
+/** The response facts worth keeping on every transport-level ZooworkError, whatever the body. */
+function responseForensics(
+  res: Response,
+  text: string,
+): { contentType?: string; bodySnippet?: string; cfRay?: string } {
+  return {
+    contentType: res.headers.get('content-type') ?? undefined,
+    cfRay: res.headers.get('cf-ray') ?? undefined,
+    bodySnippet: text ? text.slice(0, BODY_SNIPPET_LIMIT) : undefined,
+  }
+}
+
+/**
+ * Build the ZooworkError for a non-2xx response. Unpacks BOTH envelope vocabularies (see
+ * {@link ZooworkError.type}); when neither matches — typically an edge error page whose body
+ * replaced the origin's JSON — the message names status, content-type and ray id instead of a
+ * bare `HTTP 502`. Those three are what turn an "HTTP 502, type: undefined" report into an
+ * answerable one (2026-08-30). A structured `detail` object is deliberately NOT stringified
+ * into the message (`[object Object]`); it stays readable in `bodySnippet`.
+ */
+function httpError(res: Response, text: string): ZooworkError {
+  const forensics = responseForensics(res, text)
+  let msg: string | undefined
+  let type: string | undefined
+  let requestId: string | undefined
+  try {
+    const j = JSON.parse(text) as {
+      error?: { type?: string; message?: string; request_id?: string }
+      message?: string
+      code?: string
+      detail?: unknown
+      request_id?: string
+    }
+    const detail = typeof j?.detail === 'string' ? j.detail : undefined
+    msg = j?.error?.message || j?.message || detail || undefined
+    type = j?.error?.type ?? j?.code
+    requestId = j?.error?.request_id ?? j?.request_id
+  } catch {
+    /* non-JSON error body — usually the edge speaking, not the API */
+  }
+  if (!msg) {
+    msg =
+      `HTTP ${res.status}` +
+      (forensics.contentType ? ` (${forensics.contentType})` : '') +
+      (forensics.cfRay ? ` [cf-ray ${forensics.cfRay}]` : '')
+  }
+  return new ZooworkError(res.status, msg, type, { ...forensics, requestId })
 }
 
 export interface Ownership {
@@ -262,23 +354,50 @@ export interface AgentChannel {
 }
 
 /**
- * The chat platforms you can bind, staging-verified 2026-08-25.
+ * The chat platforms you can bind, staging-verified 2026-08-28.
  *
- * Only `'feishu'` has a server-driven QR flow here, and the two reasons the others lack one
- * are different. Slack structurally cannot have one — a Slack app is created by a person, and
- * its tokens only ever exist in that person's browser — so `addChannel` with `botToken` +
- * `appToken` is its permanent path. WeCom's flow exists in the product but is not exposed on
- * this API yet, so today it also binds through `addChannel`.
+ * Three of them have a server-driven QR flow ({@link GuidedSetupPlatform}); Slack does not,
+ * and structurally cannot — a Slack app is created by a person and its tokens only ever exist
+ * in that person's browser, so {@link AddChannelInput} with `botToken` + `appToken` is its
+ * permanent path.
  *
- * WeChat (`'weixin'`/`'wechat'`) is absent because it cannot be bound here at all: it answers
- * `400 channel.weixin_setup_required`, naming a QR flow this API does not expose. Any other
- * name answers `400 channel.invalid_request`.
+ * WeChat is the one platform that goes the other way: `'weixin'`/`'wechat'` on
+ * {@link ZooworkClient.addChannel} answers `400 channel.weixin_setup_required`, so the QR flow
+ * is its ONLY path. See {@link AddChannelPlatform}. Any name outside this type answers
+ * `400 channel.invalid_request`.
  */
-export type ChannelPlatform = 'feishu' | 'slack' | 'wecom'
+export type ChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'weixin'
+
+/**
+ * The platforms {@link ZooworkClient.addChannel} accepts — every {@link ChannelPlatform}
+ * except WeChat, which refuses explicit config and takes the QR flow only.
+ */
+export type AddChannelPlatform = 'feishu' | 'slack' | 'wecom'
+
+/**
+ * The platforms with a server-driven QR flow: {@link ZooworkClient.startChannelSetup} →
+ * render the URI → poll. Slack is absent by design, not by omission.
+ *
+ * The three differ in what the setup answer carries and in what the body may say
+ * (staging-verified 2026-08-28):
+ *
+ * - `feishu` — answers `verification_uri_complete` and a `poll_interval`; takes `brand`,
+ *   `account`, `dm_policy`, `group_policy`; `expires_in: 600`.
+ * - `wecom` — answers `qrcode_url` and NO `poll_interval` (you pick the cadence); takes
+ *   `account`, `dm_policy`, `group_policy`; `expires_in: 300`.
+ * - `weixin` — answers `qrcode_url`, which may be a URL *or* an inline `data:image/…` payload;
+ *   takes `dm_policy` only, `'open'` or `'disabled'` (the account is pinned to `'default'` and
+ *   the group policy to `'disabled'` server-side); `expires_in: 300`.
+ */
+export type GuidedSetupPlatform = 'feishu' | 'wecom' | 'weixin'
 
 export interface AddChannelInput {
-  /** See {@link ChannelPlatform}. Typed loosely so a newly supported platform needs no SDK release. */
-  platform: ChannelPlatform | (string & {})
+  /**
+   * See {@link AddChannelPlatform}. Typed loosely so a newly supported platform needs no SDK
+   * release. `'weixin'`/`'wechat'` is refused here with `400 channel.weixin_setup_required` —
+   * use {@link ZooworkClient.startChannelSetup} instead.
+   */
+  platform: AddChannelPlatform | (string & {})
   /**
    * Names this binding. It is part of the record's identity, not a setting: `updateChannel`
    * and `removeChannel` find a binding by `platform` + `account`, and nothing renames one
@@ -330,8 +449,14 @@ export interface UpdateChannelInput {
   enabled?: boolean
 }
 
-export interface FeishuSetupInput {
-  /** `'feishu'` (default) or `'lark'` — the international brand of the same platform. */
+/**
+ * Body for {@link ZooworkClient.startChannelSetup}. Every field is optional, and each platform
+ * reads a different subset — see {@link GuidedSetupPlatform}. A field a platform does not read
+ * is ignored rather than rejected: `weixin` accepts an `account` in the body and still binds
+ * `'default'` (staging-verified 2026-08-28).
+ */
+export interface ChannelSetupInput {
+  /** Feishu only: `'feishu'` (default) or `'lark'` — the international brand of the same platform. */
   brand?: 'feishu' | 'lark'
   /**
    * Names this binding. It is part of the record's identity, not a setting: `updateChannel`
@@ -357,39 +482,65 @@ export interface FeishuSetupInput {
    * works as-is: it matches the pattern and is unique per agent by construction.
    */
   account?: string
-  /** Server default: `'open'`. */
+  /**
+   * Server default: `'open'`. WeChat takes only `'open'` or `'disabled'` — `'allowlist'` is
+   * `400 channel.allowlist_unsupported` there, and `'pairing'` is
+   * `400 channel.pairing_unsupported` on every platform.
+   */
   dm_policy?: string
-  /** Server default: `'open'`. */
+  /** Server default: `'open'`. Ignored by WeChat, which forces `'disabled'`. */
   group_policy?: string
 }
 
+/** @deprecated Use {@link ChannelSetupInput}; this is the same shape under the old name. */
+export type FeishuSetupInput = ChannelSetupInput
+
 /**
- * A running Feishu QR registration. Render `verification_uri_complete` to the person
- * doing the binding (typically as a QR code), then poll with `pollFeishuSetup` /
- * `waitForFeishuSetup` until it leaves `pending`. The session expires after
- * `expires_in` seconds.
+ * A running QR registration. Show the person doing the binding whichever URI the platform
+ * answered — `verification_uri_complete` for Feishu, `qrcode_url` for WeCom and WeChat, so
+ * `session.verification_uri_complete ?? session.qrcode_url` is the value to render — then poll
+ * with {@link ZooworkClient.pollChannelSetup} / {@link ZooworkClient.waitForChannelSetup} until
+ * it leaves `pending`. The session expires after `expires_in` seconds.
+ *
+ * Two of the three are QR-only: WeCom's `qrcode_url` is a URL you encode yourself, and WeChat's
+ * may be a URL *or* an inline `data:image/…` payload you render directly, so check the prefix
+ * before you feed it to a QR encoder.
  */
-export interface FeishuSetupSession {
+export interface ChannelSetupSession {
   session_id: string
-  verification_uri_complete: string
+  /** Feishu only — the URI to encode into a QR code. */
+  verification_uri_complete?: string
+  /** WeCom and WeChat — a URL to encode, or (WeChat) an inline `data:image/…` image. */
+  qrcode_url?: string
   expires_in: number
-  /** Suggested seconds between polls; the server may omit it. */
+  /** Suggested seconds between polls. Feishu sends it; WeCom and WeChat never do. */
   poll_interval?: number | null
   [k: string]: unknown
 }
 
 /**
- * One poll of a Feishu setup session. The gateway's own vocabulary for `status` is
- * `pending | success | expired | denied | error`; treat anything unknown as
- * still-in-flight rather than throwing.
+ * A running Feishu QR registration — {@link ChannelSetupSession} narrowed to the one platform
+ * that always answers `verification_uri_complete`.
  */
-export interface FeishuPollResult {
+export interface FeishuSetupSession extends ChannelSetupSession {
+  verification_uri_complete: string
+}
+
+/**
+ * One poll of a setup session. The gateway's own vocabulary for `status` is
+ * `pending | success | expired | denied | error` (`denied` is Feishu-only); treat anything
+ * unknown as still-in-flight rather than throwing.
+ */
+export interface ChannelPollResult {
   status: string
   channel_configured?: boolean
   message?: string | null
   poll_interval?: number | null
   [k: string]: unknown
 }
+
+/** @deprecated Use {@link ChannelPollResult}; this is the same shape under the old name. */
+export type FeishuPollResult = ChannelPollResult
 
 export interface AgentRecord {
   agent_id: string
@@ -1013,20 +1164,23 @@ export interface ZooworkClient {
 
   // ── channels ──
   //
-  // Bind chat platforms (Feishu/Lark today) to an API-created agent, so the same agent that
-  // answers your `/sessions` calls also answers people in a chat app. Two paths in: the Feishu
-  // QR device flow (`startFeishuSetup` → show the URI → poll), and `addChannel` with explicit
-  // platform credentials in `config`. One caveat worth designing for: a chat conversation and
-  // an API session are SEPARATE sessions with separate context — binding a channel does not
-  // let your API calls see what the agent said in the chat app, or vice versa.
+  // Bind chat platforms to an API-created agent, so the same agent that answers your
+  // `/sessions` calls also answers people in a chat app. Two paths in: the QR flow
+  // (`startChannelSetup` → show the URI → poll), which Feishu/Lark, WeCom and WeChat have, and
+  // `addChannel` with explicit platform credentials in `config`, which is Slack's only path and
+  // WeChat's forbidden one. One caveat worth designing for: a chat conversation and an API
+  // session are SEPARATE sessions with separate context — binding a channel does not let your
+  // API calls see what the agent said in the chat app, or vice versa.
   //
-  // Staging-verified 2026-08-25, the day the gateway release carrying these routes reached it.
-  // A deployment WITHOUT that release answers the engine passthrough 404
-  // (`{error:{type:'not_found'}}`) rather than this family's own `{code, detail}` — that
-  // envelope difference is how you tell "not deployed here" from "not found".
+  // Staging-verified 2026-08-28 (the QR flows for WeCom and WeChat, gateway PR #3512) on top of
+  // 2026-08-25 (the rest, PR #3502). A deployment WITHOUT those releases answers the engine
+  // passthrough 404 (`{error:{type:'not_found'}}`) rather than this family's own
+  // `{code, detail}` — that envelope difference is how you tell "not deployed here" from
+  // "not found".
   //
-  // Three distinct 404 codes, and they send you to different fixes:
-  //   `channel.feishu_session_not_found` — the QR session is gone or was cancelled; start a new one
+  // Four distinct 404 codes, and they send you to different fixes:
+  //   `channel.{feishu,wecom,weixin}_session_not_found` — the QR session is gone or was
+  //                                       cancelled; start a new one
   //   `channel.not_found`               — the agent has no binding on that platform
   //   `service_api.not_found`           — unknown agent, or unknown action on the path
 
@@ -1040,8 +1194,8 @@ export interface ZooworkClient {
   /**
    * Bind a channel from explicit platform config (the non-QR path) — `config` carries the
    * platform's own credential keys. Answers the created channel (HTTP 201). This is the ONLY
-   * path for Slack and WeCom; Feishu also has the QR flow. See {@link ChannelPlatform} for what
-   * binds and what does not.
+   * path for Slack, an alternative to the QR flow for Feishu and WeCom, and refused outright
+   * for WeChat (`400 channel.weixin_setup_required`). See {@link AddChannelPlatform}.
    *
    * **It is idempotent, not an upsert.** Re-posting an identical body for the same
    * `platform` + `account` answers `201` again and replays the binding you already have — it
@@ -1075,52 +1229,71 @@ export interface ZooworkClient {
    */
   removeChannel(agentId: string, platform: string, opts?: { account?: string }): Promise<void>
   /**
-   * Start the Feishu/Lark QR registration. YOU own the UI: render
-   * `verification_uri_complete` (usually as a QR code) and drive the poll loop —
-   * `waitForFeishuSetup` does the loop part for you.
+   * Start a QR registration on one of the three guided platforms. YOU own the UI: render the
+   * URI the session answers (`verification_uri_complete` for Feishu, `qrcode_url` for WeCom and
+   * WeChat) and drive the poll loop — {@link waitForChannelSetup} does the loop part for you.
    *
-   * Observed defaults: `expires_in: 600`, `poll_interval: 5`. `brand` picks the real host —
-   * `'feishu'` answers an `open.feishu.cn` URI, `'lark'` an `open.larksuite.com` one, so the
-   * brand has to match the workspace the person will approve it in.
+   * What each platform reads from `input`, and what it answers, is in
+   * {@link GuidedSetupPlatform}; the short version is that only Feishu takes `brand`, only
+   * Feishu and WeCom take `account`, and only Feishu sends back a `poll_interval`.
    *
-   * Pick `account` before you show the QR. Approving the scan registers a NEW app in that
-   * Feishu workspace, and only then does the binding get written — so a name clash surfaces as
+   * For Feishu, `brand` picks the real host — `'feishu'` answers an `open.feishu.cn` URI,
+   * `'lark'` an `open.larksuite.com` one — so it has to match the workspace the person will
+   * approve it in.
+   *
+   * Pick `account` before you show the QR. On Feishu, approving the scan registers a NEW app in
+   * that workspace, and only then does the binding get written — so a name clash surfaces as
    * `409 channel.conflict` AFTER someone has scanned, with the freshly registered app left
    * behind in their workspace. Retrying under the same name repeats both. See
    * {@link AddChannelInput.account} for how names are scoped.
    */
-  startFeishuSetup(agentId: string, input?: FeishuSetupInput): Promise<FeishuSetupSession>
+  startChannelSetup(agentId: string, platform: GuidedSetupPlatform, input?: ChannelSetupInput): Promise<ChannelSetupSession>
   /**
-   * One poll of a setup session. `status: 'pending'` means keep going; a cancelled or expired
-   * session answers `404 channel.feishu_session_not_found` rather than a terminal status, so
-   * a hand-rolled loop must treat that 404 as an end condition, not as a transport error.
+   * One poll of a setup session. `status: 'pending'` means keep going; a cancelled session
+   * answers `404 channel.{platform}_session_not_found` rather than a terminal status, so a
+   * hand-rolled loop must treat that 404 as an end condition, not as a transport error.
    */
-  pollFeishuSetup(agentId: string, sessionId: string): Promise<FeishuPollResult>
-  /** Abandon a setup session. Afterwards polling it answers `404 channel.feishu_session_not_found`. */
-  cancelFeishuSetup(agentId: string, sessionId: string): Promise<void>
+  pollChannelSetup(agentId: string, platform: GuidedSetupPlatform, sessionId: string): Promise<ChannelPollResult>
+  /** Abandon a setup session. Afterwards polling it answers `404 channel.{platform}_session_not_found`. */
+  cancelChannelSetup(agentId: string, platform: GuidedSetupPlatform, sessionId: string): Promise<void>
   /**
-   * Poll a Feishu setup session until it leaves `pending`, then hand back that terminal poll.
+   * Poll a setup session until it leaves `pending`, then hand back that terminal poll.
    * A status the server reports in the body — `success` / `expired` / `denied` / `error` — is
    * RETURNED, not thrown: "the person rejected it" is an outcome, not an exception.
    *
    * But a session can also stop existing, and then polling answers
-   * `404 channel.feishu_session_not_found`, which surfaces here as a thrown
-   * {@link ZooworkError} carrying that `type`. Confirmed for a cancelled session
-   * (staging 2026-08-25); whether a session that simply runs past `expires_in` reports
-   * `status: 'expired'` in a 200 or disappears into this 404 was NOT observed — handle both.
+   * `404 channel.{platform}_session_not_found`, which surfaces here as a thrown
+   * {@link ZooworkError} carrying that `type`. Confirmed for a cancelled session on all three
+   * platforms (staging 2026-08-28); whether a session that simply runs past `expires_in`
+   * reports `status: 'expired'` in a 200 or disappears into this 404 was NOT observed — handle
+   * both.
    *
-   * Pacing follows the server's `poll_interval` when present (observed default 5s; the local
-   * fallback matches). The default budget is 600s, which is also the observed `expires_in` —
-   * pass the session's own value when you have it. On timeout it throws `status: 408` /
-   * `type: 'timeout'`; on abort, `status: 0` / `type: 'aborted'` — both synthesized locally,
-   * and every in-flight poll is bounded the way {@link waitUntilRunning} bounds its polls.
-   * `onPoll` fires after every poll, terminal one included, for progress UI.
+   * Pacing follows the server's `poll_interval` when present (Feishu sends 5s; WeCom and WeChat
+   * send none and fall back to the same 5s). The default budget is 600s, which matches Feishu's
+   * `expires_in` but is twice WeCom's and WeChat's 300s — pass the session's own value when you
+   * have it. On timeout it throws `status: 408` / `type: 'timeout'`; on abort, `status: 0` /
+   * `type: 'aborted'` — both synthesized locally, and every in-flight poll is bounded the way
+   * {@link waitUntilRunning} bounds its polls. `onPoll` fires after every poll, terminal one
+   * included, for progress UI.
    */
+  waitForChannelSetup(
+    agentId: string,
+    platform: GuidedSetupPlatform,
+    sessionId: string,
+    opts?: { timeoutMs?: number; signal?: AbortSignal; onPoll?: (poll: ChannelPollResult) => void },
+  ): Promise<ChannelPollResult>
+  /** Feishu-only spelling of {@link startChannelSetup}, kept for callers written against 0.3.x–0.4.x. */
+  startFeishuSetup(agentId: string, input?: ChannelSetupInput): Promise<FeishuSetupSession>
+  /** Feishu-only spelling of {@link pollChannelSetup}. */
+  pollFeishuSetup(agentId: string, sessionId: string): Promise<ChannelPollResult>
+  /** Feishu-only spelling of {@link cancelChannelSetup}. */
+  cancelFeishuSetup(agentId: string, sessionId: string): Promise<void>
+  /** Feishu-only spelling of {@link waitForChannelSetup}. */
   waitForFeishuSetup(
     agentId: string,
     sessionId: string,
-    opts?: { timeoutMs?: number; signal?: AbortSignal; onPoll?: (poll: FeishuPollResult) => void },
-  ): Promise<FeishuPollResult>
+    opts?: { timeoutMs?: number; signal?: AbortSignal; onPoll?: (poll: ChannelPollResult) => void },
+  ): Promise<ChannelPollResult>
 
   // ── system prompt ──
   /**
@@ -1467,38 +1640,19 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
   const bearer = 'serviceToken' in auth ? auth.serviceToken : auth.apiKey
 
   /**
-   * TWO error envelopes, one ZooworkError shape, for every helper below.
-   *
-   * The API does not answer failures the same way everywhere — staging-verified 2026-08-07. Most
-   * families send `{ error: { type, message } }`; the agents family sends `{ code, detail }`.
-   * Reading only the first left every agent 404 with `type: undefined` and the message `HTTP 404`,
-   * so both are unpacked here. The codes stay verbatim (`not_found` vs `service_api.not_found`) —
-   * inventing a shared vocabulary would be this SDK guessing, which is what it exists not to do.
+   * TWO error envelopes, one ZooworkError shape, for every helper below — the unpacking (and
+   * why both vocabularies exist) lives in module-level {@link httpError}. The codes stay
+   * verbatim (`not_found` vs `service_api.not_found`) — inventing a shared vocabulary would be
+   * this SDK guessing, which is what it exists not to do.
    */
   const readResponse = async <T>(res: Response, path: string): Promise<T> => {
     const text = await res.text()
-    if (!res.ok) {
-      let msg = `HTTP ${res.status}`
-      let type: string | undefined
-      try {
-        const j = JSON.parse(text) as {
-          error?: { type?: string; message?: string }
-          message?: string
-          code?: string
-          detail?: string
-        }
-        msg = j?.error?.message || j?.message || j?.detail || msg
-        type = j?.error?.type ?? j?.code
-      } catch {
-        /* non-JSON error body → keep clean status */
-      }
-      throw new ZooworkError(res.status, msg, type)
-    }
+    if (!res.ok) throw httpError(res, text)
     if (!text) return {} as T
     try {
       return JSON.parse(text) as T
     } catch {
-      throw new ZooworkError(res.status, `non-JSON response: ${path}`)
+      throw new ZooworkError(res.status, `non-JSON response: ${path}`, undefined, responseForensics(res, text))
     }
   }
 
@@ -1666,6 +1820,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
           `agent ${agentId} did not reach status.desired_state=running within ${timeoutMs}ms ` +
             `(last seen: ${lastSeen})`,
           'timeout',
+          { retryable: false },
         )
       for (;;) {
         if (opts.signal?.aborted) throw abortedError()
@@ -1733,27 +1888,32 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         body: JSON.stringify({ account: opts.account ?? 'default' }),
       })
     },
-    startFeishuSetup: (agentId, input = {}) =>
-      json(`${agents(agentId)}/channels/feishu/setup`, { method: 'POST', body: JSON.stringify(input) }),
-    pollFeishuSetup: (agentId, sessionId) =>
-      json(`${agents(agentId)}/channels/feishu/poll${query({ session_id: sessionId })}`),
-    cancelFeishuSetup: async (agentId, sessionId) => {
-      await json(`${agents(agentId)}/channels/feishu/setup/cancel${query({ session_id: sessionId })}`, {
+    startChannelSetup: (agentId, platform, input = {}) =>
+      json(`${agents(agentId)}/channels/${encodeURIComponent(platform)}/setup`, {
         method: 'POST',
-      })
+        body: JSON.stringify(input),
+      }),
+    pollChannelSetup: (agentId, platform, sessionId) =>
+      json(`${agents(agentId)}/channels/${encodeURIComponent(platform)}/poll${query({ session_id: sessionId })}`),
+    cancelChannelSetup: async (agentId, platform, sessionId) => {
+      await json(
+        `${agents(agentId)}/channels/${encodeURIComponent(platform)}/setup/cancel${query({ session_id: sessionId })}`,
+        { method: 'POST' },
+      )
     },
-    waitForFeishuSetup: async (agentId, sessionId, opts = {}) => {
+    waitForChannelSetup: async (agentId, platform, sessionId, opts = {}) => {
       const timeoutMs = opts.timeoutMs ?? 600_000
       const deadline = Date.now() + timeoutMs
       let lastStatus = 'unknown'
       const abortedError = (): ZooworkError =>
-        new ZooworkError(0, `waitForFeishuSetup(${agentId}, ${sessionId}) aborted`, 'aborted')
+        new ZooworkError(0, `waitForChannelSetup(${agentId}, ${platform}, ${sessionId}) aborted`, 'aborted')
       const timeoutError = (): ZooworkError =>
         new ZooworkError(
           408,
-          `Feishu setup session ${sessionId} still '${lastStatus}' after ${timeoutMs}ms — ` +
+          `${platform} setup session ${sessionId} still '${lastStatus}' after ${timeoutMs}ms — ` +
             'the QR may simply not have been scanned yet; the session itself expires server-side',
           'timeout',
+          { retryable: false },
         )
       for (;;) {
         if (opts.signal?.aborted) throw abortedError()
@@ -1766,10 +1926,10 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         const cancelPoll = (): void => poll.abort()
         opts.signal?.addEventListener('abort', cancelPoll, { once: true })
         const budget = setTimeout(cancelPoll, remaining)
-        let result: FeishuPollResult
+        let result: ChannelPollResult
         try {
-          result = await json<FeishuPollResult>(
-            `${agents(agentId)}/channels/feishu/poll${query({ session_id: sessionId })}`,
+          result = await json<ChannelPollResult>(
+            `${agents(agentId)}/channels/${encodeURIComponent(platform)}/poll${query({ session_id: sessionId })}`,
             { signal: poll.signal },
           )
         } catch (e) {
@@ -1783,7 +1943,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         opts.onPoll?.(result)
         lastStatus = result.status ?? 'unknown'
         // Only a literal 'pending' keeps the loop alive… except that an UNKNOWN status is
-        // treated as still-in-flight too (see FeishuPollResult): a new intermediate state on
+        // treated as still-in-flight too (see ChannelPollResult): a new intermediate state on
         // the server should stretch the wait, not end it with a fake terminal result.
         const terminal = ['success', 'expired', 'denied', 'error'].includes(lastStatus)
         if (terminal) return result
@@ -1794,6 +1954,14 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         await sleep(intervalMs, opts.signal)
       }
     },
+    // The Feishu-only spellings, kept for callers written against 0.3.x–0.4.x. `startFeishuSetup`
+    // narrows the return type only — Feishu always answers `verification_uri_complete`.
+    startFeishuSetup: (agentId, input = {}) =>
+      client.startChannelSetup(agentId, 'feishu', input) as Promise<FeishuSetupSession>,
+    pollFeishuSetup: (agentId, sessionId) => client.pollChannelSetup(agentId, 'feishu', sessionId),
+    cancelFeishuSetup: (agentId, sessionId) => client.cancelChannelSetup(agentId, 'feishu', sessionId),
+    waitForFeishuSetup: (agentId, sessionId, opts = {}) =>
+      client.waitForChannelSetup(agentId, 'feishu', sessionId, opts),
 
     uploadSkill: (zip, opts) => {
       const form = skillForm(zip, opts)
@@ -1921,7 +2089,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
           headers: { Authorization: `Bearer ${bearer}`, Accept: 'text/event-stream' },
           ...(opts.signal ? { signal: opts.signal } : {}),
         })
-        if (!res.ok) throw new ZooworkError(res.status, `events stream HTTP ${res.status}`)
+        if (!res.ok) throw httpError(res, await res.text().catch(() => ''))
         if (!res.body) return
 
         for await (const msg of parseSSE(res.body)) {
