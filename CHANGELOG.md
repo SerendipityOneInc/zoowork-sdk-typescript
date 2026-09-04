@@ -3,6 +3,16 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.5.2 — 2026-09-04
+
+### Documentation
+
+- **`SessionRecord` now describes the response fields the API actually returns.**
+  `createSession()` returns the legacy `status: "running"` field without `run_status`;
+  later reads expose the latest run state through `run_status`, while `status` is nullable
+  and is not the run outcome. This changes the JSDoc emitted in the published declaration
+  files; runtime code and TypeScript signatures are unchanged.
+
 ## 0.5.1 — 2026-08-31
 
 ### Added
