@@ -633,12 +633,15 @@ export interface SessionRecord {
   /** `api` for sessions you create, `cron` for ones a schedule fired. */
   channel?: string
   /**
-   * `listSessions` is the surface that carries the run outcome (`succeeded`, …) — and it spells
-   * it `run_status`, not `status`. Staging-verified 2026-08-07: `getSession` returns a `status`
-   * of `null` for the very same session, so reading `status` off a list row gets you nothing.
+   * `getSession` and `listSessions` carry the latest run state (`running`, `succeeded`, …) here.
+   * The `createSession` receipt does not include this field.
    */
   run_status?: string
-  /** Observed `null` on `getSession`. Prefer {@link SessionRecord.run_status} from `listSessions`. */
+  /**
+   * `running` on a `createSession` receipt, nullable on `getSession`, and absent from
+   * `listSessions` rows. This is not the run outcome; read {@link SessionRecord.run_status}
+   * from a later read instead.
+   */
   status?: string | null
   metadata?: Record<string, unknown>
   archived?: boolean
