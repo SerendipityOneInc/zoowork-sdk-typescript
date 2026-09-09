@@ -208,9 +208,12 @@ export interface ModelInfo {
  *    other way to store it, so an authenticated MCP server cannot be made to work today.
  *    Declare public servers only.
  *
- * Phase 1 is remote HTTP only: no stdio, no OAuth. A server that fails its catalog probe does
- * not fail the run — it pins an empty catalog and emits `agent.error` with
- * `kind: 'mcp_connection_failed'`.
+ * Remote HTTP only; no stdio. Catalog failures emit `agent.error` with
+ * `kind: 'mcp_connection_failed'` or `'mcp_authentication_failed'`, a server name,
+ * an errorMessage and an optional reason. Preserve unknown reason values.
+ * Healthy catalogs remain tied to the configuration. Transient failed catalogs can expire:
+ * a later catalog resolution may probe again, not a periodic retry or recovery guarantee.
+ * These failure/recovery details are source-reviewed, not deployment-verified here.
  */
 export interface McpServerDeclaration {
   /** Server slug. Appears in every tool name as `mcp__<name>__<tool>`. No underscores. */
@@ -427,7 +430,7 @@ export interface AddChannelInput {
   dm_policy?: string
   /** Server default: `'open'`. */
   group_policy?: string
-  /** Write-once at create; updates cannot edit it. */
+  /** Retained for compatibility; the public gateway ignores this field. It is NOT an access allowlist. Use supported dm_policy settings. */
   allow_from?: string[]
   /**
    * Platform credentials for the direct (non-QR) path. Keys are platform-specific and
@@ -613,6 +616,17 @@ export interface SkillRecord {
 }
 
 /**
+ * The version row returned by uploadSkillVersion, not a SkillRecord.
+ * Source-reviewed fields; no new live recording is implied. The response stays unmodified.
+ */
+export interface SkillVersionRecord {
+  skill_id: string
+  version: string | number
+  state: 'pending' | 'ready' | 'failed' | string
+  [k: string]: unknown
+}
+
+/**
  * One `session_transcripts` row, as projected by `getSession(…, { history: true })`.
  *
  * This is the AT-REST transcript, not the event log: conversation text lives under
@@ -636,7 +650,9 @@ export interface SessionRecord {
    * `getSession` and `listSessions` carry the latest run state (`running`, `succeeded`, …) here.
    * The `createSession` receipt does not include this field.
    */
-  run_status?: string
+  run_status?: string | null
+  /** Pending approval count on getSession; not included in every session projection. */
+  pending_approvals?: number
   /**
    * `running` on a `createSession` receipt, nullable on `getSession`, and absent from
    * `listSessions` rows. This is not the run outcome; read {@link SessionRecord.run_status}
@@ -655,6 +671,15 @@ export interface SessionRecord {
 export interface OutboundEvent {
   type: string
   content?: unknown
+  /**
+   * user.message on an API session only, including createSession.initial_events.
+   * ref is 1–200 ASCII characters from [A-Za-z0-9._:@+-]. Omit actor to use the owner.
+   * Map an authenticated application user to a stable opaque ref on YOUR server.
+   * This selects memory attribution, not authentication, session authorization or file isolation.
+   * IM sessions reject actor; token and other actor keys are rejected with HTTP 400.
+   * Source-reviewed; deployment availability must be verified separately.
+   */
+  actor?: { ref: string; token?: never }
   [k: string]: unknown
 }
 
@@ -674,18 +699,17 @@ export interface SessionEventPage {
 }
 
 /**
- * When a schedule fires. Three kinds, and only `cron` has its field names pinned by the engine
- * reference (`{"kind":"cron","expr":"0 9 * * *","tz":"Asia/Singapore"}`); `every` and `at` are
- * documented by prose only — "the management plane supports cron/every/at", and an `at`
- * schedule "uses the supplied ISO instant". Their extra fields are therefore left open rather
- * than guessed at, so anything the engine accepts still type-checks.
+ * When a schedule fires: cron expression, everyMs interval in milliseconds (optional
+ * anchorMs), or an ISO instant in at. The everyMs contract is source-reviewed; it was
+ * previously misdeclared as every. Use everyMs explicitly: the SDK does not convert units
+ * or rename the obsolete every field at runtime.
  *
  * Cron is a five-field expression. Macros and a `CRON_TZ=` prefix are rejected; overlap is
  * fixed to SKIP server-side, so a fire that lands on a still-running one is dropped, not queued.
  */
 export type ScheduleSpec =
   | { kind: 'cron'; expr: string; tz?: string; [k: string]: unknown }
-  | { kind: 'every'; every: string | number; tz?: string; [k: string]: unknown }
+  | { kind: 'every'; everyMs: number; anchorMs?: number; tz?: string; [k: string]: unknown }
   | { kind: 'at'; at: string; tz?: string; [k: string]: unknown }
 
 /** What a schedule does when it fires. `agentTurn` is the one the management plane accepts. */
@@ -830,13 +854,16 @@ export interface ScheduleRecord {
  *    This is the only row that carries `status` (e.g. `skipped` for a fire against a disabled
  *    schedule).
  *
- * NEITHER carries `session_id`, which is the field people expect most: you cannot walk from a
- * fire to the session it created. To find that session, list the agent's sessions and match
- * `channel: 'cron'` with the `session_key` prefix `agent:{agent_id}:cron:{schedule_id}:`.
+ * Source-reviewed additions can include session_id when the fire has a known session.
+ * It is optional, not proof of success, and may be absent for command jobs or an unlinked
+ * fire. Older recordings above omit it. Without it, list the agent's sessions and match
+ * channel: 'cron' with the session_key prefix agent:{agent_id}:cron:{schedule_id}:.
  */
 export interface ScheduleRun {
   /** Which projection this row came from. Decides which of the field groups below is populated. */
   source?: 'temporal' | 'run_projection' | string
+  /** Present only when a session can be associated with this fire. */
+  session_id?: string
 
   // ── source: 'run_projection' ──
   /** Un-qualified `schedule_id`. */
@@ -864,15 +891,25 @@ export type ApprovalDecision = 'allow-once' | 'allow-always' | 'deny'
 /**
  * A tool call parked on a human decision.
  *
- * Field names are unverified: the only staging observation (2026-08-07) is a 200 with an EMPTY
- * `approvals` array, because producing a real pending approval requires a tool policy that asks.
- * Read defensively.
+ * Fields below are source-reviewed; the existing live recordings have empty lists.
+ * A resolve receipt can have signaled:true while status is still pending: acceptance is not
+ * completion of the tool or run. Verify the resulting state separately.
  */
 export interface ApprovalRecord {
   approval_id?: string
   session_id?: string
   tool_name?: string
   status?: string
+  arguments_preview?: string
+  stake?: unknown
+  requested_at?: string
+  timeout_at?: string
+  allowed_decisions?: ApprovalDecision[]
+  resolved_by?: string
+  resolved_at?: string
+  signaled?: boolean
+  decision?: ApprovalDecision
+  /** Legacy compatibility field; current source projects requested_at instead. */
   created_at?: string
   [k: string]: unknown
 }
@@ -1041,10 +1078,11 @@ export interface EnvironmentRecord {
 }
 
 /**
- * One immutable Environment version. Builds walk
- * `queued → submitting → building → verifying → ready`, and any phase can land in `failed`.
- * Poll THIS, not the Environment's top-level row: a `ready` version is the only thing an agent
- * can pin, and it always carries both `e2b_build_id` and a matching `template_ref`.
+ * One immutable Environment version's build state. Builds can be queued, submitting, building,
+ * verifying, partial_ready, ready or failed. partial_ready means some resource classes are
+ * ready; others may still be building or may have failed. It is not by itself a success/failure
+ * verdict for your selected class. Poll with a deadline; optionally read that resourceClass
+ * and re-read the aggregate before drawing a conclusion.
  *
  * THE FIELD IS `status`, NOT `state` — staging-verified 2026-08-07. A poll loop written against
  * `state` compares `undefined` to `'ready'` forever and never terminates, which is precisely the
@@ -1053,8 +1091,8 @@ export interface EnvironmentRecord {
 export interface EnvironmentVersionRecord {
   environment_id?: string
   version?: number
-  /** `queued` → `submitting` → `building` → `verifying` → `ready`, or `failed`. */
-  status?: 'queued' | 'submitting' | 'building' | 'verifying' | 'ready' | 'failed' | string
+  /** Build status; partial_ready may be transient or a partial terminal result. */
+  status?: 'queued' | 'submitting' | 'building' | 'verifying' | 'partial_ready' | 'ready' | 'failed' | string
   /** The normalized config this version was built from — not the one you posted verbatim. */
   config?: EnvironmentConfig
   base_environment_id?: string
@@ -1129,11 +1167,15 @@ export interface ZooworkClient {
   deleteAgent(agentId: string): Promise<void>
   /**
    * Flip `desired_state` to `running` — the precondition for every session call.
-   * Fast (sub-second on staging). The returned warnings are informational: an
-   * API-only agent reports `channel_routes_reload_failed` on every start/stop
-   * because it has no chat-channel routes to reload. Do not treat it as failure.
+   * A successful response can contain warnings. A non-2xx response still throws ZooworkError;
+   * warnings are not guaranteed on each start/stop and are not a substitute for error handling.
    */
   startAgent(agentId: string): Promise<{ warnings: string[] }>
+  /**
+   * Request stopped state. Dependency failures can reject after desired_state changes.
+   * Read back and reconcile; desired_state alone does not prove all runtime work is cleaned up.
+   * A successful response's warnings and a rejected HTTP call are different outcomes.
+   */
   stopAgent(agentId: string): Promise<{ warnings: string[] }>
   /**
    * Poll until `status.desired_state === 'running'`, then hand back that projection.
@@ -1344,10 +1386,11 @@ export interface ZooworkClient {
    * accepted. `SKILL.md` must be non-empty and declare both `name` and `description`.
    * 50 MB expanded, zip only (store/deflate), encrypted zips rejected.
    *
-   * `scope` may only be `org` or `personal`; `global` and `pack` are 403 and are published
-   * through an admin surface the gateway does not proxy. The gateway rewrites ownership to your
-   * key's tenant either way. Staging-verified 2026-08-07 — this is the ONLY path by which an
-   * API-key caller can add a skill the agent will actually load.
+   * scope is org or personal. Other values are rejected by the public gateway with HTTP 400.
+   * Ownership comes from your key. On this CREATE operation the public gateway drops the
+   * description option: put the description in the zip's frontmatter instead.
+   * idempotencyKey is retained as a transport option, not a replay guarantee for Skill uploads.
+   * A retry after a successful create can return 409 skill_exists; read back before retrying.
    */
   uploadSkill(
     zip: Blob | ArrayBuffer | Uint8Array,
@@ -1356,7 +1399,9 @@ export interface ZooworkClient {
   /**
    * Publish a new version of an existing skill from a zip. Same zip rules as
    * {@link ZooworkClient.uploadSkill}, plus: the frontmatter `name` must match the target
-   * skill's name. `description` overrides the one in the frontmatter.
+   * skill's name. Unlike root create, description can override the frontmatter here.
+   * Returns a version row (version/state), not a SkillRecord (latest_version/status).
+   * Identical content for the same skill is deduplicated by content, not by Idempotency-Key.
    *
    * Agents that installed the skill unpinned follow the new version on their own — the registry
    * bumps their `config_version`; you do not re-`putAgentSkill`.
@@ -1365,7 +1410,7 @@ export interface ZooworkClient {
     skillId: string,
     zip: Blob | ArrayBuffer | Uint8Array,
     opts?: { fileName?: string; description?: string; idempotencyKey?: string },
-  ): Promise<SkillRecord>
+  ): Promise<SkillVersionRecord>
   /**
    * The catalog visible to your key: global skills plus your org/personal ones. `q` matches on
    * name; `page` is 1-based with a fixed page size of 100. Only the `org`/`personal` rows are
@@ -1447,11 +1492,10 @@ export interface ZooworkClient {
    * staging-verified 2026-08-07; any other value is rejected, so there is no way to list
    * resolved ones.
    *
-   * Approvals are a REST resource here, NOT the `user.tool_confirmation` event loop; the two
-   * shapes describe the same act and do not line up. Without a Temporal signaler the route
-   * answers `501 not_configured`. We have never produced a real pending approval, so the
-   * round trip is unproven: treat human-in-the-loop as unavailable, and note that a run parked
-   * on an approval burns its whole turn budget waiting.
+   * Approvals are a REST resource here, not an interchangeable user.tool_confirmation
+   * payload. A deployment without approval support can return 501 not_configured.
+   * The response contract is source-reviewed; end-to-end approval and turn-budget behavior
+   * need separate verification on the deployment you use.
    */
   listApprovals(agentId: string, opts?: { status?: 'pending' }): Promise<ApprovalRecord[]>
   /** Resolve one approval. `decision` is exactly one of allow-once / allow-always / deny. */
@@ -1459,7 +1503,7 @@ export interface ZooworkClient {
     agentId: string,
     approvalId: string,
     input: { decision: ApprovalDecision; resolvedBy?: string },
-  ): Promise<Record<string, unknown>>
+  ): Promise<ApprovalRecord>
 
   // ── artifacts ──
   //
@@ -1574,9 +1618,9 @@ export interface ZooworkClient {
    *
    * `resource.config` takes exactly four keys — packages / files / build / networking — and
    * anything else is `400 invalid_environment_config`. Building is asynchronous: poll
-   * `getEnvironmentVersion` until `status === 'ready'` before pinning it on an agent, or the
-   * create answers `409 environment_not_ready`. The field is `status` — there is no `state` on a
-   * version, and a loop written against one never terminates.
+   * getEnvironmentVersion with a deadline before pinning it on an agent. Handle failed and
+   * partial_ready explicitly; selected-class readiness is different from aggregate readiness.
+   * The field is status, not state. A loop without a timeout can otherwise wait forever.
    */
   createEnvironment(
     input: { resource: EnvironmentResource; ownership: Ownership },
@@ -1592,8 +1636,8 @@ export interface ZooworkClient {
    */
   archiveEnvironment(environmentId: string): Promise<EnvironmentRecord>
   /**
-   * Add an immutable version to an existing Environment. Versions never mutate: a retry after a
-   * failed build retries THAT version and keeps its attempt log.
+   * Add a new immutable configuration version to an existing Environment. This is NOT the
+   * separate operation that retries an existing failed version; the SDK does not wrap retry.
    *
    * The route is reachable, but the request body was not exercised against staging on
    * 2026-08-07 — the SDK sends `{ resource: { config } }`, mirroring create.
@@ -1603,8 +1647,12 @@ export interface ZooworkClient {
     config: EnvironmentConfig,
     idempotencyKey?: string,
   ): Promise<EnvironmentVersionRecord>
-  /** Poll this — not the Environment's top-level state — to decide whether a version is usable. */
-  getEnvironmentVersion(environmentId: string, version: number): Promise<EnvironmentVersionRecord>
+  /** Read aggregate build state, or one resource class. Source-reviewed selector; use bounded polling. */
+  getEnvironmentVersion(
+    environmentId: string,
+    version: number,
+    opts?: { resourceClass?: 'starter' | 'pro' | 'ultra' },
+  ): Promise<EnvironmentVersionRecord>
 }
 
 /**
@@ -1974,7 +2022,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       })
     },
     uploadSkillVersion: (skillId, zip, opts = {}) =>
-      multipart<SkillRecord>(`/skills/${encodeURIComponent(skillId)}/versions`, skillForm(zip, opts), {
+      multipart<SkillVersionRecord>(`/skills/${encodeURIComponent(skillId)}/versions`, skillForm(zip, opts), {
         ...(opts.idempotencyKey ? { headers: { 'Idempotency-Key': opts.idempotencyKey } } : {}),
       }),
     listSkills: async (opts = {}) => {
@@ -2234,8 +2282,8 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         body: JSON.stringify({ resource: { config } }),
         ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
       }),
-    getEnvironmentVersion: (environmentId, version) =>
-      json(`${environments(environmentId)}/versions/${encodeURIComponent(String(version))}`),
+    getEnvironmentVersion: (environmentId, version, opts = {}) =>
+      json(`${environments(environmentId)}/versions/${encodeURIComponent(String(version))}${query({ resource_class: opts.resourceClass })}`),
   }
 
   return client

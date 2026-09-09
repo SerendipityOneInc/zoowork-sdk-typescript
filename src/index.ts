@@ -25,6 +25,7 @@ export {
   type FeishuPollResult,
   type McpServerDeclaration,
   type SkillRecord,
+  type SkillVersionRecord,
   type SessionRecord,
   type SessionHistoryEntry,
   type SessionEvent,

@@ -85,8 +85,14 @@ for await (const ev of zc.streamEvents(agent.agent_id, session.session_id)) {
 Three things worth knowing before you write that loop:
 
 - **The stream is session-scoped and does not close when a turn ends.** The server closes it after an idle period. Break on `isRunFinished(ev)` yourself, or you block until that timeout.
-- **It resumes.** Every frame carries a durable `seq`. After a dropped connection, restart with `{ after: lastSeq }` and the server replays from there — nothing lost, nothing duplicated.
-- **REST and SSE spell the same event differently** (`event_type` vs `eventType`, and neither has a top-level `type`). The SDK normalizes both into one `SessionEvent`; you only ever read `eventType`.
+- **Save the opaque cursor.** After consuming an event, retain `ev.cursor` and resume with `{ cursor }`. Do not derive it from `seq` or mix it with `after`: `after` selects the deprecated event lane, which omits user-input events. The SDK sends the cursor in the query; do not rely on a raw `Last-Event-ID` header passing through the public gateway.
+- **The default unified REST and SSE wire formats use snake_case.** Older event formats differ; the SDK normalizes both into `SessionEvent`, where you read `eventType`. Keep the cursor unchanged.
+
+For API sessions, `user.message` can carry `actor: { ref: 'customer-42' }`, including in
+`initial_events`. This source-reviewed field selects per-user memory attribution. Your server
+must authenticate the user and authorize the session; `actor.ref` does neither. It does not
+isolate the shared agent's sandbox files or erase a session's previous context. Omit `actor`
+to use the owner; IM sessions reject it. See the field's SDK comment for input constraints.
 
 ## Bring your own skill
 
@@ -105,6 +111,13 @@ and it is the first one nearly everyone gets. `scope` is `org` or `personal`; th
 `global` skills are listable but not installable with an API key, so this is the only way to
 control what a skill says. `uploadSkillVersion` publishes an update, and agents that installed it
 unpinned follow along without another `putAgentSkill`.
+
+`uploadSkillVersion` returns a `SkillVersionRecord` with `version` and `state`, not the
+`latest_version` and `status` of the `SkillRecord` returned by `uploadSkill`. This return
+contract is source-reviewed, not a new live recording. On initial create, put the description
+in the zip's frontmatter: the gateway drops the `description` option. Version uploads can
+use that override. A successful create retried under the same name can return `409 skill_exists`;
+read back first. Version uploads deduplicate identical content for the same skill, not HTTP keys.
 
 ## Schedules, wake and exec
 
@@ -125,6 +138,10 @@ const { exit_code, stdout } = await zc.exec(agent.agent_id, ['bash', '-lc', 'pwd
   `listScheduleRuns`.
 - **`updateSchedule` must omit `sessionTarget`.** It is immutable, and echoing it back from a
   `getSchedule` result — the obvious thing to do — is a 400. The types refuse it for you.
+- **An interval uses `{ kind: 'every', everyMs: 60_000 }`.** Optional `anchorMs` aligns it.
+  The earlier `every` type was incorrect; migrate explicitly, without guessing string units.
+  This correction and optional `ScheduleRun.session_id` are source-reviewed. Use that session
+  link only when present; it is not a run-success indicator.
 - **`exec` resolves on a failed command.** A non-zero exit is still HTTP 200: check `exit_code`,
   don't wait for a rejection. It runs in `/workspace` and needs an agent-scope sandbox.
 - **A cron job can carry an outcome gate.** `payload.outcome` says what "done" looks like — a
@@ -141,8 +158,12 @@ const { exit_code, stdout } = await zc.exec(agent.agent_id, ['bash', '-lc', 'pwd
 creation time.
 
 `listApprovals` / `resolveApproval` expose the approvals resource — `decision` is one of
-`allow-once`, `allow-always`, `deny`. Note that human-in-the-loop is not usable end to end yet: an
-agent parked on an approval spends its whole turn budget waiting.
+`allow-once`, `allow-always`, `deny`. End-to-end approval and turn-budget behavior need
+separate verification on the deployment you use.
+
+Approval response fields are source-reviewed, not end-to-end verified: read `requested_at`,
+`allowed_decisions` and optional timeout/resolution fields defensively. `signaled: true` means
+the resolution was accepted; a returned `status: 'pending'` is not completed execution.
 
 `listEnvironments`, `getEnvironment`, `createEnvironment`, `createEnvironmentVersion`,
 `getEnvironmentVersion` and `archiveEnvironment` manage prebuilt sandbox images (apt/npm/pip
@@ -150,6 +171,14 @@ packages, files, a build script, and an outbound allowlist). Two facts worth hav
 start: an agent's Environment **freezes on its first sandbox creation** — after that every change
 is `409 environment_locked`, and stopping the agent does not clear it — and sandbox networking
 defaults to unrestricted unless the Environment declares `networking: { type: 'limited' }`.
+
+Build polling must have a deadline and handle `partial_ready`: some resource classes can be
+ready while others are building or failed. `getEnvironmentVersion(id, version, { resourceClass:
+'starter' })` selects one class; omitting the option keeps the aggregate read. Re-read the
+aggregate before concluding the build is fully ready. These details are source-reviewed.
+
+Channel callers must not use `allow_from` as an access-control list: the public gateway ignores
+it. Use supported `dm_policy` settings.
 
 ## Artifacts and the system prompt
 
