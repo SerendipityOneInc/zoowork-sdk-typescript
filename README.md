@@ -227,9 +227,20 @@ Runnable examples in [`examples/`](examples):
 E2E belongs to this SDK's `e2e/` directory and is required before every SDK publish,
 not on every PR. Use Node 22.20+ and the SDK's locked development dependencies:
 
-1. `pnpm release:prepare --out-dir NEW_PRIVATE_DIR` — test, build, pack and install a candidate offline.
-2. `pnpm release:check --out-dir DIR --base-url STAGING_PUBLIC_URL --confirm-staging` — run one explicitly authorized temporary Agent/Session turn and cleanup using a securely supplied key.
-3. `pnpm release:publish --out-dir DIR --confirm-publish` — manually publish the exact package only after its E2E, cleanup and integrity checks pass.
+```sh
+pnpm install --frozen-lockfile
+pnpm test:e2e
+```
+
+On a new development machine, only this SDK checkout is needed. The command prepares a
+candidate, then asks for a staging API key with input hidden. Submitting the key authorizes
+one temporary Agent/Session, one potentially billable model turn and cleanup. It defaults to
+the SDK's configured staging endpoint, prints the retained result directory, and never
+publishes. Use `--base-url` to explicitly select another staging deployment.
+
+Before a release, choose the final version/changelog **before** running E2E. Only after it
+passes, manually run `pnpm release:publish --out-dir DIR --confirm-publish` using the printed
+candidate directory. The separate `release:prepare` / `release:check` commands remain available.
 
 Normal `pnpm test` needs no key. Ordinary directory publishing is blocked to prevent
 rebuilding an untested candidate. No hosted workflow stores a staging key or runs this E2E.
