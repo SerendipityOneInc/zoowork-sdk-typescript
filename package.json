@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsc --noEmit && vitest run",
     "test:watch": "vitest",
+    "test:e2e": "node e2e/command.ts",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "test:e2e:offline": "node --import tsx --test e2e/*.test.ts",
     "release:prepare": "node e2e/release.ts prepare",

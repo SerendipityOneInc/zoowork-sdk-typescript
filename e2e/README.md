@@ -4,10 +4,44 @@ This directory owns the SDK's release checks. It is not a coding-agent skill or 
 workflow. Run from this SDK checkout with Node 22.20+ and locked development dependencies;
 the published SDK still supports Node 20+. Normal `pnpm test` is offline and needs no key.
 
+## One-command E2E on a development machine
+
+Clone this SDK repository, install Node 22.20+ and pnpm, then run:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm test:e2e
+```
+
+The command prepares and installs a candidate offline, displays the staging target and
+temporary-resource/possible-charge scope, then asks for a key without echoing it. Pressing
+Enter with the key authorizes that test; Ctrl+C cancels. No other ZooWork repository, local
+Engine, GitHub authentication or npm publish credential is needed to run the test.
+
+The default staging URL is `https://claw-interface.ecap.yesy.live/service/v1`. Override it
+with `--base-url HTTPS_SERVICE_V1`; the command deliberately ignores `ZOOWORK_BASE_URL`
+because that ordinary SDK setting may point at production. Production refusal, request
+bounds, candidate integrity and cleanup use the same checks as `release:check`.
+
+If `ZOOWORK_API_KEY` is already injected by your secret manager, no key prompt is needed;
+an interactive terminal asks you to press Enter to authorize the run. Noninteractive use
+requires `pnpm test:e2e --confirm-staging` with that injected variable, or add
+`--api-key-stdin` for a secure pipe. Never put a literal key on the command line. Keys are
+removed from the runner's environment before preparation and are not saved to disk.
+
+Candidates/results are kept under `~/.local/state/zoowork-sdk/e2e/<unique-id>/` by default.
+Use `--out-dir NEW_PRIVATE_DIR` to choose another new directory outside Git, or `--model ID`
+to select the model. The path is printed before preparation so failures remain inspectable.
+Exit 0 means the live test and cleanup passed; nonzero is a failure, never an automatic retry.
+The command never publishes. Review failure records and recover incomplete cleanup before
+starting another attempt. No hosted workflow or recurring run is configured.
+
 ## Every release
 
-Choose the final version and changelog first. Use a new private candidate directory outside
-all Git repositories; its parent must already exist.
+Choose the final version and changelog first. Run `pnpm test:e2e`, or use the separate steps
+below. Both produce the same candidate and result records for manual publication.
+For the separate steps, use a new private candidate directory outside all Git repositories;
+its parent must already exist.
 
 ```sh
 pnpm release:prepare --out-dir /absolute/private/new-candidate
