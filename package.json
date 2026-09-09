@@ -44,9 +44,16 @@
     "typecheck": "tsc --noEmit",
     "test": "tsc --noEmit && vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "pnpm run typecheck && pnpm run build"
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json",
+    "test:e2e:offline": "node --import tsx --test e2e/*.test.ts",
+    "release:prepare": "node e2e/release.ts prepare",
+    "release:check": "node e2e/release.ts run",
+    "release:verify": "node e2e/release.ts verify",
+    "release:publish": "node e2e/release.ts publish",
+    "prepublishOnly": "node e2e/release.ts prepublish"
   },
   "devDependencies": {
+    "@types/node": "^22.20.1",
     "tsx": "^4.23.7",
     "typescript": "^5.6.0",
     "vitest": "^3.0.0"
