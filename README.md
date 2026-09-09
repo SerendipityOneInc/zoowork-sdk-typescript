@@ -222,6 +222,20 @@ Runnable examples in [`examples/`](examples):
 - [`live-smoke.ts`](examples/live-smoke.ts) — drive one agent through one turn and verify the REST and SSE reads agree.
 - [`capability-probe.ts`](examples/capability-probe.ts) — create a throwaway agent, walk the whole lifecycle, and print a verdict per capability.
 
+## Release checks (maintainers)
+
+E2E belongs to this SDK's `e2e/` directory and is required before every SDK publish,
+not on every PR. Use Node 22.20+ and the SDK's locked development dependencies:
+
+1. `pnpm release:prepare --out-dir NEW_PRIVATE_DIR` — test, build, pack and install a candidate offline.
+2. `pnpm release:check --out-dir DIR --base-url STAGING_PUBLIC_URL --confirm-staging` — run one explicitly authorized temporary Agent/Session turn and cleanup using a securely supplied key.
+3. `pnpm release:publish --out-dir DIR --confirm-publish` — manually publish the exact package only after its E2E, cleanup and integrity checks pass.
+
+Normal `pnpm test` needs no key. Ordinary directory publishing is blocked to prevent
+rebuilding an untested candidate. No hosted workflow stores a staging key or runs this E2E.
+See [the release and recovery instructions](e2e/README.md) before handling a credential or
+publishing; tests and a staging pass alone are not publication permission.
+
 ## License
 
 MIT
