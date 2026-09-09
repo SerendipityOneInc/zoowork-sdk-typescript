@@ -1,16 +1,12 @@
 /**
- * SSE line parser for the `/events/stream` endpoint endpoint.
- *
- * Ported from zoowork-app-kit server/zooclaw/sse.ts — that parser is correct against the
- * live wire and needed no changes. The `id:` field matters: The server frames each durable
- * event as `id: <seq>` + `data: <json>`, so dropping the id line would freeze the resume
- * cursor. Web Streams + TextDecoder only, so this runs in workers and browsers as well as
- * Node.
+ * SSE line parser for the /events/stream endpoint.
+ * Preserve id as an opaque string: unified events use it as a resume cursor, while the
+ * legacy lane can send numeric ids. Web Streams + TextDecoder only.
  */
 
 export interface SSEMessage {
   event: string
-  /** The SSE `id:` field — the durable seq for the API event frames. */
+  /** The SSE id field, unchanged. Do not parse an opaque resume cursor as a number. */
   id?: string
   data: unknown
 }

@@ -375,16 +375,17 @@ test('getSession answers status: null — the outcome is on run_status', async (
   // The bug in one line: `status` is present, null, and useless; the answer is next to it.
   declared<string | null | undefined>(result.status, 'null')
   expect(result.status).toBe(holds<SessionRecord['status']>(null))
-  declared<string | undefined>(result.run_status, 'string')
+  declared<string | null | undefined>(result.run_status, 'string')
   expect(result.run_status).toBe('succeeded')
   declared<boolean | undefined>(result.archived, 'boolean')
 })
 
-test('getSession also sends pending_approvals and entry, which SessionRecord does not name', async () => {
+test('getSession declares pending_approvals and preserves the open entry field', async () => {
   const { result, raw } = await replay('get-session', (c) => c.getSession(AGENT, SESSION))
-  // Not a defect — the index signature is what carries them — but they are real, and the JSDoc
-  // claim that `run_status` is list-only is wrong: it is on both surfaces.
+  // The recording proves the numeric count. entry remains accessible through the open index
+  // signature, while run_status is present on both get and list projections.
   expectKinds(raw, { pending_approvals: 'number', entry: 'object', run_status: 'string' })
+  declared<number | undefined>(result.pending_approvals, 'number')
   expect(result.pending_approvals).toBe(0)
 })
 
@@ -882,8 +883,8 @@ test('listApprovals answers an empty array with and without the status filter', 
   expect(filtered).toEqual([])
   const { result: all } = await replay('get-agents-id-approvals', (c) => c.listApprovals(AGENT))
   expect(all).toEqual([])
-  // Both recordings are empty, so the shape of an APPROVAL ROW is still unproven — which is what
-  // `ApprovalRecord`'s doc comment says. Nothing here may be read as confirming those field names.
+  // Both recordings are empty. Source-reviewed additions have separate synthetic tests;
+  // neither those tests nor these recordings establish end-to-end approval behavior.
 })
 
 // ── system prompt & artifacts (0.0.6) ──────────────────────────────────────
@@ -1069,7 +1070,9 @@ test('an agent-level outcome PUT lands in declared.outcome exactly as written �
 // ── declaration coverage: what the SDK promises vs what the wire carries ───
 //
 // The tests above assert the fields the SDK gets RIGHT. This section is the other way round: for
-// each record type, every key the type declares must be carried by at least one recorded response.
+// each baseline record type, declared keys must be carried by at least one recorded response.
+// Explicit source-reviewed additions have separate synthetic coverage and an enumerated exception
+// below; that exception is not a live recording and does not weaken recorded-field assertions.
 // That is the assertion the eight bugs failed. `ScheduleRecord.schedule`, `SessionRecord`'s missing
 // `run_status`, `EnvironmentRecord.state`, `EnvironmentVersionRecord.state` — each was a key the
 // SDK promised that no real response has ever contained, and each would be red here.
@@ -1165,15 +1168,15 @@ const SESSION_RECORD_KEYS = [
   'archived',
   'updated_at',
   'history',
+  'pending_approvals',
 ] as const satisfies readonly DeclaredKeys<SessionRecord>[]
 const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number]> = undefined
 
 test('SessionRecord declares nothing the wire does not carry, on any of its three surfaces', () => {
-  // `pending_approvals` and `entry` are real and unnamed; `created_at` appears on the create receipt
-  // only. All three reach callers through the index signature.
+  // entry and create-only created_at still reach callers through the open index signature.
   expectDeclarationCoverage(
     SESSION_RECORD_KEYS,
-    ['created_at', 'entry', 'pending_approvals'],
+    ['created_at', 'entry'],
     [body('get-session-with-history'), body('create-session'), ...rows('list-sessions', 'sessions')],
   )
 })
@@ -1251,9 +1254,13 @@ const SCHEDULE_RUN_KEYS = [
   'workflow_id',
   'temporal_run_id',
 ] as const satisfies readonly DeclaredKeys<ScheduleRun>[]
-const _scheduleRunCovered: Covered<ScheduleRun, (typeof SCHEDULE_RUN_KEYS)[number]> = undefined
+// session_id is a separately source-reviewed optional addition. It is exercised with clearly
+// synthetic input in contract-sync.test.ts, NOT inserted into these recorded responses.
+// Keep strict coverage of every field in the recordings and make any further type addition
+// fail this completeness check until it has an explicit evidence path.
+const _scheduleRunCovered: Covered<ScheduleRun, (typeof SCHEDULE_RUN_KEYS)[number] | 'session_id'> = undefined
 
-test('ScheduleRun declares nothing the wire does not carry, across both row shapes', () => {
+test('the recorded ScheduleRun baseline fields are all covered across both row shapes', () => {
   expectDeclarationCoverage(SCHEDULE_RUN_KEYS, [], rows('list-schedule-runs', 'runs'))
 })
 
