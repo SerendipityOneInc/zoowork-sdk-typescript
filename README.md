@@ -26,9 +26,14 @@ The base URL has a working default, so you do not configure an endpoint. Overrid
 
 ```ts
 // 1. Create an agent. Ownership is derived from your key, so `resource` is all you
-//    send; the gateway also seeds the platform credentials the agent needs to call a model.
+//    send. Select a model returned by this deployment instead of relying on a
+//    remembered id or on a server default that can rotate.
+const models = await zc.listModels()
+const primary = models.find((model) => model.model === 'litellm/gpt-5.6-terra')?.model
+if (!primary) throw new Error('Choose a model returned by listModels()')
+
 const agent = await zc.createAgent({
-  resource: { name: 'research-agent', model: { primary: 'litellm/claude-sonnet-5' } },
+  resource: { name: 'research-agent', model: { primary } },
 })
 
 // 2. Start it. Without this, createSession() returns 409 agent_not_running.
@@ -58,9 +63,12 @@ An explicit option always beats the environment variable.
 
 > **Wait on `status.desired_state`, never on `status.actual_state`.**
 > `actual_state` reports chat-channel connectivity. An API-only agent has no channels,
-> so it stays at `activating` forever and `active` is unreachable — a readiness loop
-> that polls it never returns. `desired_state` flips to `running` in well under a second.
-> `await zc.waitUntilRunning(agentId)` is that loop, written correctly.
+> but its projection depends on the channel-status capability: a GET can report `active`
+> with zero channel counts and a `status_message` saying health was not verified when that
+> capability is unsupported, while a transient health lookup failure remains `activating`.
+> List and GET can therefore briefly disagree. None of these values is readiness, and
+> `running` is not an `actual_state` value. Use `await zc.waitUntilRunning(agentId)`; it
+> correctly polls `desired_state`.
 
 ## Streaming a turn
 

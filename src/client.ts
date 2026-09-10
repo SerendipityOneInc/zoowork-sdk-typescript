@@ -226,6 +226,12 @@ export interface McpServerDeclaration {
   credential?: string
   /** Expose only these tool names from this server. Omit for all of them. */
   toolFilter?: string[]
+  /**
+   * How tools reach the model. `deferred` (the default when omitted) keeps them behind
+   * `tool_search` / `tool_describe` until loaded; `direct` declares them on the first request.
+   * There is no `auto` value.
+   */
+  exposure?: 'deferred' | 'direct'
   [k: string]: unknown
 }
 
@@ -282,7 +288,12 @@ export interface OutcomeConfig {
 
 export interface AgentResource {
   name: string
-  /** `max_tokens` caps output tokens per model request. Omit to use the platform default. */
+  /**
+   * Omit this section to pin the platform's current model defaults at create time. Those
+   * defaults can rotate; call `listModels()` and set `primary` explicitly for deterministic
+   * provisioning. `max_tokens` caps output tokens per model request; omit only that field to
+   * use the platform token limit.
+   */
   model?: { primary: string; input?: string[]; max_tokens?: number }
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
   skills?: { skill_id: string; version?: number | 'latest' }[]
@@ -306,15 +317,18 @@ export interface AgentResource {
 }
 
 /**
- * Agent lifecycle state. Two fields, two very different meanings — staging-verified
- * 2026-08-06:
+ * Agent lifecycle state. Two fields, two very different meanings:
  *
  *  - `desired_state` is the one that gates the API. `running` is the precondition for
  *    createSession/postEvents; anything else is `409 agent_not_running`.
- *  - `actual_state` is CHANNEL health (Mattermost/Feishu route connectivity), not API
- *    readiness. An API-only agent has no channels to connect, so it sits at
- *    `activating` forever and `active` is unreachable. Never gate on it, and never
- *    poll for `running` — that is not one of its values.
+ *  - `actual_state` is a best-effort CHANNEL-health projection, not API readiness. When
+ *    route-status is unsupported, GET can report `active` with zero channel counts and a
+ *    `status_message` saying health was not verified; a transient unknown remains
+ *    `activating`. `listAgents` does not make the same foreground health query, so list and
+ *    GET can briefly differ. Never gate on this field, and never poll it for `running` —
+ *    that is not one of its values.
+ *
+ * The channel fallback behavior is source-reviewed, not deployment-verified here.
  */
 export interface AgentStatus {
   desired_state?: 'running' | 'stopped' | 'deleted' | string

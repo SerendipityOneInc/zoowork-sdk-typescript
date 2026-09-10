@@ -7,7 +7,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 import {
   createZooworkClient, normalizeEvent, ZooworkError,
   type ApprovalRecord, type OutboundEvent, type ScheduleRun, type ScheduleSpec,
-  type SessionRecord, type SkillRecord, type SkillVersionRecord,
+  type McpServerDeclaration, type SessionRecord, type SkillRecord, type SkillVersionRecord,
 } from './index.js'
 
 const BASE = 'https://sdk-contract.test/service/v1'
@@ -136,6 +136,29 @@ test('approval fields and a 202 pending receipt remain distinct from completed e
 test('MCP reasons and future payload fields survive normalization', () => {
   const payload = { kind: 'mcp_authentication_failed', server: 'synthetic', errorMessage: 'Denied', reason: 'future_reason', extra: true }
   expect(normalizeEvent({ seq: 8, event_type: 'agent.error', payload }).payload).toEqual(payload)
+})
+
+test('MCP exposure serializes unchanged and rejects an auto mode', async () => {
+  const direct = {
+    name: 'synthetic', url: 'https://mcp.example.test', exposure: 'direct',
+  } satisfies McpServerDeclaration
+  const { client, calls } = harness({ agent_id: 'agent-test' })
+
+  await client.createAgent({ resource: { name: 'mcp-test', mcp: [direct] } })
+  await client.updateAgent('agent-test', {
+    mcp: [{ ...direct, exposure: 'deferred' satisfies McpServerDeclaration['exposure'] }],
+  })
+
+  expect(JSON.parse(String(calls[0].init.body))).toEqual({
+    resource: { name: 'mcp-test', mcp: [direct], onboarding: false },
+  })
+  expect(JSON.parse(String(calls[1].init.body))).toEqual({
+    mcp: [{ ...direct, exposure: 'deferred' }],
+  })
+
+  // @ts-expect-error Engine accepts only deferred or direct; there is no auto mode.
+  const unsupported: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', exposure: 'auto' }
+  void unsupported
 })
 
 test('SSE resume keeps an opaque cursor in the query and preserves the next cursor', async () => {
