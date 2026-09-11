@@ -2,12 +2,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hash, hashTree, writeJSON } from './guard.ts'
-import { fingerprint, publishCandidate, verifyCandidate, verifyPassed } from './release.ts'
+import { fingerprint, publishCandidate, run, verifyCandidate, verifyPassed } from './release.ts'
 import type { Manifest } from './release.ts'
 
 const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -18,11 +18,11 @@ function candidate() {
   mkdirSync(installed, { recursive: true })
   writeFileSync(join(installed, 'index.js'), 'export const synthetic = true\n')
   writeFileSync(join(directory, 'synthetic.tgz'), 'synthetic artifact, not a package')
-  for (const name of ['live.ts', 'smoke.ts', 'guard.ts']) writeFileSync(join(consumer, name), '// synthetic\n')
+  for (const name of ['live.ts', 'smoke.ts', 'guard.ts', 'progress.ts']) writeFileSync(join(consumer, name), '// synthetic\n')
   const manifest: Manifest = { schema_version: 1, run_id: 'synthetic', package_name: '@zoowork-ai/sdk', version: '0.0.0-test',
     source: { root, head: 'synthetic', fingerprint: fingerprint(root) }, tarball: 'synthetic.tgz',
     tarball_sha256: hash(readFileSync(join(directory, 'synthetic.tgz'))),
-    runner_sha256: hash(['live.ts', 'smoke.ts', 'guard.ts'].map(name => name + '\0' + hash(readFileSync(join(consumer, name)))).join('\0')),
+    runner_sha256: hash(['live.ts', 'smoke.ts', 'guard.ts', 'progress.ts'].map(name => name + '\0' + hash(readFileSync(join(consumer, name)))).join('\0')),
     installed_sha256: hashTree(installed), offline_checks: [], status: 'prepared' }
   writeJSON(join(directory, 'manifest.json'), manifest)
   const result = { schema_version: 1, run_id: manifest.run_id, tarball_sha256: manifest.tarball_sha256,
@@ -93,4 +93,50 @@ test('directory prepublish hook refuses with a release command instead of callin
   })
   assert.equal(result.status, 1)
   assert.match(result.stderr, /Directory publication is disabled/)
+})
+test('real child runner reports timed steps while raw child output stays suppressed (synthetic SDK, no network)', async () => {
+  const c = candidate()
+  const runnerFiles = ['live.ts', 'smoke.ts', 'guard.ts', 'progress.ts']
+  for (const name of runnerFiles) copyFileSync(join(root, 'e2e', name), join(c.consumer, name))
+  mkdirSync(join(c.installed, 'dist'))
+  writeFileSync(join(c.installed, 'package.json'), JSON.stringify({ type: 'module', exports: './dist/index.js' }))
+  // Deliberately noisy synthetic child: the parent must display only its structured ledger.
+  writeFileSync(join(c.installed, 'dist/index.js'), `
+export const DEFAULT_BASE_URL = 'https://production.invalid/service/v1';
+export const assistantText = e => e.text ?? '';
+export const isRunFinished = e => e.done === true;
+export const runOutcome = () => 'succeeded';
+export function createZooworkClient(options) {
+  const events = [{text:'synthetic-private-reply'}, {done:true}];
+  console.log(options.apiKey); console.error('synthetic-private-child-error');
+  return {
+    listModels: async () => { await new Promise(r => setTimeout(r, 250)); return [{model:'synthetic'}]; },
+    createAgent: async () => ({agent_id:'agt_SYNTHETIC'}),
+    startAgent: async () => ({}), waitUntilRunning: async () => ({}),
+    createSession: async () => ({session_id:'SYNTHETIC_SESSION'}),
+    streamEvents: async function* () { yield* events; }, listAllEvents: async () => events,
+    deleteSession: async () => {}, stopAgent: async () => {}, deleteAgent: async () => {},
+    getAgent: async () => { throw {status:404}; },
+  };
+}
+`)
+  c.manifest.runner_sha256 = hash(runnerFiles.map(name => name + '\0' + hash(readFileSync(join(c.consumer, name)))).join('\0'))
+  c.manifest.installed_sha256 = hashTree(c.installed)
+  writeJSON(join(c.directory, 'manifest.json'), c.manifest)
+  const lines: string[] = []
+  const log = console.log
+  console.log = line => { lines.push(String(line)) }
+  try {
+    assert.equal(await run(c.directory, { baseUrl: 'https://staging.example.invalid/service/v1', apiKey: 'zct_SYNTHETIC_INPUT_ONLY', confirmed: true }), 0)
+  } finally { console.log = log }
+  const output = lines.join('\n')
+  assert.match(output, /RUN  Read model catalog/)
+  assert.match(output, /PASS Read model catalog \([\d.]+ms\)/)
+  assert.match(output, /10 passed, 0 failed, 0 skipped/)
+  assert.match(output, /Cleanup: complete/)
+  for (const secret of ['zct_SYNTHETIC_INPUT_ONLY', 'synthetic-private-child-error', 'synthetic-private-reply', 'agt_SYNTHETIC']) assert.equal(output.includes(secret), false)
+  const record = JSON.parse(readFileSync(join(c.directory, 'live-result.json'), 'utf8'))
+  assert.equal(record.steps.length, 10)
+  assert.ok(record.steps.every((step: { status: string }) => step.status === 'passed'))
+  assert.equal(verifyPassed(c.directory).run_id, 'synthetic')
 })
