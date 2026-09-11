@@ -190,17 +190,17 @@ test('createAgent strips warm and forces onboarding: false, and omits ownership 
   })
 })
 
-test('listAgents unwraps agents and builds label.* / page query from the options supplied', async () => {
+test('listAgents exposes page data and builds label.* / page query from the options supplied', async () => {
   const all = harness(jsonReply({ page: 1, page_size: 100, total: 1, agents: [{ agent_id: 'agt_1' }] }))
-  expect(await all.client.listAgents()).toEqual([{ agent_id: 'agt_1' }])
+  expect((await all.client.listAgents()).data).toEqual([{ agent_id: 'agt_1' }])
   expect(path(all.calls)).toBe('/agents')
 
-  const filtered = harness(jsonReply({ agents: [] }))
+  const filtered = harness(jsonReply({ page: 2, page_size: 100, total: 0, agents: [] }))
   await filtered.client.listAgents({ labels: { workspace_id: 'w1', pack_id: 'p 1' }, page: 2 })
   expect(path(filtered.calls)).toBe('/agents?page=2&label.workspace_id=w1&label.pack_id=p+1')
 
-  const empty = harness(jsonReply({}))
-  expect(await empty.client.listAgents()).toEqual([])
+  const empty = harness(jsonReply({ page: 1, page_size: 100, total: 0, agents: [] }))
+  expect((await empty.client.listAgents()).data).toEqual([])
 })
 
 test('agent ids are percent-encoded into the path', async () => {

@@ -8,6 +8,11 @@ import type { SmokeRecord } from './smoke.ts'
 
 const base = 'https://staging.example.invalid/service/v1'
 const sentinel = 'synthetic-sensitive-value-do-not-emit'
+function agentPage(data: sdk.AgentRecord[], total = data.length): sdk.AgentPagePromise {
+  return sdk.createZooworkClient({ apiKey: 'zct_test_key', baseUrl: base,
+    fetch: async () => Response.json({ agents: data, page: 1, page_size: 100, total }),
+  }).listAgents()
+}
 function setup(overrides: Partial<sdk.ZooworkClient> = {}) {
   const calls: string[] = []
   let deleted = false
@@ -25,7 +30,7 @@ function setup(overrides: Partial<sdk.ZooworkClient> = {}) {
     stopAgent: async () => { calls.push('stop'); return { warnings: [] } },
     deleteAgent: async () => { calls.push('delete'); deleted = true },
     getAgent: async () => { calls.push('get'); if (deleted) throw new sdk.ZooworkError(404, sentinel); return { agent_id: 'agt_SYNTHETIC' } },
-    listAgents: async () => { calls.push('recover'); return [] },
+    listAgents: () => { calls.push('recover'); return agentPage([]) },
     ...overrides,
   } as sdk.ZooworkClient
   const records: SmokeRecord[] = []
@@ -80,16 +85,24 @@ test('uncertain create is not retried; absent recovery stays incomplete', async 
 })
 test('uncertain create may recover only the exact unique run label/name', async () => {
   const f = setup({ createAgent: async () => { throw new Error('synthetic timeout') },
-    listAgents: async opts => {
+    listAgents: opts => {
       assert.deepEqual(opts, { labels: { sdk_e2e_run: 'test-run' } })
-      return [{ agent_id: 'agt_SYNTHETIC', declared: { name: 'sdk-e2e-test-run', labels: { sdk_e2e_run: 'test-run' } } }]
+      return agentPage([{ agent_id: 'agt_SYNTHETIC', declared: { name: 'sdk-e2e-test-run', labels: { sdk_e2e_run: 'test-run' } } }])
     } })
   const result = await smoke(sdk, f.client, f.options)
   assert.equal(result.passed, false); assert.equal(result.cleanup.complete, true); assert.ok(f.calls.includes('delete'))
 })
 test('a broad/mismatched recovery response does not authorize deleting another agent', async () => {
   const f = setup({ createAgent: async () => { throw new Error('synthetic timeout') },
-    listAgents: async () => [{ agent_id: 'agt_OTHER', declared: { name: 'not-this-run' } }] })
+    listAgents: () => agentPage([{ agent_id: 'agt_OTHER', declared: { name: 'not-this-run' } }]) })
+  const result = await smoke(sdk, f.client, f.options)
+  assert.equal(result.cleanup.complete, false); assert.equal(f.calls.includes('delete'), false)
+})
+test('recovery checks total matches rather than treating a partial page as unique', async () => {
+  const f = setup({ createAgent: async () => { throw new Error('synthetic timeout') },
+    listAgents: () => agentPage([{ agent_id: 'agt_SYNTHETIC', declared: {
+      name: 'sdk-e2e-test-run', labels: { sdk_e2e_run: 'test-run' },
+    } }], 2) })
   const result = await smoke(sdk, f.client, f.options)
   assert.equal(result.cleanup.complete, false); assert.equal(f.calls.includes('delete'), false)
 })

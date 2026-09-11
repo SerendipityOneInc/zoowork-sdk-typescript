@@ -92,8 +92,8 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
     if (creationStarted && !record.resources.agent_id) {
       // Do not repeat POST on uncertain creation. Only inspect the unique run label; never list/delete the tenant broadly.
       await clean('recover_created_agent', async () => {
-        const found = await client.listAgents({ labels: label })
-        check(found.length === 1, 'creation_uncertain_manual_lookup_required')
+        const { data: found, total } = await client.listAgents({ labels: label })
+        check(total === 1 && found.length === 1, 'creation_uncertain_manual_lookup_required')
         const declared = found[0].declared as { name?: string; labels?: Record<string, string> } | undefined
         check(declared?.name === name && declared.labels?.sdk_e2e_run === options.runId, 'recovery_ownership_unverified')
         record.resources.agent_id = ownAgent(found[0].agent_id)
