@@ -286,6 +286,10 @@ one temporary Agent/Session, one potentially billable model turn and cleanup. It
 the SDK's configured staging endpoint, prints the retained result directory, and never
 publishes. Use `--base-url` to explicitly select another staging deployment.
 
+The terminal shows individual offline test cases, then timed live steps and cleanup results.
+It labels the live smoke's coverage separately, including that pagination beyond 100 agents
+is covered offline. Machine-readable JSON reports stay in the printed private directory.
+
 Before a release, choose the final version/changelog **before** running E2E. Only after it
 passes, manually run `pnpm release:publish --out-dir DIR --confirm-publish` using the printed
 candidate directory. The separate `release:prepare` / `release:check` commands remain available.

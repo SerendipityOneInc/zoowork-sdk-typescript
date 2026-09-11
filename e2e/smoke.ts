@@ -1,10 +1,13 @@
 import type * as SDK from '@zoowork-ai/sdk'
 import { check, safeFailure } from './guard.ts'
+import { MAIN_STEPS } from './progress.ts'
+import type { SmokeStep, StepId } from './progress.ts'
 
 type PublicSDK = typeof SDK
 export interface SmokeRecord {
   schema_version: 1; run_id: string; phase: string; passed: boolean;
   checks: string[]; failure?: ReturnType<typeof safeFailure>;
+  steps: SmokeStep[];
   cleanup: { complete: boolean; steps: { step: string; passed: boolean; failure?: ReturnType<typeof safeFailure> }[] };
   resources: { agent_id?: string; session_id?: string; creation_uncertain: boolean; session_creation_uncertain: boolean };
 }
@@ -13,7 +16,7 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
   cleanupMode: () => void; save: (record: SmokeRecord) => void;
 }): Promise<SmokeRecord> {
   const record: SmokeRecord = { schema_version: 1, run_id: options.runId, phase: 'models', passed: false,
-    checks: [], cleanup: { complete: false, steps: [] }, resources: { creation_uncertain: false, session_creation_uncertain: false } }
+    checks: [], steps: [], cleanup: { complete: false, steps: [] }, resources: { creation_uncertain: false, session_creation_uncertain: false } }
   const save = () => options.save(structuredClone(record))
   let writeFailed = false
   const safeSave = () => { try { save() } catch { writeFailed = true } }
@@ -29,7 +32,30 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
     check(typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id) && !id.startsWith('zct_'), 'invalid_created_session_id')
     return id
   }
-  const stage = (phase: string) => { options.signal.throwIfAborted(); record.phase = phase; save() }
+  let active: SmokeStep | undefined
+  let started = 0
+  const begin = (id: StepId) => {
+    active = { id, status: 'running', duration_ms: 0 }
+    record.steps.push(active)
+    started = performance.now()
+  }
+  const finish = (status: 'passed' | 'failed', error?: unknown) => {
+    if (!active) return
+    active.status = status
+    active.duration_ms = Math.round(performance.now() - started)
+    if (status === 'failed') active.failure = safeFailure(error)
+    active = undefined
+  }
+  const skip = (id: StepId, reason: SmokeStep['reason']) => {
+    record.steps.push({ id, status: 'skipped', duration_ms: 0, reason })
+  }
+  const stage = (phase: typeof MAIN_STEPS[number]) => {
+    finish('passed')
+    record.phase = phase
+    begin(phase)
+    save()
+    options.signal.throwIfAborted()
+  }
   try {
     stage('models')
     const models = await client.listModels()
@@ -75,17 +101,22 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
     check(durable.some(e => sdk.isRunFinished(e) && sdk.runOutcome(e) === 'succeeded'), 'rest_missing_successful_turn')
     check(durable.map(sdk.assistantText).join('').trim() === text.trim(), 'rest_stream_mismatch')
     record.checks.push('rest_sse_agreement')
-  } catch (error) { failure = true; record.failure = safeFailure(error) }
+    finish('passed')
+  } catch (error) { finish('failed', error); failure = true; record.failure = safeFailure(error) }
   finally {
     options.cleanupMode()
     const failedPhase = record.phase
+    for (const id of MAIN_STEPS) if (!record.steps.some(step => step.id === id)) skip(id, 'previous_step_failed')
     record.phase = 'cleanup'
     safeSave()
-    async function clean(step: string, fn: () => Promise<void>, notFoundOK = false) {
-      try { await fn(); record.cleanup.steps.push({ step, passed: true }) }
+    async function clean(step: StepId, fn: () => Promise<void>, notFoundOK = false) {
+      begin(step)
+      safeSave()
+      try { await fn(); finish('passed'); record.cleanup.steps.push({ step, passed: true }) }
       catch (error) {
-        if (notFoundOK && (error as { status?: number })?.status === 404) record.cleanup.steps.push({ step, passed: true })
-        else record.cleanup.steps.push({ step, passed: false, failure: safeFailure(error) })
+        if (notFoundOK && (error as { status?: number })?.status === 404) {
+          finish('passed'); record.cleanup.steps.push({ step, passed: true })
+        } else { finish('failed', error); record.cleanup.steps.push({ step, passed: false, failure: safeFailure(error) }) }
       }
       safeSave()
     }
@@ -110,6 +141,7 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
         record.resources.session_creation_uncertain = false
       })
       if (record.resources.session_id) await clean('delete_session', () => client.deleteSession(agentId, record.resources.session_id!), true)
+      else skip('delete_session', 'resource_unavailable')
       await clean('stop_agent', async () => { await client.stopAgent(agentId) }, true)
       await clean('delete_agent', () => client.deleteAgent(agentId), true)
       await clean('confirm_agent_unavailable', async () => {
@@ -119,7 +151,7 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
         }
         check(false, 'deleted_agent_still_available')
       })
-    }
+    } else for (const id of ['delete_session', 'stop_agent', 'delete_agent', 'confirm_agent_unavailable'] as const) skip(id, 'resource_unavailable')
     record.cleanup.complete = !record.resources.creation_uncertain && !record.resources.session_creation_uncertain && record.cleanup.steps.every(s => s.passed)
     record.passed = !failure && !writeFailed && record.cleanup.complete
     record.phase = record.passed ? 'complete' : failedPhase

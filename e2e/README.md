@@ -36,6 +36,39 @@ Exit 0 means the live test and cleanup passed; nonzero is a failure, never an au
 The command never publishes. Review failure records and recover incomplete cleanup before
 starting another attempt. No hosted workflow or recurring run is configured.
 
+### Reading the output
+
+Offline preparation prints the SDK's individual Vitest cases and the E2E runner's Node test
+cases, followed by build, package and consumer checks. These cases use recorded/synthetic
+responses and do not call staging. A failed check stops preparation and prevents the live run.
+
+The live smoke prints each step as it runs, with `RUN`, `PASS`, `FAIL` or `SKIP` and elapsed
+time. Steps include model discovery, agent creation/readiness, session creation, the model
+reply, REST/SSE agreement and each cleanup action. A failure skips dependent steps while
+cleanup continues. Summary counts refer to these live steps, separately from offline cases.
+
+For example (illustrative output, not a live recording):
+
+```text
+Live staging smoke
+  RUN  Receive a successful streamed model reply
+  PASS Receive a successful streamed model reply (2.10s)
+  PASS Match REST history with SSE reply (180ms)
+  PASS Delete temporary session (120ms)
+  PASS Stop temporary agent (100ms)
+  PASS Delete temporary agent (100ms)
+  PASS Confirm deleted agent returns 404 (80ms)
+PASS Live staging smoke: 10 passed, 0 failed, 0 skipped (3.50s)
+Cleanup: complete
+NOT COVERED: live pagination beyond 100 agents (offline cases cover this); full API coverage; production compatibility.
+```
+
+Terminal output uses fixed live-step labels, durations and safe failure categories. It does
+not print keys, raw live responses, model replies or resource IDs. JSON records remain in
+the printed private directory: `live-result.json` includes each step's status and duration;
+`result.json` remains the machine-readable live/cleanup verdict. Human output does not change
+the pass criteria, request limits, cleanup requirements or publication checks.
+
 ## Every release
 
 Choose the final version and changelog first. Run `pnpm test:e2e`, or use the separate steps
@@ -96,7 +129,7 @@ All records stay in the private candidate directory, outside Git:
 - `manifest.json`: source/version, tarball and runner hashes, completed offline checks.
 - `live-started.json`: unique run ID, endpoint and bounds. Its existence prevents automatic
   reuse; never delete it just to force another attempt.
-- `live-result.json`: safe phase/status, temporary resource IDs and cleanup steps.
+- `live-result.json`: safe phase/status, timed steps, temporary resource IDs and cleanup steps.
 - `result.json`: the live/cleanup verdict bound to this package and run.
 
 Records do not contain raw API bodies/headers, prompts or model replies. Verification checks

@@ -7,9 +7,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { baseURL, check, explicitOutput, hash, hashTree, privateDir, readJSON, safeFailure, writeJSON } from './guard.ts'
 import type { SmokeRecord } from './smoke.ts'
+import { elapsed, LiveProgress } from './progress.ts'
 
 const ROOT = realpathSync(fileURLToPath(new URL('..', import.meta.url)))
-const RUNNER_FILES = ['live.ts', 'smoke.ts', 'guard.ts']
+const RUNNER_FILES = ['live.ts', 'smoke.ts', 'guard.ts', 'progress.ts']
 let npmConfig: string | undefined
 export interface Manifest {
   schema_version: 1; run_id: string; package_name: string; version: string;
@@ -29,10 +30,23 @@ function environment(): NodeJS.ProcessEnv {
     npm_config_offline: 'true', npm_config_audit: 'false', npm_config_fund: 'false',
     GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' }
 }
-function command(cwd: string, executable: string, args: string[], phase: string): string {
-  const result = spawnSync(executable, args, { cwd, env: environment(), encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 })
+function command(cwd: string, executable: string, args: string[], phase: string, visible = false): string {
+  const result = spawnSync(executable, args, { cwd, env: environment(), encoding: 'utf8', timeout: 240_000,
+    maxBuffer: 8 * 1024 * 1024, stdio: visible ? ['ignore', 'inherit', 'inherit'] : 'pipe' })
   check(!result.error && result.status === 0, phase + '_failed')
-  return result.stdout
+  return result.stdout ?? ''
+}
+function offlineStep<T>(label: string, action: () => T): T {
+  console.log(`RUN  ${label}`)
+  const started = performance.now()
+  try {
+    const value = action()
+    console.log(`PASS ${label} (${elapsed(performance.now() - started)})`)
+    return value
+  } catch (error) {
+    console.log(`FAIL ${label} (${elapsed(performance.now() - started)})`)
+    throw error
+  }
 }
 export function fingerprint(repo: string): string {
   const paths = command(repo, 'git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], 'source_index').split('\0').filter(Boolean).sort()
@@ -89,31 +103,40 @@ export function prepare(directoryPath: string): string {
   const before = fingerprint(ROOT)
   const pkg = readJSON<{ name: string; version: string; dependencies?: Record<string, string>; files: string[] }>(join(ROOT, 'package.json'))
   check(pkg.name === '@zoowork-ai/sdk' && !Object.keys(pkg.dependencies ?? {}).length, 'unexpected_package_or_runtime_dependencies')
-  const offline = [['test'], ['typecheck:e2e'], ['test:e2e:offline']]
-  for (const args of offline) { command(ROOT, 'pnpm', args, args[0]); console.log(JSON.stringify({ check: args[0], passed: true })) }
+  console.log(`\nOffline preparation — ${pkg.name}@${pkg.version} (no API calls)`)
+  const offline: [string, string[]][] = [
+    ['SDK typecheck and test cases', ['test', '--reporter=verbose']],
+    ['E2E runner typecheck', ['typecheck:e2e']],
+    ['E2E runner test cases (synthetic, not live)', ['test:e2e:offline']],
+  ]
+  for (const [label, args] of offline) offlineStep(label, () => command(ROOT, 'pnpm', args, args[0], true))
   const pack = privateDir(join(directory, 'package'))
   // Compile into a clean candidate directory, never reuse stale dist from another build.
-  command(ROOT, 'pnpm', ['exec', 'tsc', '-p', 'tsconfig.build.json', '--outDir', join(pack, 'dist')], 'build')
+  offlineStep('Build clean candidate', () => command(ROOT, 'pnpm', ['exec', 'tsc', '-p', 'tsconfig.build.json', '--outDir', join(pack, 'dist')], 'build', true))
   for (const file of ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE']) copyFileSync(join(ROOT, file), join(pack, file))
-  const packed = JSON.parse(command(pack, 'npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', directory], 'pack')) as { filename: string; files: { path: string }[] }[]
-  check(packed.length === 1 && /^[a-zA-Z0-9_.-]+\.tgz$/.test(packed[0].filename), 'invalid_pack_output')
-  check(packed[0].files.every(f => ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE'].includes(f.path)
-    || (/^dist\/[A-Za-z0-9_/-]+(?:\.d)?\.js$/.test(f.path) || /^dist\/[A-Za-z0-9_/-]+\.d\.ts$/.test(f.path))
-      && !f.path.includes('.test.')), 'unexpected_published_file')
+  const packed = offlineStep('Pack and check published files', () => {
+    const files = JSON.parse(command(pack, 'npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', directory], 'pack')) as { filename: string; files: { path: string }[] }[]
+    check(files.length === 1 && /^[a-zA-Z0-9_.-]+\.tgz$/.test(files[0].filename), 'invalid_pack_output')
+    check(files[0].files.every(f => ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE'].includes(f.path)
+      || (/^dist\/[A-Za-z0-9_/-]+(?:\.d)?\.js$/.test(f.path) || /^dist\/[A-Za-z0-9_/-]+\.d\.ts$/.test(f.path))
+        && !f.path.includes('.test.')), 'unexpected_published_file')
+    return files
+  })
   const consumer = privateDir(join(directory, 'consumer'))
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }), { mode: 0o600, flag: 'wx' })
-  command(consumer, 'npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', join(directory, packed[0].filename)], 'isolated_install')
+  offlineStep('Install tarball into isolated consumer', () => command(consumer, 'npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', join(directory, packed[0].filename)], 'isolated_install'))
   for (const file of RUNNER_FILES) copyFileSync(join(ROOT, 'e2e', file), join(consumer, file))
   const typecheck = "import { createZooworkClient, assistantText, type SessionEvent } from '@zoowork-ai/sdk';\nconst client = createZooworkClient({apiKey:'typecheck-only'});\nvoid client.createAgent({resource:{name:'typecheck-only'}});\nconst render: (event: SessionEvent) => string = assistantText;\nvoid render;\n"
   writeFileSync(join(consumer, 'consumer-check.ts'), typecheck, { mode: 0o600, flag: 'wx' })
-  command(ROOT, 'pnpm', ['exec', 'tsc', '--noEmit', '--strict', '--module', 'NodeNext', '--target', 'ES2022', '--skipLibCheck', join(consumer, 'consumer-check.ts')], 'consumer_types')
-  check(fingerprint(ROOT) === before, 'source_changed_during_prepare')
+  offlineStep('Typecheck installed consumer', () => command(ROOT, 'pnpm', ['exec', 'tsc', '--noEmit', '--strict', '--module', 'NodeNext', '--target', 'ES2022', '--skipLibCheck', join(consumer, 'consumer-check.ts')], 'consumer_types', true))
+  offlineStep('Verify source remained unchanged', () => check(fingerprint(ROOT) === before, 'source_changed_during_prepare'))
   const manifest: Manifest = { schema_version: 1, run_id: randomUUID(), package_name: pkg.name, version: pkg.version,
     source: { root: ROOT, head: command(ROOT, 'git', ['rev-parse', 'HEAD'], 'source_head').trim(), fingerprint: before },
     tarball: packed[0].filename, tarball_sha256: hash(readFileSync(join(directory, packed[0].filename))),
     runner_sha256: runnerHash(consumer), installed_sha256: hashTree(join(consumer, 'node_modules/@zoowork-ai/sdk')),
     offline_checks: ['sdk_tests', 'runner_types', 'runner_offline_tests', 'clean_build', 'pack_contents', 'isolated_install', 'consumer_types'], status: 'prepared' }
   writeJSON(join(directory, 'manifest.json'), manifest)
+  console.log(`Offline preparation passed. Candidate: ${pkg.name}@${pkg.version}`)
   return directory
 }
 export async function run(directoryPath: string, input: { baseUrl: string; apiKey: string; model?: string; confirmed: boolean }): Promise<number> {
@@ -137,7 +160,14 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
   writeFileSync(join(directory, 'live-started.json'), JSON.stringify({ run_id: manifest.run_id, base_url: base, tarball_sha256: manifest.tarball_sha256,
     started_at: new Date().toISOString(), limits: { agents: 1, sessions: 1, turns: 1, run_seconds: 180, cleanup_seconds: 60,
       main_requests: 80, cleanup_requests: 12, output_tokens_per_request: 2048 } }), { flag: 'wx', mode: 0o600 })
+  console.log(`\nLive staging smoke — ${manifest.package_name}@${manifest.version}\nOne temporary agent, one session, one model turn, then cleanup.`)
+  const started = performance.now()
+  const progress = new LiveProgress()
+  const showProgress = () => {
+    try { progress.observe(readJSON(join(directory, 'live-result.json'))) } catch { /* The first record may not exist yet. */ }
+  }
   const child = spawn(process.execPath, [join(directory, 'consumer/live.ts')], { cwd: join(directory, 'consumer'), env: environment(), stdio: ['pipe', 'pipe', 'pipe'] })
+  const progressTimer = setInterval(showProgress, 100)
   const cancel = () => child.kill('SIGTERM')
   process.on('SIGINT', cancel); process.on('SIGTERM', cancel)
   child.stdout.resume(); child.stderr.resume() // No raw child output, stack, body, key or model reply is forwarded.
@@ -147,6 +177,7 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
   const watchdog = setTimeout(cancel, 250_000)
   const hardStop = setTimeout(() => child.kill('SIGKILL'), 320_000)
   const code = await new Promise<number>(resolve => { child.on('error', () => resolve(1)); child.on('exit', code => resolve(code ?? 1)) })
+  clearInterval(progressTimer)
   clearTimeout(watchdog); clearTimeout(hardStop); process.off('SIGINT', cancel); process.off('SIGTERM', cancel)
   const record = existsSync(join(directory, 'live-result.json')) ? readJSON<SmokeRecord>(join(directory, 'live-result.json')) : undefined
   verifyCandidate(directory)
@@ -154,8 +185,8 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
   writeJSON(join(directory, 'result.json'), { schema_version: 1, run_id: manifest.run_id, tarball_sha256: manifest.tarball_sha256,
     staging_smoke_passed: passed, cleanup_complete: record?.cleanup.complete === true,
     production_compatibility: 'unverified', publication_authorized: false, phase: record?.phase ?? 'runner_failed', failure: record?.failure })
-  console.log(JSON.stringify({ passed, cleanup_complete: record?.cleanup.complete === true,
-    phase: record?.phase ?? 'runner_failed', failure: record?.failure, directory }))
+  progress.finish(record, passed, performance.now() - started)
+  console.log(`Reports: ${join(directory, 'result.json')}\nStep details: ${join(directory, 'live-result.json')}`)
   return passed ? 0 : 1
 }
 
@@ -172,7 +203,7 @@ async function main(): Promise<void> {
     return
   }
   check(positionals.length === 1 && values['out-dir'], 'command_and_output_directory_required')
-  if (positionals[0] === 'prepare') console.log(JSON.stringify({ prepared: prepare(values['out-dir']) }))
+  if (positionals[0] === 'prepare') console.log(`Prepared candidate: ${prepare(values['out-dir'])}`)
   else if (positionals[0] === 'verify') { const manifest = verifyPassed(realpathSync(values['out-dir'])); console.log(JSON.stringify({ candidate_unchanged: true, staging_smoke_passed: true, tarball_sha256: manifest.tarball_sha256, publication_authorized: false })) }
   else if (positionals[0] === 'publish') {
     const manifest = publishCandidate(values['out-dir'], values['confirm-publish'] === true)

@@ -5,6 +5,7 @@ import * as sdk from '../src/index.js'
 import { baseURL, guardedFetch, safeFailure } from './guard.ts'
 import { smoke } from './smoke.ts'
 import type { SmokeRecord } from './smoke.ts'
+import { LiveProgress, MAIN_STEPS } from './progress.ts'
 
 const base = 'https://staging.example.invalid/service/v1'
 const sentinel = 'synthetic-sensitive-value-do-not-emit'
@@ -43,6 +44,9 @@ test('one lifecycle/turn, REST-SSE agreement, then stop and soft-delete only own
   assert.equal(result.passed, true); assert.equal(result.cleanup.complete, true)
   assert.deepEqual(f.calls, ['create', 'start', 'ready', 'session', 'stream', 'rest', 'cleanup_mode', 'delete_session', 'stop', 'delete', 'get'])
   assert.equal(JSON.stringify(f.records).includes('SDK_E2E_OK'), false)
+  assert.deepEqual(result.steps.map(step => step.id), [...MAIN_STEPS, 'delete_session', 'stop_agent', 'delete_agent', 'confirm_agent_unavailable'])
+  assert.ok(result.steps.every(step => step.status === 'passed' && step.duration_ms >= 0))
+  for (const step of result.steps) assert.ok(f.records.some(record => record.steps.some(s => s.id === step.id && s.status === 'running')))
 })
 test('REST mismatch fails and still cleans up', async () => {
   const f = setup({ listAllEvents: async () => [] }); const result = await smoke(sdk, f.client, f.options)
@@ -54,6 +58,17 @@ test('failed or missing run.finished never counts as success', async () => {
   const result = await smoke(sdk, f.client, f.options)
   assert.equal(result.passed, false); assert.equal(result.failure?.kind, 'turn_did_not_succeed')
   assert.equal(result.cleanup.complete, true); assert.equal(JSON.stringify(result).includes(sentinel), false)
+  assert.equal(result.steps.find(step => step.id === 'stream_turn')?.status, 'failed')
+  assert.equal(result.steps.find(step => step.id === 'rest_replay')?.status, 'skipped')
+  assert.ok(result.steps.filter(step => ['delete_session', 'stop_agent', 'delete_agent', 'confirm_agent_unavailable'].includes(step.id)).every(step => step.status === 'passed'))
+  const output: string[] = []
+  const reporter = new LiveProgress(line => output.push(line))
+  for (const record of f.records) reporter.observe(record)
+  reporter.finish(result, result.passed, 1)
+  assert.match(output.join('\n'), /FAIL Receive a successful streamed model reply/)
+  assert.match(output.join('\n'), /SKIP Match REST history with SSE reply/)
+  assert.match(output.join('\n'), /Cleanup: complete/)
+  assert.equal(output.join('\n').includes(sentinel), false)
 })
 test('cleanup failure prevents a pass after a successful turn and other cleanup still runs', async () => {
   const f = setup({ deleteSession: async () => { throw new sdk.ZooworkError(500, sentinel) } })
