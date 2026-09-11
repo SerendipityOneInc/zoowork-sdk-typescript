@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { CheckError, check, privateDir, safeFailure } from './guard.ts'
-import { prepare, run } from './release.ts'
+import { prepare, run } from './runner.ts'
 
 export const STAGING_BASE_URL = 'https://claw-interface.ecap.yesy.live/service/v1'
 

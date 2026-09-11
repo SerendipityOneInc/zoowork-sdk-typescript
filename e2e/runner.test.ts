@@ -1,4 +1,4 @@
-// Synthetic release records only; not captured API fixtures or proof of a live pass.
+// Synthetic E2E records only; not captured API fixtures or proof of a live pass.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hash, hashTree, writeJSON } from './guard.ts'
-import { fingerprint, publishCandidate, run, verifyCandidate, verifyPassed } from './release.ts'
-import type { Manifest } from './release.ts'
+import { fingerprint, run, verifyCandidate, verifyPassed } from './runner.ts'
+import type { Manifest } from './runner.ts'
 
 const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..'))
 function candidate() {
@@ -64,35 +64,17 @@ test('source fingerprints include local edits and untracked files, not ignored c
   writeFileSync(join(repo, 'new.ts'), '// new\n')
   assert.notEqual(fingerprint(repo), edited)
 })
-test('manual publication requires confirmation, a live pass and complete cleanup before invoking npm', () => {
-  const c = candidate()
-  const published: string[] = []
-  const publish = (tarball: string) => { published.push(tarball) }
-  assert.throws(() => publishCandidate(c.directory, false, publish), /explicit_publish_confirmation_required/)
-  assert.throws(() => publishCandidate(c.directory, true, publish))
-  for (const changes of [{ staging_smoke_passed: false }, { cleanup_complete: false }]) {
-    writeJSON(join(c.directory, 'result.json'), { ...c.result, ...changes })
-    assert.throws(() => publishCandidate(c.directory, true, publish))
-  }
-  assert.deepEqual(published, [])
-  writeJSON(join(c.directory, 'result.json'), c.result)
-  assert.equal(publishCandidate(c.directory, true, publish).run_id, c.manifest.run_id)
-  assert.deepEqual(published, [join(c.directory, c.manifest.tarball)])
-})
-test('changed candidate cannot reach the publisher even with a recorded live pass', () => {
-  const c = candidate()
-  writeJSON(join(c.directory, 'result.json'), c.result)
-  writeFileSync(join(c.directory, c.manifest.tarball), 'changed after E2E')
-  let called = false
-  assert.throws(() => publishCandidate(c.directory, true, () => { called = true }))
-  assert.equal(called, false)
-})
-test('directory prepublish hook refuses with a release command instead of calling live APIs', () => {
-  const result = spawnSync(process.execPath, [join(root, 'e2e/release.ts'), 'prepublish'], {
+test('E2E helper has no publication command and directs maintainers to npm', () => {
+  const result = spawnSync(process.execPath, [join(root, 'e2e/runner.ts'), '--help'], {
     cwd: root, encoding: 'utf8', env: { PATH: process.env.PATH }, timeout: 10_000,
   })
-  assert.equal(result.status, 1)
-  assert.match(result.stderr, /Directory publication is disabled/)
+  assert.equal(result.status, 0)
+  assert.match(result.stdout, /E2E only; never publishes/)
+  const publish = spawnSync(process.execPath, [join(root, 'e2e/runner.ts'), 'publish', '--out-dir', '/synthetic'], {
+    cwd: root, encoding: 'utf8', env: { PATH: process.env.PATH }, timeout: 10_000,
+  })
+  assert.equal(publish.status, 1)
+  assert.match(publish.stdout, /explicit_run_and_base_url_required/)
 })
 test('real child runner reports timed steps while raw child output stays suppressed (synthetic SDK, no network)', async () => {
   const c = candidate()

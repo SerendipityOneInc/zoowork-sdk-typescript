@@ -79,23 +79,6 @@ export function verifyPassed(directory: string): Manifest {
     && result.staging_smoke_passed === true && result.cleanup_complete === true, 'successful_staging_check_required')
   return manifest
 }
-/** Explicit manual publication of the verified tarball; never rebuild or rerun live tests here. */
-export function publishCandidate(directoryPath: string, confirmed: boolean,
-  publish: (tarball: string) => void = tarball => {
-    const env = { ...process.env }
-    delete env.ZOOWORK_API_KEY
-    delete env.ZOOWORK_BASE_URL
-    delete env.NODE_OPTIONS
-    // npm authentication/2FA remains the maintainer's normal interactive configuration.
-    const result = spawnSync('npm', ['publish', tarball, '--ignore-scripts'], { cwd: ROOT, env, stdio: 'inherit' })
-    check(!result.error && result.status === 0, 'npm_publish_failed')
-  }): Manifest {
-  check(confirmed, 'explicit_publish_confirmation_required')
-  const directory = realpathSync(directoryPath)
-  const manifest = verifyPassed(directory)
-  publish(join(directory, manifest.tarball))
-  return manifest
-}
 export function prepare(directoryPath: string): string {
   const directory = explicitOutput(directoryPath, ROOT)
   check(!existsSync(directory), 'use_a_new_output_directory')
@@ -193,22 +176,13 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     'out-dir': { type: 'string' }, 'base-url': { type: 'string' }, model: { type: 'string' },
-    'confirm-staging': { type: 'boolean' }, 'confirm-publish': { type: 'boolean' },
+    'confirm-staging': { type: 'boolean' },
     'api-key-stdin': { type: 'boolean' }, help: { type: 'boolean' },
   } })
-  if (values.help) { console.log('prepare --out-dir NEW_PRIVATE_DIR\nrun --out-dir PREPARED_DIR --base-url HTTPS_SERVICE_V1 --confirm-staging [--api-key-stdin] [--model ID]\nverify --out-dir PREPARED_DIR\npublish --out-dir PREPARED_DIR --confirm-publish\nOnly explicit publish uploads the verified tarball. Node 22.20+. Key via stdin or ZOOWORK_API_KEY, never an argument.'); return }
-  if (positionals.length === 1 && positionals[0] === 'prepublish') {
-    console.error('Directory publication is disabled. Run release:prepare, release:check, then pnpm release:publish --out-dir PREPARED_DIR --confirm-publish. See e2e/README.md.')
-    process.exitCode = 1
-    return
-  }
+  if (values.help) { console.log('prepare --out-dir NEW_PRIVATE_DIR\nrun --out-dir PREPARED_DIR --base-url HTTPS_SERVICE_V1 --confirm-staging [--api-key-stdin] [--model ID]\nverify --out-dir PREPARED_DIR\nE2E only; never publishes. Publish separately with npm publish. Node 22.20+. Key via stdin or ZOOWORK_API_KEY, never an argument.'); return }
   check(positionals.length === 1 && values['out-dir'], 'command_and_output_directory_required')
   if (positionals[0] === 'prepare') console.log(`Prepared candidate: ${prepare(values['out-dir'])}`)
   else if (positionals[0] === 'verify') { const manifest = verifyPassed(realpathSync(values['out-dir'])); console.log(JSON.stringify({ candidate_unchanged: true, staging_smoke_passed: true, tarball_sha256: manifest.tarball_sha256, publication_authorized: false })) }
-  else if (positionals[0] === 'publish') {
-    const manifest = publishCandidate(values['out-dir'], values['confirm-publish'] === true)
-    console.log(JSON.stringify({ published: true, version: manifest.version, tarball_sha256: manifest.tarball_sha256 }))
-  }
   else {
     check(positionals[0] === 'run' && values['base-url'], 'explicit_run_and_base_url_required')
     let apiKey = process.env.ZOOWORK_API_KEY ?? ''

@@ -270,34 +270,39 @@ Runnable examples in [`examples/`](examples):
 - [`live-smoke.ts`](examples/live-smoke.ts) — drive one agent through one turn and verify the REST and SSE reads agree.
 - [`capability-probe.ts`](examples/capability-probe.ts) — create a throwaway agent, walk the whole lifecycle, and print a verdict per capability.
 
-## Release checks (maintainers)
+## Testing and publishing (maintainers)
 
-E2E belongs to this SDK's `e2e/` directory and is required before every SDK publish,
-not on every PR. Use Node 22.20+ and the SDK's locked development dependencies:
+Testing and publishing are independent commands. After cloning this repository on a new
+machine, install its locked development dependencies:
 
 ```sh
 pnpm install --frozen-lockfile
+```
+
+Run staging E2E explicitly when you want to verify the SDK (Node 22.20+):
+
+```sh
 pnpm test:e2e
 ```
 
-On a new development machine, only this SDK checkout is needed. The command prepares a
-candidate, then asks for a staging API key with input hidden. Submitting the key authorizes
-one temporary Agent/Session, one potentially billable model turn and cleanup. It defaults to
-the SDK's configured staging endpoint, prints the retained result directory, and never
-publishes. Use `--base-url` to explicitly select another staging deployment.
+The command prepares an isolated test package, prints individual offline cases and timed live
+steps, and asks for a staging API key with input hidden. Submitting the key authorizes one
+temporary Agent/Session, one potentially billable model turn and cleanup. JSON reports remain
+in its printed private directory. The test never publishes. Normal `pnpm test` is offline
+and needs no key. See [E2E and recovery instructions](e2e/README.md) for scope and options.
 
-The terminal shows individual offline test cases, then timed live steps and cleanup results.
-It labels the live smoke's coverage separately, including that pagination beyond 100 agents
-is covered offline. Machine-readable JSON reports stay in the printed private directory.
+To publish the checked-out version, use npm normally:
 
-Before a release, choose the final version/changelog **before** running E2E. Only after it
-passes, manually run `pnpm release:publish --out-dir DIR --confirm-publish` using the printed
-candidate directory. The separate `release:prepare` / `release:check` commands remain available.
+```sh
+npm login
+npm publish
+```
 
-Normal `pnpm test` needs no key. Ordinary directory publishing is blocked to prevent
-rebuilding an untested candidate. No hosted workflow stores a staging key or runs this E2E.
-See [the release and recovery instructions](e2e/README.md) before handling a credential or
-publishing; tests and a staging pass alone are not publication permission.
+The `prepack` hook rebuilds `dist` from source; `npm publish` then publishes that package with
+your npm account. It does not run E2E, read a staging key or require an E2E result directory.
+You choose when to test and publish, including on different machines. Check the version and
+changelog before publishing; existing npm versions cannot be overwritten. Use
+`npm publish --dry-run` to inspect the package without uploading it.
 
 ## License
 
