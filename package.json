@@ -47,11 +47,10 @@
     "test:e2e": "node e2e/command.ts",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "test:e2e:offline": "node --import tsx --test --test-reporter=spec e2e/*.test.ts",
-    "release:prepare": "node e2e/release.ts prepare",
-    "release:check": "node e2e/release.ts run",
-    "release:verify": "node e2e/release.ts verify",
-    "release:publish": "node e2e/release.ts publish",
-    "prepublishOnly": "node e2e/release.ts prepublish"
+    "e2e:prepare": "node e2e/runner.ts prepare",
+    "e2e:run": "node e2e/runner.ts run",
+    "e2e:verify": "node e2e/runner.ts verify",
+    "prepack": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

@@ -1,6 +1,6 @@
-# Local SDK release
+# Local SDK E2E
 
-This directory owns the SDK's release checks. It is not a coding-agent skill or a hosted
+This directory owns the SDK's standalone E2E checks. It is not a coding-agent skill or a hosted
 workflow. Run from this SDK checkout with Node 22.20+ and locked development dependencies;
 the published SDK still supports Node 20+. Normal `pnpm test` is offline and needs no key.
 
@@ -21,7 +21,7 @@ Engine, GitHub authentication or npm publish credential is needed to run the tes
 The default staging URL is `https://claw-interface.ecap.yesy.live/service/v1`. Override it
 with `--base-url HTTPS_SERVICE_V1`; the command deliberately ignores `ZOOWORK_BASE_URL`
 because that ordinary SDK setting may point at production. Production refusal, request
-bounds, candidate integrity and cleanup use the same checks as `release:check`.
+bounds, candidate integrity and cleanup use the same checks as `e2e:run`.
 
 If `ZOOWORK_API_KEY` is already injected by your secret manager, no key prompt is needed;
 an interactive terminal asks you to press Enter to authorize the run. Noninteractive use
@@ -67,17 +67,16 @@ Terminal output uses fixed live-step labels, durations and safe failure categori
 not print keys, raw live responses, model replies or resource IDs. JSON records remain in
 the printed private directory: `live-result.json` includes each step's status and duration;
 `result.json` remains the machine-readable live/cleanup verdict. Human output does not change
-the pass criteria, request limits, cleanup requirements or publication checks.
+the pass criteria, request limits, cleanup requirements or E2E candidate verification.
 
-## Every release
+## Separate E2E steps
 
-Choose the final version and changelog first. Run `pnpm test:e2e`, or use the separate steps
-below. Both produce the same candidate and result records for manual publication.
-For the separate steps, use a new private candidate directory outside all Git repositories;
-its parent must already exist.
+The one-command `pnpm test:e2e` creates its own output directory. For advanced use, the
+following commands let you prepare, run and inspect an E2E candidate separately. Use a new
+private directory outside all Git repositories; its parent must already exist.
 
 ```sh
-pnpm release:prepare --out-dir /absolute/private/new-candidate
+pnpm e2e:prepare --out-dir /absolute/private/new-candidate
 ```
 
 Preparation runs SDK tests and the offline runner tests/types, compiles a clean build, checks
@@ -92,7 +91,7 @@ Use a secret manager, secure stdin pipe (`--api-key-stdin`) or a hidden local pr
 do not search historical conversations, unrelated files or environment dumps for credentials.
 
 ```sh
-pnpm release:check --out-dir /absolute/private/new-candidate \
+pnpm e2e:run --out-dir /absolute/private/new-candidate \
   --base-url https://your-staging-host/service/v1 --confirm-staging
 ```
 
@@ -103,24 +102,33 @@ to 180 seconds plus a separate 60-second cleanup reserve. No schedules, uploads 
 are created. Requests are pinned to the supplied HTTPS origin and public prefix; redirects
 and the SDK's default production endpoint are refused. Do not substitute broad example probes.
 
-Only after reviewing the results, version, registry and deployment compatibility, manually run:
+To recheck the recorded live/cleanup result and the unchanged source, runner and test package:
 
 ```sh
-pnpm release:publish --out-dir /absolute/private/new-candidate --confirm-publish
+pnpm e2e:verify --out-dir /absolute/private/new-candidate
 ```
 
-This verifies the successful live result, complete cleanup, unchanged source/runner/installed
-package and exact tarball **before** invoking npm. It does not rebuild, rerun the live test or
-change versions. It uses normal local npm authentication/2FA, without forwarding the staging
-key to npm. `pnpm release:verify --out-dir DIR` performs the same verification without publishing.
-If code/version/package or the intended backend deployment changes, prepare and test a new
-candidate. No automatic paid retries; a live failure or incomplete cleanup blocks publication.
+These checks describe the tested candidate. They do not invoke npm publication. No automatic
+paid retries are performed; review failures and recover incomplete cleanup before another run.
 
-Ordinary directory `npm publish` / `pnpm publish` is refused by `prepublishOnly` to avoid
-rebuilding a different package. The manual release command publishes the
-[already-built tarball](https://docs.npmjs.com/cli/v11/commands/npm-publish/) with scripts disabled.
-This is a local release guard, not an unbypassable security boundary: someone with registry
-credentials can bypass local scripts. Never intentionally skip the E2E requirement.
+## Publishing separately
+
+From any checkout with dependencies installed, publish with normal npm authentication:
+
+```sh
+npm login
+npm publish
+```
+
+The `prepack` hook cleans and builds `dist` before npm packs the current checkout. Publication
+needs your npm login and the intended package version, with no staging key, E2E report,
+confirmation flag or machine-specific candidate directory. It neither runs nor checks E2E.
+The maintainer decides when to test and publish. `npm publish --dry-run` builds and displays
+the package without uploading it.
+
+The former `release:*` commands and the directory-publication block have been removed.
+Use `pnpm test:e2e` for testing and `npm publish` for publication. Advanced test helpers use
+`e2e:prepare`, `e2e:run` and `e2e:verify`.
 
 ## Results and recovery
 
