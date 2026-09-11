@@ -3,7 +3,7 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.6.0 — 2026-09-11
 
 ### Changed
 
@@ -17,7 +17,8 @@ day the behaviour was verified, not the day it was written.
   Later requests preserve the original label filters; early loop exit stops further fetches.
 - Missing, invalid, or non-advancing agent pagination metadata now raises an error instead
   of hiding a partial result. The API's fixed 100-item numeric pagination is unchanged.
-  Verified with synthetic offline HTTP tests; no live API calls were made for this change.
+  Cross-page behavior is verified with synthetic offline HTTP tests; the live release
+  smoke covers one Agent/Session turn and cleanup, not a 101-agent pagination walk.
 
 ## 0.5.2 — 2026-09-04
 
