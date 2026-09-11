@@ -57,8 +57,8 @@ An explicit option always beats the environment variable.
 
 > **Finding the agent you built in the app.** The first path segment of a ZooWork chat URL
 > (`/chat/<32-hex>/sessions/…`) is a *workspace* id, not an `agt_…`. Resolve it with
-> `zc.listAgents({ labels: { workspace_id: '<32-hex>' } })`; a bare `zc.listAgents()` lists
-> everything your key can see. Scope is `owner_uid AND org_id` — an agent a *colleague*
+> `zc.listAgents({ labels: { workspace_id: '<32-hex>' } })`; use the pagination patterns
+> below to read one page or traverse every match. Scope is `owner_uid AND org_id` — an agent a *colleague*
 > created in your org is fetchable by id but will not appear in your list.
 
 > **Wait on `status.desired_state`, never on `status.actual_state`.**
@@ -69,6 +69,46 @@ An explicit option always beats the environment variable.
 > List and GET can therefore briefly disagree. None of these values is readiness, and
 > `running` is not an `actual_state` value. Use `await zc.waitUntilRunning(agentId)`; it
 > correctly polls `desired_state`.
+
+## Listing agents and pagination
+
+`listAgents()` returns an awaitable, async-iterable request. Use `for await` to traverse all
+matching agents; the SDK requests each next page only as you consume the results:
+
+```ts
+for await (const agent of zc.listAgents({ labels: { project: 'research' } })) {
+  console.log(agent.agent_id)
+  // break when you have enough; later pages will not be fetched.
+}
+```
+
+For a single page, `await` the request and read `.data`. The page preserves `page`,
+`page_size`, and `total`, and exposes `next_page` (`null` when there are no more results):
+
+```ts
+const page = await zc.listAgents()
+console.log(page.data, page.total, page.next_page)
+
+if (page.hasNextPage()) {
+  const next = await page.getNextPage() // retains the original label filters
+  console.log(next.data)
+}
+```
+
+You can also use `for await (const agent of page)` to iterate from an already-fetched page,
+or `for await (const batch of page.iterPages())` to process one page at a time.
+`getNextPage()` rejects if there is no next page; errors fetching later pages reject iteration.
+
+The API uses **numeric pages starting at 1**, with a fixed page size of 100. The SDK derives
+`next_page` from the returned `page`, `page_size`, and `total`; it is a number, not an opaque
+cursor. To resume explicitly, use `zc.listAgents({ page: nextPage, labels: originalLabels })`.
+There is no configurable `limit`. Pagination is not a snapshot: concurrent additions or
+deletions can shift results between pages.
+
+**Migration from the array return:** replace `const agents = await zc.listAgents(opts)` with
+`const { data: agents } = await zc.listAgents(opts)` to keep reading one page, or switch to
+`for await` to read every match. Missing or invalid pagination metadata now raises an error
+instead of silently returning an empty or apparently complete array.
 
 ## Streaming a turn
 

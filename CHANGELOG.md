@@ -3,6 +3,22 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+### Changed
+
+- **Breaking: `listAgents()` now resolves to an `AgentPage`, not an array.** Read `.data`
+  for the current page. The SDK preserves `page`, `page_size`, and `total`, and derives a
+  numeric `next_page` (`null` at the end). Existing one-page callers should replace
+  `const agents = await zc.listAgents(opts)` with `const { data: agents } = await zc.listAgents(opts)`.
+- **Agent lists support automatic and manual pagination.** Use
+  `for await (const agent of zc.listAgents(opts))`, or `page.hasNextPage()` /
+  `page.getNextPage()`. Resolved pages are async iterable and provide `iterPages()`.
+  Later requests preserve the original label filters; early loop exit stops further fetches.
+- Missing, invalid, or non-advancing agent pagination metadata now raises an error instead
+  of hiding a partial result. The API's fixed 100-item numeric pagination is unchanged.
+  Verified with synthetic offline HTTP tests; no live API calls were made for this change.
+
 ## 0.5.2 — 2026-09-04
 
 ### Documentation

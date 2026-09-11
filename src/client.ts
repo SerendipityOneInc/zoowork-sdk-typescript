@@ -68,6 +68,31 @@ export interface ZooworkConfig {
   fetch?: (input: string, init?: RequestInit) => Promise<Response>
 }
 
+export interface AgentListParams {
+  labels?: Record<string, string>
+  /** Starting page, numbered from 1. The API fixes page size at 100. */
+  page?: number
+}
+
+/** A single page. Iterating this object asynchronously continues through subsequent pages. */
+export interface AgentPage extends AsyncIterable<AgentRecord> {
+  /** Agents in this page only. */
+  readonly data: AgentRecord[]
+  readonly page: number
+  readonly page_size: number
+  readonly total: number
+  /** Next numeric page to pass to listAgents, or null at the end. */
+  readonly next_page: number | null
+  hasNextPage(): boolean
+  /** Fetch the next page with the same filters. Rejects when there is no next page. */
+  getNextPage(): Promise<AgentPage>
+  /** Iterate this and subsequent pages, fetching each only when needed. */
+  iterPages(): AsyncIterableIterator<AgentPage>
+}
+
+/** Await one page, or use for-await directly to traverse all remaining agents. */
+export interface AgentPagePromise extends Promise<AgentPage>, AsyncIterable<AgentRecord> {}
+
 /** Statuses whose failure class tends to pass on its own: timeout, throttle, gateway. */
 const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504])
 
@@ -1167,8 +1192,12 @@ export interface ZooworkClient {
    *
    * Note the scope is `owner_uid AND org_id`: an agent a colleague created in your org is
    * fetchable by `getAgent` but will not appear here.
+   *
+   * `await listAgents()` returns one {@link AgentPage}; read `.data` for its agents and
+   * `.next_page` / `.hasNextPage()` for continuation. `for await (const agent of listAgents())`
+   * automatically fetches subsequent pages. Breaking the loop stops further requests.
    */
-  listAgents(opts?: { labels?: Record<string, string>; page?: number }): Promise<AgentRecord[]>
+  listAgents(opts?: AgentListParams): AgentPagePromise
   getAgent(agentId: string): Promise<AgentRecord>
   /** PUT declared sections; bumps config_version on EVERY call — gate on drift, don't blind-retry. */
   updateAgent(agentId: string, sections: Record<string, unknown>): Promise<AgentRecord>
@@ -1854,11 +1883,55 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
       })
     },
-    listAgents: async (opts = {}) => {
-      const params: Record<string, string | number | undefined> = { page: opts.page }
-      for (const [k, v] of Object.entries(opts.labels ?? {})) params[`label.${k}`] = v
-      const data = await json<{ agents?: AgentRecord[] }>(`/agents${query(params)}`)
-      return data.agents ?? []
+    listAgents: (opts = {}) => {
+      // Capture the filters once so caller mutations cannot change the scope mid-walk.
+      const labels = { ...opts.labels }
+      const fetchPage = async (pageNumber?: number): Promise<AgentPage> => {
+        if (pageNumber !== undefined && (!Number.isSafeInteger(pageNumber) || pageNumber < 1)) {
+          throw new RangeError('Agent list page must be a positive safe integer')
+        }
+        const params: Record<string, string | number | undefined> = { page: pageNumber }
+        for (const [k, v] of Object.entries(labels)) params[`label.${k}`] = v
+        const body = await json<{ agents: AgentRecord[]; page: number; page_size: number; total: number }>(
+          `/agents${query(params)}`,
+        )
+        // Missing metadata must not silently turn a partial result into the last page.
+        // Check advancement too, so a server ignoring page cannot cause an endless walk.
+        if (!body || !Array.isArray(body.agents) || body.page !== (pageNumber ?? 1)
+          || !Number.isSafeInteger(body.page_size) || body.page_size < 1
+          || !Number.isSafeInteger(body.total) || body.total < 0) {
+          throw new Error('Invalid agent list pagination: expected agents, page, page_size, and total for the requested page')
+        }
+        const nextPage = body.page < Math.ceil(body.total / body.page_size) ? body.page + 1 : null
+        const result: AgentPage = {
+          data: body.agents,
+          page: body.page,
+          page_size: body.page_size,
+          total: body.total,
+          next_page: nextPage,
+          hasNextPage: () => nextPage !== null,
+          getNextPage: async () => {
+            if (nextPage === null) throw new Error('No next page')
+            return fetchPage(nextPage)
+          },
+          async *iterPages() {
+            let page: AgentPage = result
+            while (true) {
+              yield page
+              if (!page.hasNextPage()) return
+              page = await page.getNextPage()
+            }
+          },
+          async *[Symbol.asyncIterator]() {
+            for await (const page of result.iterPages()) yield* page.data
+          },
+        }
+        return result
+      }
+      const request = fetchPage(opts.page)
+      return Object.assign(request, {
+        async *[Symbol.asyncIterator]() { yield* await request },
+      })
     },
     getAgent: (agentId) => json(agents(agentId)),
     updateAgent: (agentId, sections) => json(agents(agentId), { method: 'PUT', body: JSON.stringify(sections) }),
