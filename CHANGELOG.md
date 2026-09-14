@@ -3,6 +3,26 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.7.0 — 2026-09-14
+
+### Added
+
+- **Application-executed custom tools.** Agent resources can declare `custom_tools`; event
+  helpers expose requested calls; and the client can list pending calls, resolve a call, or
+  post typed `user.custom_tool_result` content.
+- **Filtered cursor session listing.** `listSessionPage()` adds the channel, surface,
+  runtime-mode and archive-filtered cursor lane without changing the existing numeric-page
+  behavior of `listSessions()`. Session archive and delete operations are also exposed.
+
+### Changed
+
+- **MCP configuration now covers runtime context and permissions.** Types include metadata
+  context, a server permission default, exact per-tool overrides, and trailing-prefix tool
+  policy selectors.
+- **Channel contracts include direct DingTalk configuration and Feishu document capability
+  state.** Callers can inspect provider, sync, missing-scope and approval-state details from
+  returned capabilities.
+
 ## 0.6.0 — 2026-09-11
 
 ### Changed
