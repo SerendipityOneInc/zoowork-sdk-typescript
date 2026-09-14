@@ -311,18 +311,19 @@ temporary Agent/Session, one potentially billable model turn and cleanup. JSON r
 in its printed private directory. The test never publishes. Normal `pnpm test` is offline
 and needs no key. See [E2E and recovery instructions](e2e/README.md) for scope and options.
 
-To publish the checked-out version, use npm normally:
+Publishing runs through [`.github/workflows/release.yml`](.github/workflows/release.yml). Configure
+the npm package's Trusted Publisher once with organization `SerendipityOneInc`, repository
+`zoowork-sdk-typescript`, workflow `release.yml`, and direct publish permission. No npm token or
+repeated `npm login` is needed after that.
 
-```sh
-npm login
-npm publish
-```
+For each release, merge the intended version and changelog, then publish a GitHub Release whose
+tag is exactly `v<package version>` — for example, `v0.7.0`. The workflow verifies that match,
+runs the offline test and build gates, and publishes the public package with npm OIDC. A mismatched
+tag fails before publication, and an existing npm version cannot be overwritten.
 
-The `prepack` hook rebuilds `dist` from source; `npm publish` then publishes that package with
-your npm account. It does not run E2E, read a staging key or require an E2E result directory.
-You choose when to test and publish, including on different machines. Check the version and
-changelog before publishing; existing npm versions cannot be overwritten. Use
-`npm publish --dry-run` to inspect the package without uploading it.
+The release workflow does not run live E2E or read a staging key. Run `pnpm test:e2e` separately
+before creating the GitHub Release when live verification is required. Use
+`npm publish --dry-run` locally to inspect the package without uploading it.
 
 ## License
 

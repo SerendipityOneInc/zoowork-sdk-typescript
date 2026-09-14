@@ -113,22 +113,18 @@ paid retries are performed; review failures and recover incomplete cleanup befor
 
 ## Publishing separately
 
-From any checkout with dependencies installed, publish with normal npm authentication:
+Publishing is triggered by a GitHub Release through [the release workflow](../.github/workflows/release.yml).
+After the intended version and changelog are on `main`, publish a release whose tag is exactly
+`v<package version>`. The workflow runs the offline test and build gates, then uses npm Trusted
+Publishing to upload without an npm token or interactive login.
 
-```sh
-npm login
-npm publish
-```
+Publication does not consume or validate a local E2E result. The maintainer decides when the
+live check is required and should create the GitHub Release from the same source commit that was
+tested. `npm publish --dry-run` remains available to build and display a local package without
+uploading it.
 
-The `prepack` hook cleans and builds `dist` before npm packs the current checkout. Publication
-needs your npm login and the intended package version, with no staging key, E2E report,
-confirmation flag or machine-specific candidate directory. It neither runs nor checks E2E.
-The maintainer decides when to test and publish. `npm publish --dry-run` builds and displays
-the package without uploading it.
-
-The former `release:*` commands and the directory-publication block have been removed.
-Use `pnpm test:e2e` for testing and `npm publish` for publication. Advanced test helpers use
-`e2e:prepare`, `e2e:run` and `e2e:verify`.
+The former `release:*` commands and the directory-publication block remain removed. Use
+`pnpm test:e2e` for live testing; advanced helpers use `e2e:prepare`, `e2e:run` and `e2e:verify`.
 
 ## Results and recovery
 
