@@ -219,6 +219,21 @@ export interface ModelInfo {
   [k: string]: unknown
 }
 
+/** Approval behavior for one MCP server or one of its tools. */
+export type McpToolPermission = 'always_ask' | 'always_allow'
+
+/** Opt-in runtime coordinates sent only while a tool is executing, never during catalog discovery. */
+export interface McpContextConfig {
+  /** Add the coordinates under `params._meta['ai.zooclaw/context']` on `tools/call`. */
+  meta?: boolean
+  /** Add the coordinates as `x-zooclaw-*` headers on the tool call's HTTP requests. */
+  headers?: boolean
+}
+
+export interface McpToolPermissionOverride {
+  permission: McpToolPermission
+}
+
 /**
  * One remote MCP server, declared as `resource.mcp[]` on create or update.
  *
@@ -257,6 +272,20 @@ export interface McpServerDeclaration {
    * There is no `auto` value.
    */
   exposure?: 'deferred' | 'direct'
+  /**
+   * Opt in to runtime coordinates for this server. Both switches default to false. The context
+   * can include agent/session/computer ids and, when available, run/turn/config/actor fields.
+   * Catalog discovery never receives it. Header delivery may be unavailable through proxies;
+   * `_meta` is the portable option.
+   */
+  context?: McpContextConfig
+  /** Default approval behavior for every tool on this server. Omit for the existing default-allow behavior. */
+  permission?: McpToolPermission
+  /**
+   * Per-tool approval overrides keyed by the server's original tool name, not its
+   * `mcp__<server>__<tool>` name. Keys are exact and cannot contain `*`; at most 64 entries.
+   */
+  tools?: Record<string, McpToolPermissionOverride>
   [k: string]: unknown
 }
 
@@ -323,6 +352,12 @@ export interface AgentResource {
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
   skills?: { skill_id: string; version?: number | 'latest' }[]
   labels?: Record<string, string>
+  /**
+   * Tool-surface and approval policy. Name selectors in `allow`, `deny`, `rules[].match.tool`,
+   * `afterRules[].match.tool`, and MCP names in `deferred.pinned` accept an exact name, `*`, or
+   * one trailing `prefix*`. Other wildcard forms match nothing. `alsoAllow` and
+   * `permissions` keys remain exact. Kept open for forward-compatible policy fields.
+   */
   tool_policy?: Record<string, unknown>
   /** Remote MCP servers. Only unauthenticated ones work today — see {@link McpServerDeclaration}. */
   mcp?: McpServerDeclaration[]
@@ -376,6 +411,31 @@ export interface AgentSkill {
   [k: string]: unknown
 }
 
+/** Source-reviewed asynchronous capability-configuration state for one channel feature. */
+export interface AgentChannelCapabilitySync {
+  state: 'pending' | 'applied' | 'retry' | 'error'
+  [k: string]: unknown
+}
+
+export interface FeishuChannelProviderStatus {
+  state: 'ready' | 'degraded'
+  missing_scopes: string[]
+  approval_state?: 'pending_admin' | null
+  [k: string]: unknown
+}
+
+export interface FeishuDocumentsCapability {
+  permission_admin_enabled: boolean
+  sync: AgentChannelCapabilitySync
+  provider: FeishuChannelProviderStatus
+  [k: string]: unknown
+}
+
+export interface AgentChannelCapabilities {
+  feishu_documents?: FeishuDocumentsCapability | null
+  [k: string]: unknown
+}
+
 /**
  * One platform account bound to an agent, as the channel service reports it.
  * `dm_policy` / `group_policy` are the reachability policies (`'open'` is the
@@ -392,11 +452,14 @@ export interface AgentChannel {
   health?: string
   status?: string
   status_code?: string | null
+  /** Source-reviewed capability state. Omitted when the platform reports none. */
+  capabilities?: AgentChannelCapabilities | null
   [k: string]: unknown
 }
 
 /**
- * The chat platforms you can bind, staging-verified 2026-08-28.
+ * The chat platforms you can bind. Feishu, Slack, WeCom and WeChat were staging-verified
+ * 2026-08-28. Direct DingTalk support is source-reviewed, not deployment-verified here.
  *
  * Three of them have a server-driven QR flow ({@link GuidedSetupPlatform}); Slack does not,
  * and structurally cannot — a Slack app is created by a person and its tokens only ever exist
@@ -405,16 +468,16 @@ export interface AgentChannel {
  *
  * WeChat is the one platform that goes the other way: `'weixin'`/`'wechat'` on
  * {@link ZooworkClient.addChannel} answers `400 channel.weixin_setup_required`, so the QR flow
- * is its ONLY path. See {@link AddChannelPlatform}. Any name outside this type answers
- * `400 channel.invalid_request`.
+ * is its ONLY path. DingTalk uses `'dingtalk-connector'` and currently has a direct config path
+ * only on the public API; its product QR flow is not exposed here. See {@link AddChannelPlatform}.
  */
-export type ChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'weixin'
+export type ChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'weixin' | 'dingtalk-connector'
 
 /**
  * The platforms {@link ZooworkClient.addChannel} accepts — every {@link ChannelPlatform}
  * except WeChat, which refuses explicit config and takes the QR flow only.
  */
-export type AddChannelPlatform = 'feishu' | 'slack' | 'wecom'
+export type AddChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'dingtalk-connector'
 
 /**
  * The platforms with a server-driven QR flow: {@link ZooworkClient.startChannelSetup} →
@@ -465,7 +528,7 @@ export interface AddChannelInput {
    */
   account?: string
   display_name?: string
-  /** Server default: `'open'`. `'pairing'` is rejected with `400 channel.pairing_unsupported`. */
+  /** Server default: `'open'`. DingTalk accepts only `'open'`; `'pairing'` is rejected everywhere. */
   dm_policy?: string
   /** Server default: `'open'`. */
   group_policy?: string
@@ -479,8 +542,11 @@ export interface AddChannelInput {
    *   needs the app-level token as well as the bot token)
    * - `wecom` — `{ botId, secret }`, both required
    * - `feishu` — `{ appId, appSecret, domain }`, only when skipping the QR flow
+   * - `dingtalk-connector` — `{ clientId, clientSecret }`; no public guided QR route
    */
   config?: Record<string, unknown>
+  /** Feishu only. Enable document-permission administration; defaults to false. */
+  permission_admin_enabled?: boolean
 }
 
 export interface UpdateChannelInput {
@@ -489,6 +555,8 @@ export interface UpdateChannelInput {
   dm_policy?: string
   group_policy?: string
   enabled?: boolean
+  /** Feishu only. Other platforms reject this field when it is present. */
+  permission_admin_enabled?: boolean
 }
 
 /**
@@ -532,6 +600,8 @@ export interface ChannelSetupInput {
   dm_policy?: string
   /** Server default: `'open'`. Ignored by WeChat, which forces `'disabled'`. */
   group_policy?: string
+  /** Feishu only. Enable document-permission administration; defaults to false. */
+  permission_admin_enabled?: boolean
 }
 
 /** @deprecated Use {@link ChannelSetupInput}; this is the same shape under the old name. */

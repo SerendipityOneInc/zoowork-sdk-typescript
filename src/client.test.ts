@@ -916,7 +916,7 @@ test('addChannel accepts every bindable platform without a cast', async () => {
   // unreleased one still compiles. Both halves matter: narrowing to a closed union would make a
   // newly supported platform a breaking change.
   const { calls, client } = harness(jsonReply({ platform: 'slack', account: 'default' }))
-  for (const platform of ['feishu', 'slack', 'wecom'] as const) {
+  for (const platform of ['feishu', 'slack', 'wecom', 'dingtalk-connector'] as const) {
     await client.addChannel('a', { platform })
   }
   await client.addChannel('a', { platform: 'a-platform-that-ships-later' })
@@ -924,6 +924,7 @@ test('addChannel accepts every bindable platform without a cast', async () => {
     'feishu',
     'slack',
     'wecom',
+    'dingtalk-connector',
     'a-platform-that-ships-later',
   ])
 })
@@ -936,8 +937,12 @@ test('Feishu setup / poll / cancel hit the setup routes with session_id in the q
   expect(session.session_id).toBe('s1')
 
   const branded = harness(jsonReply({ session_id: 's1', verification_uri_complete: 'https://x', expires_in: 600 }))
-  await branded.client.startFeishuSetup('a', { brand: 'lark', dm_policy: 'contacts' })
-  expect(JSON.parse(branded.calls[0]!.body as string)).toEqual({ brand: 'lark', dm_policy: 'contacts' })
+  await branded.client.startFeishuSetup('a', {
+    brand: 'lark', dm_policy: 'contacts', permission_admin_enabled: true,
+  })
+  expect(JSON.parse(branded.calls[0]!.body as string)).toEqual({
+    brand: 'lark', dm_policy: 'contacts', permission_admin_enabled: true,
+  })
 
   const poll = harness(jsonReply({ status: 'pending' }))
   await poll.client.pollFeishuSetup('a', 's 1')

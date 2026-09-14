@@ -7,7 +7,8 @@ import { expect, expectTypeOf, test } from 'vitest'
 import {
   createZooworkClient, normalizeEvent, ZooworkError,
   type ApprovalRecord, type OutboundEvent, type ScheduleRun, type ScheduleSpec,
-  type McpServerDeclaration, type SessionRecord, type SkillRecord, type SkillVersionRecord,
+  type AddChannelInput, type AgentChannelCapabilities, type McpServerDeclaration,
+  type McpToolPermission, type SessionRecord, type SkillRecord, type SkillVersionRecord,
 } from './index.js'
 
 const BASE = 'https://sdk-contract.test/service/v1'
@@ -159,6 +160,51 @@ test('MCP exposure serializes unchanged and rejects an auto mode', async () => {
   // @ts-expect-error Engine accepts only deferred or direct; there is no auto mode.
   const unsupported: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', exposure: 'auto' }
   void unsupported
+})
+
+test('MCP runtime context and approval declarations serialize unchanged with typed values', async () => {
+  const server = {
+    name: 'operations',
+    url: 'https://mcp.example.test',
+    context: { meta: true, headers: false },
+    permission: 'always_ask',
+    tools: { get_status: { permission: 'always_allow' } },
+  } satisfies McpServerDeclaration
+  const { client, calls } = harness({ agent_id: 'agent-test' })
+  await client.createAgent({ resource: { name: 'protected-mcp', mcp: [server] } })
+
+  expect(JSON.parse(String(calls[0].init.body))).toEqual({
+    resource: { name: 'protected-mcp', mcp: [server], onboarding: false },
+  })
+  expectTypeOf(server.permission).toEqualTypeOf<'always_ask'>()
+  expectTypeOf<McpToolPermission>().toEqualTypeOf<'always_ask' | 'always_allow'>()
+
+  // @ts-expect-error MCP permissions accept only always_ask or always_allow.
+  const unsupported: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', permission: 'ask' }
+  // @ts-expect-error MCP context switches are booleans.
+  const badContext: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', context: { meta: 'yes' } }
+  void unsupported
+  void badContext
+})
+
+test('channel additions keep direct DingTalk and Feishu document administration typed', () => {
+  const dingtalk = {
+    platform: 'dingtalk-connector',
+    dm_policy: 'open',
+    config: { clientId: 'synthetic-client', clientSecret: 'synthetic-secret' },
+  } satisfies AddChannelInput
+  const feishu = { platform: 'feishu', permission_admin_enabled: true } satisfies AddChannelInput
+  const capabilities = {
+    feishu_documents: {
+      permission_admin_enabled: true,
+      sync: { state: 'pending' },
+      provider: { state: 'degraded', missing_scopes: ['synthetic.scope'], approval_state: 'pending_admin' },
+    },
+  } satisfies AgentChannelCapabilities
+
+  expect(dingtalk.platform).toBe('dingtalk-connector')
+  expect(feishu.permission_admin_enabled).toBe(true)
+  expect(capabilities.feishu_documents.provider.missing_scopes).toEqual(['synthetic.scope'])
 })
 
 test('SSE resume keeps an opaque cursor in the query and preserves the next cursor', async () => {
