@@ -1169,15 +1169,34 @@ const SESSION_RECORD_KEYS = [
   'updated_at',
   'history',
   'pending_approvals',
+  'pending_custom_tool_calls',
+  'runtime_mode',
+  'config_version',
+  'last_activity_at',
+  'list_cursor',
 ] as const satisfies readonly DeclaredKeys<SessionRecord>[]
 const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number]> = undefined
+
+const SOURCE_REVIEWED_SESSION_CURSOR_ROW = {
+  session_id: 'synthetic-session',
+  pending_custom_tool_calls: 1,
+  runtime_mode: 'active',
+  config_version: 4,
+  last_activity_at: '2026-01-01T00:00:00.000Z',
+  list_cursor: 'sls1:synthetic',
+}
 
 test('SessionRecord declares nothing the wire does not carry, on any of its three surfaces', () => {
   // entry and create-only created_at still reach callers through the open index signature.
   expectDeclarationCoverage(
     SESSION_RECORD_KEYS,
     ['created_at', 'entry'],
-    [body('get-session-with-history'), body('create-session'), ...rows('list-sessions', 'sessions')],
+    [
+      body('get-session-with-history'),
+      body('create-session'),
+      ...rows('list-sessions', 'sessions'),
+      SOURCE_REVIEWED_SESSION_CURSOR_ROW,
+    ],
   )
 })
 
@@ -1370,14 +1389,38 @@ const AGENT_CHANNEL_KEYS = [
   'health',
   'status',
   'status_code',
+  'capabilities',
 ] as const satisfies readonly DeclaredKeys<AgentChannel>[]
 const _agentChannelCovered: Covered<AgentChannel, (typeof AGENT_CHANNEL_KEYS)[number]> = undefined
+
+const RECORDED_AGENT_CHANNEL_KEYS = [
+  'platform',
+  'account',
+  'display_name',
+  'dm_policy',
+  'group_policy',
+  'enabled',
+  'health',
+  'status',
+  'status_code',
+] as const
+
+const SOURCE_REVIEWED_CHANNEL_CAPABILITIES = {
+  capabilities: {
+    feishu_documents: {
+      permission_admin_enabled: true,
+      sync: { state: 'pending' },
+      provider: { state: 'degraded', missing_scopes: ['synthetic.scope'], approval_state: 'pending_admin' },
+    },
+  },
+}
 
 test('AgentChannel declares exactly what the wire carries, in every state it passes through', () => {
   expectDeclarationCoverage(AGENT_CHANNEL_KEYS, [], [
     body('post-agents-id-channels'),
     body('post-agents-id-channels-feishu-update'),
     rows('get-agents-id-channels-bound', 'channels')[0]!,
+    SOURCE_REVIEWED_CHANNEL_CAPABILITIES,
   ])
 })
 
@@ -1388,7 +1431,7 @@ test('listChannels unwraps { channels } and survives the empty case', async () =
 
   const bound = await replay('get-agents-id-channels-bound', (c) => c.listChannels('agt_AGENT100000000000000000000'))
   expect(bound.result.length).toBe(1)
-  expectExactKeys(bound.result[0], [...AGENT_CHANNEL_KEYS])
+  expectExactKeys(bound.result[0], [...RECORDED_AGENT_CHANNEL_KEYS])
   expectKinds(bound.result[0], {
     platform: 'string',
     account: 'string',

@@ -407,6 +407,27 @@ test('listSessions pages, archiveSession normalizes, deleteSession is a 204 DELE
   expect([deleted.calls[0]!.method, path(deleted.calls)]).toEqual(['DELETE', '/agents/a/sessions/s1'])
 })
 
+test('listSessionPage selects the cursor lane and preserves its filters and response cursors', async () => {
+  const { calls, client } = harness(jsonReply({
+    sessions: [{ session_id: 's1', list_cursor: 'sls1:row' }],
+    next_cursor: 'sls1:next',
+  }))
+  expect(await client.listSessionPage('a', {
+    limit: 25,
+    excludeChannels: ['api', 'slack'],
+    includeSurfaces: ['inbox'],
+    runtimeModes: ['active', 'preview'],
+    includeArchived: false,
+  })).toEqual({ sessions: [{ session_id: 's1', list_cursor: 'sls1:row' }], next_cursor: 'sls1:next' })
+  expect(path(calls)).toBe(
+    '/agents/a/sessions?cursor=sls1%3A0&limit=25&exclude_channels=api%2Cslack&include_surfaces=inbox&runtime_modes=active%2Cpreview&include_archived=false',
+  )
+
+  const next = harness(jsonReply({ sessions: [] }))
+  expect(await next.client.listSessionPage('a', { cursor: 'opaque' })).toEqual({ sessions: [], next_cursor: null })
+  expect(path(next.calls)).toBe('/agents/a/sessions?cursor=opaque')
+})
+
 test('postEvents wraps the events and defaults the receipt', async () => {
   const { calls, client } = harness(jsonReply({ events: [{ id: 'e1', accepted: true }] }))
   const out = await client.postEvents('a', 's', [{ type: 'user.message', content: 'hi' }])
@@ -564,7 +585,35 @@ test('streamEvents ends quietly when the caller aborts, and throws otherwise', a
   expect(err.status).toBe(503)
 })
 
-// ── approvals / schedules / wake / exec ────────────────────────────────────
+// ── custom tools / approvals / schedules / wake / exec ─────────────────────
+
+test('custom-tool calls list pending work and resolve a call with an application result', async () => {
+  const pending = harness(jsonReply({ custom_tool_calls: [{ call_id: 'ctc_1', status: 'pending' }] }))
+  expect(await pending.client.listCustomToolCalls('a', { status: 'pending' })).toEqual([
+    { call_id: 'ctc_1', status: 'pending' },
+  ])
+  expect(path(pending.calls)).toBe('/agents/a/custom_tool_calls?status=pending')
+
+  const resolved = harness(jsonReply({ call_id: 'ctc_1', status: 'pending', signaled: true }))
+  const result = await resolved.client.resolveCustomToolCall('a', 'ctc/1', {
+    content: [{ type: 'json', value: { price: 42 } }],
+    isError: false,
+    resolvedBy: 'pricing-service',
+  })
+  expect(result.signaled).toBe(true)
+  expect([resolved.calls[0]!.method, path(resolved.calls)]).toEqual([
+    'POST',
+    '/agents/a/custom_tool_calls/ctc%2F1/result',
+  ])
+  expect(JSON.parse(resolved.calls[0]!.body as string)).toEqual({
+    content: [{ type: 'json', value: { price: 42 } }],
+    isError: false,
+    resolvedBy: 'pricing-service',
+  })
+
+  const empty = harness(jsonReply({}))
+  expect(await empty.client.listCustomToolCalls('a')).toEqual([])
+})
 
 test('listApprovals sends status only when supplied', async () => {
   const pending = harness(jsonReply({ approvals: [{ approval_id: 'ap1' }] }))
@@ -916,7 +965,7 @@ test('addChannel accepts every bindable platform without a cast', async () => {
   // unreleased one still compiles. Both halves matter: narrowing to a closed union would make a
   // newly supported platform a breaking change.
   const { calls, client } = harness(jsonReply({ platform: 'slack', account: 'default' }))
-  for (const platform of ['feishu', 'slack', 'wecom'] as const) {
+  for (const platform of ['feishu', 'slack', 'wecom', 'dingtalk-connector'] as const) {
     await client.addChannel('a', { platform })
   }
   await client.addChannel('a', { platform: 'a-platform-that-ships-later' })
@@ -924,6 +973,7 @@ test('addChannel accepts every bindable platform without a cast', async () => {
     'feishu',
     'slack',
     'wecom',
+    'dingtalk-connector',
     'a-platform-that-ships-later',
   ])
 })
@@ -936,8 +986,12 @@ test('Feishu setup / poll / cancel hit the setup routes with session_id in the q
   expect(session.session_id).toBe('s1')
 
   const branded = harness(jsonReply({ session_id: 's1', verification_uri_complete: 'https://x', expires_in: 600 }))
-  await branded.client.startFeishuSetup('a', { brand: 'lark', dm_policy: 'contacts' })
-  expect(JSON.parse(branded.calls[0]!.body as string)).toEqual({ brand: 'lark', dm_policy: 'contacts' })
+  await branded.client.startFeishuSetup('a', {
+    brand: 'lark', dm_policy: 'contacts', permission_admin_enabled: true,
+  })
+  expect(JSON.parse(branded.calls[0]!.body as string)).toEqual({
+    brand: 'lark', dm_policy: 'contacts', permission_admin_enabled: true,
+  })
 
   const poll = harness(jsonReply({ status: 'pending' }))
   await poll.client.pollFeishuSetup('a', 's 1')

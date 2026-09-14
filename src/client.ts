@@ -219,6 +219,21 @@ export interface ModelInfo {
   [k: string]: unknown
 }
 
+/** Approval behavior for one MCP server or one of its tools. */
+export type McpToolPermission = 'always_ask' | 'always_allow'
+
+/** Opt-in runtime coordinates sent only while a tool is executing, never during catalog discovery. */
+export interface McpContextConfig {
+  /** Add the coordinates under `params._meta['ai.zooclaw/context']` on `tools/call`. */
+  meta?: boolean
+  /** Add the coordinates as `x-zooclaw-*` headers on the tool call's HTTP requests. */
+  headers?: boolean
+}
+
+export interface McpToolPermissionOverride {
+  permission: McpToolPermission
+}
+
 /**
  * One remote MCP server, declared as `resource.mcp[]` on create or update.
  *
@@ -257,7 +272,33 @@ export interface McpServerDeclaration {
    * There is no `auto` value.
    */
   exposure?: 'deferred' | 'direct'
+  /**
+   * Opt in to runtime coordinates for this server. Both switches default to false. The context
+   * can include agent/session/computer ids and, when available, run/turn/config/actor fields.
+   * Catalog discovery never receives it. Header delivery may be unavailable through proxies;
+   * `_meta` is the portable option.
+   */
+  context?: McpContextConfig
+  /** Default approval behavior for every tool on this server. Omit for the existing default-allow behavior. */
+  permission?: McpToolPermission
+  /**
+   * Per-tool approval overrides keyed by the server's original tool name, not its
+   * `mcp__<server>__<tool>` name. Keys are exact and cannot contain `*`; at most 64 entries.
+   */
+  tools?: Record<string, McpToolPermissionOverride>
   [k: string]: unknown
+}
+
+/** One application-executed tool declared under {@link AgentResource.custom_tools}. */
+export interface CustomToolDeclaration {
+  /** Unique within the Agent; 1–64 ASCII letters, numbers, `_` or `-`. Reserved runtime names are rejected. */
+  name: string
+  /** Non-empty tool description, at most 4 KiB UTF-8. */
+  description: string
+  /** JSON Schema for the input. Its top-level `type` must be `object`; at most 16 KiB serialized. */
+  input_schema: { type: 'object'; [k: string]: unknown }
+  /** Result wait budget in milliseconds. Defaults to 600,000; maximum 86,400,000. */
+  timeoutMs?: number
 }
 
 /**
@@ -323,9 +364,21 @@ export interface AgentResource {
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
   skills?: { skill_id: string; version?: number | 'latest' }[]
   labels?: Record<string, string>
+  /**
+   * Tool-surface and approval policy. Name selectors in `allow`, `deny`, `rules[].match.tool`,
+   * `afterRules[].match.tool`, and MCP names in `deferred.pinned` accept an exact name, `*`, or
+   * one trailing `prefix*`. Other wildcard forms match nothing. `alsoAllow` and
+   * `permissions` keys remain exact. Kept open for forward-compatible policy fields.
+   */
   tool_policy?: Record<string, unknown>
   /** Remote MCP servers. Only unauthenticated ones work today — see {@link McpServerDeclaration}. */
   mcp?: McpServerDeclaration[]
+  /**
+   * Tools executed by your application. At most 32. A model call emits
+   * `agent.custom_tool_use`; return the result with `resolveCustomToolCall` or a
+   * `user.custom_tool_result` event. Source-reviewed; deployment availability is unverified.
+   */
+  custom_tools?: CustomToolDeclaration[]
   /**
    * System-prompt pin. Omitted on create means "the platform version active right now", pinned
    * from then on. REPLACE-ON-WRITE on PUT, like `tool_policy` — see {@link SystemPromptDeclaration}.
@@ -376,6 +429,31 @@ export interface AgentSkill {
   [k: string]: unknown
 }
 
+/** Source-reviewed asynchronous capability-configuration state for one channel feature. */
+export interface AgentChannelCapabilitySync {
+  state: 'pending' | 'applied' | 'retry' | 'error'
+  [k: string]: unknown
+}
+
+export interface FeishuChannelProviderStatus {
+  state: 'ready' | 'degraded'
+  missing_scopes: string[]
+  approval_state?: 'pending_admin' | null
+  [k: string]: unknown
+}
+
+export interface FeishuDocumentsCapability {
+  permission_admin_enabled: boolean
+  sync: AgentChannelCapabilitySync
+  provider: FeishuChannelProviderStatus
+  [k: string]: unknown
+}
+
+export interface AgentChannelCapabilities {
+  feishu_documents?: FeishuDocumentsCapability | null
+  [k: string]: unknown
+}
+
 /**
  * One platform account bound to an agent, as the channel service reports it.
  * `dm_policy` / `group_policy` are the reachability policies (`'open'` is the
@@ -392,11 +470,14 @@ export interface AgentChannel {
   health?: string
   status?: string
   status_code?: string | null
+  /** Source-reviewed capability state. Omitted when the platform reports none. */
+  capabilities?: AgentChannelCapabilities | null
   [k: string]: unknown
 }
 
 /**
- * The chat platforms you can bind, staging-verified 2026-08-28.
+ * The chat platforms you can bind. Feishu, Slack, WeCom and WeChat were staging-verified
+ * 2026-08-28. Direct DingTalk support is source-reviewed, not deployment-verified here.
  *
  * Three of them have a server-driven QR flow ({@link GuidedSetupPlatform}); Slack does not,
  * and structurally cannot — a Slack app is created by a person and its tokens only ever exist
@@ -405,16 +486,16 @@ export interface AgentChannel {
  *
  * WeChat is the one platform that goes the other way: `'weixin'`/`'wechat'` on
  * {@link ZooworkClient.addChannel} answers `400 channel.weixin_setup_required`, so the QR flow
- * is its ONLY path. See {@link AddChannelPlatform}. Any name outside this type answers
- * `400 channel.invalid_request`.
+ * is its ONLY path. DingTalk uses `'dingtalk-connector'` and currently has a direct config path
+ * only on the public API; its product QR flow is not exposed here. See {@link AddChannelPlatform}.
  */
-export type ChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'weixin'
+export type ChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'weixin' | 'dingtalk-connector'
 
 /**
  * The platforms {@link ZooworkClient.addChannel} accepts — every {@link ChannelPlatform}
  * except WeChat, which refuses explicit config and takes the QR flow only.
  */
-export type AddChannelPlatform = 'feishu' | 'slack' | 'wecom'
+export type AddChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'dingtalk-connector'
 
 /**
  * The platforms with a server-driven QR flow: {@link ZooworkClient.startChannelSetup} →
@@ -465,7 +546,7 @@ export interface AddChannelInput {
    */
   account?: string
   display_name?: string
-  /** Server default: `'open'`. `'pairing'` is rejected with `400 channel.pairing_unsupported`. */
+  /** Server default: `'open'`. DingTalk accepts only `'open'`; `'pairing'` is rejected everywhere. */
   dm_policy?: string
   /** Server default: `'open'`. */
   group_policy?: string
@@ -479,8 +560,11 @@ export interface AddChannelInput {
    *   needs the app-level token as well as the bot token)
    * - `wecom` — `{ botId, secret }`, both required
    * - `feishu` — `{ appId, appSecret, domain }`, only when skipping the QR flow
+   * - `dingtalk-connector` — `{ clientId, clientSecret }`; no public guided QR route
    */
   config?: Record<string, unknown>
+  /** Feishu only. Enable document-permission administration; defaults to false. */
+  permission_admin_enabled?: boolean
 }
 
 export interface UpdateChannelInput {
@@ -489,6 +573,8 @@ export interface UpdateChannelInput {
   dm_policy?: string
   group_policy?: string
   enabled?: boolean
+  /** Feishu only. Other platforms reject this field when it is present. */
+  permission_admin_enabled?: boolean
 }
 
 /**
@@ -532,6 +618,8 @@ export interface ChannelSetupInput {
   dm_policy?: string
   /** Server default: `'open'`. Ignored by WeChat, which forces `'disabled'`. */
   group_policy?: string
+  /** Feishu only. Enable document-permission administration; defaults to false. */
+  permission_admin_enabled?: boolean
 }
 
 /** @deprecated Use {@link ChannelSetupInput}; this is the same shape under the old name. */
@@ -692,6 +780,8 @@ export interface SessionRecord {
   run_status?: string | null
   /** Pending approval count on getSession; not included in every session projection. */
   pending_approvals?: number
+  /** Pending application-executed custom-tool count on getSession. */
+  pending_custom_tool_calls?: number
   /**
    * `running` on a `createSession` receipt, nullable on `getSession`, and absent from
    * `listSessions` rows. This is not the run outcome; read {@link SessionRecord.run_status}
@@ -700,13 +790,19 @@ export interface SessionRecord {
   status?: string | null
   metadata?: Record<string, unknown>
   archived?: boolean
+  runtime_mode?: 'active' | 'preview' | 'authoring' | 'evaluation' | string
+  config_version?: number
   updated_at?: string
+  /** Activity sort key used by filtered cursor listing. */
+  last_activity_at?: string
+  /** Opaque per-row resume cursor returned only by {@link ZooworkClient.listSessionPage}. */
+  list_cursor?: string
   /** Present only when the read asked for `history: true`; the most recent `limit` rows, in order. */
   history?: SessionHistoryEntry[]
   [k: string]: unknown
 }
 
-/** Write-side events: user.message / user.interrupt / user.tool_confirmation / system.message */
+/** Write-side events, including `user.custom_tool_result`; unsupported types are rejected by the API. */
 export interface OutboundEvent {
   type: string
   content?: unknown
@@ -720,6 +816,47 @@ export interface OutboundEvent {
    */
   actor?: { ref: string; token?: never }
   [k: string]: unknown
+}
+
+export type CustomToolResultImageMimeType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'
+
+/** One content block returned by an application-executed custom tool. */
+export type CustomToolResultContent =
+  | { type: 'text'; text: string }
+  | { type: 'json'; value: unknown }
+  | {
+      type: 'image'
+      source: { type: 'base64'; media_type: CustomToolResultImageMimeType; data: string }
+    }
+  | { type: 'image'; data: string; mime_type: CustomToolResultImageMimeType }
+
+/** Write-side result event for {@link ZooworkClient.postEvents}. */
+export type CustomToolResultEvent = OutboundEvent & {
+  type: 'user.custom_tool_result'
+  content: CustomToolResultContent[]
+  is_error?: boolean
+  idempotency_key?: string
+} & (
+    | { /** The `callId` from `agent.custom_tool_use`. */ custom_tool_use_id: string; call_id?: never }
+    | { /** Accepted alias for `custom_tool_use_id`. */ call_id: string; custom_tool_use_id?: never }
+  )
+
+/** Options for the filtered cursor lane. Filters are part of the cursor scope. */
+export interface SessionListPageOptions {
+  /** Opaque cursor returned by this same filter scope. Omit to start at `sls1:0`. */
+  cursor?: string
+  /** 1–100; server default 50. */
+  limit?: number
+  excludeChannels?: string[]
+  includeSurfaces?: string[]
+  runtimeModes?: Array<'active' | 'preview' | 'authoring' | 'evaluation'>
+  includeArchived?: boolean
+}
+
+/** One filtered session page. `next_cursor` is null at the end. */
+export interface SessionListPage {
+  sessions: SessionRecord[]
+  next_cursor: string | null
 }
 
 /** One `postEvents` receipt. An accepted event carries the full event object's fields too. */
@@ -950,6 +1087,26 @@ export interface ApprovalRecord {
   decision?: ApprovalDecision
   /** Legacy compatibility field; current source projects requested_at instead. */
   created_at?: string
+  [k: string]: unknown
+}
+
+export type CustomToolCallStatus = 'pending' | 'completed' | 'timeout' | 'cancelled' | string
+
+/** One application-executed custom-tool call. Unknown response fields are preserved. */
+export interface CustomToolCallRecord {
+  call_id: string
+  session_id: string
+  tool_call_id: string
+  name: string
+  input: Record<string, unknown>
+  status: CustomToolCallStatus
+  requested_at: string
+  timeout_at?: string
+  resolved_by?: string
+  resolved_at?: string
+  is_error?: boolean
+  /** Resolve receipt: true when a pending call was signaled, false when it was already terminal. */
+  signaled?: boolean
   [k: string]: unknown
 }
 
@@ -1475,8 +1632,13 @@ export interface ZooworkClient {
     idempotencyKey?: string,
   ): Promise<SessionRecord>
   getSession(agentId: string, sessionId: string, opts?: { history?: boolean; limit?: number }): Promise<SessionRecord>
-  /** Newest first by `updated_at`, 50 per page, `page` is 1-based. Single page per call — there is no cursor. */
+  /** Legacy newest-first numeric page lane: 50 per page, `page` is 1-based. */
   listSessions(agentId: string, opts?: { page?: number }): Promise<SessionRecord[]>
+  /**
+   * Filtered cursor lane. It is separate from {@link listSessions} so existing numeric-page
+   * callers keep their contract. Cursors are opaque and valid only with the same filters.
+   */
+  listSessionPage(agentId: string, opts?: SessionListPageOptions): Promise<SessionListPage>
   /**
    * Stamp `archived_at`. Afterwards writes are `409 session_archived` while reads keep working.
    * Interrupt an in-flight run first, or the archive races it.
@@ -1528,6 +1690,19 @@ export interface ZooworkClient {
    * Redis-only lane, not durable events.
    */
   streamEvents(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; signal?: AbortSignal }): AsyncGenerator<SessionEvent>
+
+  // ── application-executed custom tools ──
+  /** Pending calls only. Any other status is rejected by the API. */
+  listCustomToolCalls(agentId: string, opts?: { status?: 'pending' }): Promise<CustomToolCallRecord[]>
+  /**
+   * Return one call's result. A pending call answers 202/signaled:true but stays pending until
+   * the paused run consumes it; an already-terminal call answers 200/signaled:false.
+   */
+  resolveCustomToolCall(
+    agentId: string,
+    callId: string,
+    input: { content: CustomToolResultContent[]; isError?: boolean; resolvedBy?: string },
+  ): Promise<CustomToolCallRecord>
 
   // ── approvals ──
   /**
@@ -2139,6 +2314,19 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       const data = await json<{ sessions?: SessionRecord[] }>(`${sessions(agentId)}${query({ page: opts.page })}`)
       return data.sessions ?? []
     },
+    listSessionPage: async (agentId, opts = {}) => {
+      const data = await json<{ sessions?: SessionRecord[]; next_cursor?: string | null }>(
+        `${sessions(agentId)}${query({
+          cursor: opts.cursor ?? 'sls1:0',
+          limit: opts.limit,
+          exclude_channels: opts.excludeChannels?.join(','),
+          include_surfaces: opts.includeSurfaces?.join(','),
+          runtime_modes: opts.runtimeModes?.join(','),
+          include_archived: opts.includeArchived === undefined ? undefined : String(opts.includeArchived),
+        })}`,
+      )
+      return { sessions: data.sessions ?? [], next_cursor: data.next_cursor ?? null }
+    },
     archiveSession: async (agentId, sessionId) => {
       const data = await json<{ session_id?: string; archived?: boolean }>(
         `${sessions(agentId)}/${encodeURIComponent(sessionId)}/archive`,
@@ -2245,6 +2433,18 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         throw e
       }
     },
+
+    listCustomToolCalls: async (agentId, opts = {}) => {
+      const data = await json<{ custom_tool_calls?: CustomToolCallRecord[] }>(
+        `${agents(agentId)}/custom_tool_calls${query({ status: opts.status })}`,
+      )
+      return data.custom_tool_calls ?? []
+    },
+    resolveCustomToolCall: (agentId, callId, input) =>
+      json(`${agents(agentId)}/custom_tool_calls/${encodeURIComponent(callId)}/result`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
 
     listApprovals: async (agentId, opts = {}) => {
       const data = await json<{ approvals?: ApprovalRecord[] }>(

@@ -7,7 +7,7 @@
  * fails a test instead of a consumer's build.
  */
 import { expect, test } from 'vitest'
-import { assistantText, isRunFinished, messageText, normalizeEvent, runOutcome, thinkingText, toolCall } from './index.js'
+import { assistantText, customToolUse, isRunFinished, messageText, normalizeEvent, runOutcome, thinkingText, toolCall } from './index.js'
 
 test('normalizeEvent folds the REST and SSE spellings into one shape', () => {
   const rest = normalizeEvent({ seq: 4, event_type: 'agent.assistant', payload: { a: 1 }, run_id: 'r1', turn: 2, created_at: 't1' })
@@ -55,4 +55,21 @@ test('toolCall pairs by toolCallId and keeps `blocked` distinct from `end`', () 
   expect(end).toEqual({ phase: 'end', toolName: 'bash', toolCallId: 'c1', isError: true, resultPreview: 'boom' })
   expect(toolCall(normalizeEvent({ seq: 3, eventType: 'agent.tool', payload: { phase: 'blocked', toolName: 'bash', toolCallId: 'c1' } }))?.phase).toBe('blocked')
   expect(toolCall(normalizeEvent({ seq: 4, eventType: 'chat.final', payload: {} }))).toBeUndefined()
+})
+
+test('customToolUse exposes requested and resolved application-tool phases', () => {
+  const requested = customToolUse(normalizeEvent({
+    seq: 1,
+    event_type: 'agent.custom_tool_use',
+    payload: { phase: 'requested', callId: 'ctc_1', toolCallId: 'toolu_1', name: 'quote', input: { sku: '1' }, timeoutAt: 't' },
+  }))
+  expect(requested).toEqual({
+    phase: 'requested', callId: 'ctc_1', toolCallId: 'toolu_1', name: 'quote', input: { sku: '1' }, timeoutAt: 't',
+  })
+  expect(customToolUse(normalizeEvent({
+    seq: 2,
+    event_type: 'agent.custom_tool_use',
+    payload: { phase: 'resolved', callId: 'ctc_1', outcome: 'completed', isError: false, resolvedBy: 'app' },
+  }))).toEqual({ phase: 'resolved', callId: 'ctc_1', outcome: 'completed', isError: false, resolvedBy: 'app' })
+  expect(customToolUse(normalizeEvent({ seq: 3, event_type: 'agent.tool', payload: {} }))).toBeUndefined()
 })
