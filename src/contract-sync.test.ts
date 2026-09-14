@@ -7,7 +7,9 @@ import { expect, expectTypeOf, test } from 'vitest'
 import {
   createZooworkClient, normalizeEvent, ZooworkError,
   type ApprovalRecord, type OutboundEvent, type ScheduleRun, type ScheduleSpec,
-  type McpServerDeclaration, type SessionRecord, type SkillRecord, type SkillVersionRecord,
+  type AddChannelInput, type AgentChannelCapabilities, type McpServerDeclaration,
+  type CustomToolDeclaration, type CustomToolResultEvent, type McpToolPermission,
+  type SessionListPage, type SessionRecord, type SkillRecord, type SkillVersionRecord,
 } from './index.js'
 
 const BASE = 'https://sdk-contract.test/service/v1'
@@ -159,6 +161,83 @@ test('MCP exposure serializes unchanged and rejects an auto mode', async () => {
   // @ts-expect-error Engine accepts only deferred or direct; there is no auto mode.
   const unsupported: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', exposure: 'auto' }
   void unsupported
+})
+
+test('MCP runtime context and approval declarations serialize unchanged with typed values', async () => {
+  const server = {
+    name: 'operations',
+    url: 'https://mcp.example.test',
+    context: { meta: true, headers: false },
+    permission: 'always_ask',
+    tools: { get_status: { permission: 'always_allow' } },
+  } satisfies McpServerDeclaration
+  const { client, calls } = harness({ agent_id: 'agent-test' })
+  await client.createAgent({ resource: { name: 'protected-mcp', mcp: [server] } })
+
+  expect(JSON.parse(String(calls[0].init.body))).toEqual({
+    resource: { name: 'protected-mcp', mcp: [server], onboarding: false },
+  })
+  expectTypeOf(server.permission).toEqualTypeOf<'always_ask'>()
+  expectTypeOf<McpToolPermission>().toEqualTypeOf<'always_ask' | 'always_allow'>()
+
+  // @ts-expect-error MCP permissions accept only always_ask or always_allow.
+  const unsupported: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', permission: 'ask' }
+  // @ts-expect-error MCP context switches are booleans.
+  const badContext: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', context: { meta: 'yes' } }
+  void unsupported
+  void badContext
+})
+
+test('channel additions keep direct DingTalk and Feishu document administration typed', () => {
+  const dingtalk = {
+    platform: 'dingtalk-connector',
+    dm_policy: 'open',
+    config: { clientId: 'synthetic-client', clientSecret: 'synthetic-secret' },
+  } satisfies AddChannelInput
+  const feishu = { platform: 'feishu', permission_admin_enabled: true } satisfies AddChannelInput
+  const capabilities = {
+    feishu_documents: {
+      permission_admin_enabled: true,
+      sync: { state: 'pending' },
+      provider: { state: 'degraded', missing_scopes: ['synthetic.scope'], approval_state: 'pending_admin' },
+    },
+  } satisfies AgentChannelCapabilities
+
+  expect(dingtalk.platform).toBe('dingtalk-connector')
+  expect(feishu.permission_admin_enabled).toBe(true)
+  expect(capabilities.feishu_documents.provider.missing_scopes).toEqual(['synthetic.scope'])
+})
+
+test('custom tools and filtered session pages preserve the source-reviewed public contract', async () => {
+  const tool = {
+    name: 'lookup_price',
+    description: 'Look up one price.',
+    input_schema: { type: 'object', properties: { sku: { type: 'string' } } },
+    timeoutMs: 600_000,
+  } satisfies CustomToolDeclaration
+  const resultEvent = {
+    type: 'user.custom_tool_result',
+    custom_tool_use_id: 'ctc-test',
+    content: [{ type: 'json', value: { price: 42 } }],
+    is_error: false,
+    idempotency_key: 'price-result-1',
+  } satisfies CustomToolResultEvent
+  const create = harness({ agent_id: 'agent-test' })
+  await create.client.createAgent({ resource: { name: 'custom-tool-agent', custom_tools: [tool] } })
+  expect(JSON.parse(String(create.calls[0].init.body))).toEqual({
+    resource: { name: 'custom-tool-agent', custom_tools: [tool], onboarding: false },
+  })
+
+  const post = harness({ events: [{ accepted: true }] }, 202)
+  await post.client.postEvents('agent-test', 'session-test', [resultEvent])
+  expect(JSON.parse(String(post.calls[0].init.body))).toEqual({ events: [resultEvent] })
+
+  const pageReply = { sessions: [{ session_id: 'session-test', list_cursor: 'sls1:row' }], next_cursor: null }
+  const pages = harness(pageReply)
+  const page = await pages.client.listSessionPage('agent-test', { includeArchived: true })
+  expectTypeOf(page).toEqualTypeOf<SessionListPage>()
+  expect(page).toEqual(pageReply)
+  expect(new URL(pages.calls[0].url).searchParams.get('cursor')).toBe('sls1:0')
 })
 
 test('SSE resume keeps an opaque cursor in the query and preserves the next cursor', async () => {

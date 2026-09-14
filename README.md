@@ -115,7 +115,7 @@ instead of silently returning an empty or apparently complete array.
 `run.finished` ends a turn; assistant text arrives on `agent.assistant`.
 
 ```ts
-import { assistantText, isRunFinished, runOutcome, toolCall } from '@zoowork-ai/sdk'
+import { assistantText, customToolUse, isRunFinished, runOutcome, toolCall } from '@zoowork-ai/sdk'
 
 for await (const ev of zc.streamEvents(agent.agent_id, session.session_id)) {
   process.stdout.write(assistantText(ev)) // '' for every non-assistant event
@@ -201,9 +201,29 @@ const { exit_code, stdout } = await zc.exec(agent.agent_id, ['bash', '-lc', 'pwd
 
 ## Sessions, approvals, environments
 
-`listSessions`, `archiveSession` and `deleteSession` round out the session surface. There is no
+`listSessions` keeps the legacy numeric-page contract. Use `listSessionPage` for the filtered
+cursor lane: it starts with `sls1:0`, accepts channel/surface/runtime/archive filters, and returns
+`next_cursor` plus a `list_cursor` on each row. Cursors are opaque and bound to the same filters.
+`archiveSession` and `deleteSession` round out the session surface. There is no
 `patchSession`: the gateway does not proxy `PATCH` at all (405), so session `metadata` is fixed at
 creation time.
+
+An application-executed tool is declared in `resource.custom_tools`. When
+`customToolUse(ev)?.phase === 'requested'`, execute the named operation and call
+`resolveCustomToolCall`; `listCustomToolCalls` recovers pending work after a restart. You may also
+post a typed `user.custom_tool_result` event to the owning session. The run reports
+`awaiting_approval` while paused, so use `pending_custom_tool_calls` to distinguish this wait from
+a normal approval. These contracts are source-reviewed and need deployment verification.
+
+```ts
+const call = customToolUse(ev)
+if (call?.phase === 'requested') {
+  await zc.resolveCustomToolCall(agentId, call.callId, {
+    content: [{ type: 'json', value: { price: 42 } }],
+    resolvedBy: 'pricing-service',
+  })
+}
+```
 
 `listApprovals` / `resolveApproval` expose the approvals resource — `decision` is one of
 `allow-once`, `allow-always`, `deny`. End-to-end approval and turn-budget behavior need

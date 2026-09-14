@@ -32,6 +32,7 @@ export const SESSION_EVENT_TYPES = [
   'agent.item',
   'agent.plan',
   'agent.approval',
+  'agent.custom_tool_use',
   'agent.command_output',
   'agent.patch',
   'agent.compaction',
@@ -47,6 +48,7 @@ export const PUBLIC_INPUT_EVENT_TYPES = [
   'user.message',
   'user.interrupt',
   'user.tool_confirmation',
+  'user.custom_tool_result',
   'system.message',
 ] as const
 
@@ -155,6 +157,38 @@ export interface ToolCall {
   args?: Record<string, unknown>
   isError?: boolean
   resultPreview?: string
+}
+
+export interface CustomToolUse {
+  phase: 'requested' | 'resolved'
+  callId: string
+  toolCallId?: string
+  name?: string
+  input?: Record<string, unknown>
+  timeoutAt?: string
+  outcome?: 'completed' | 'timeout' | 'cancelled'
+  isError?: boolean
+  resolvedBy?: string
+  resolutionChannel?: string
+}
+
+/** Application-executed custom-tool activity; undefined for every other event type. */
+export function customToolUse(e: SessionEvent): CustomToolUse | undefined {
+  if (e.eventType !== 'agent.custom_tool_use') return undefined
+  const p = e.payload
+  const outcome = p.outcome === 'completed' || p.outcome === 'timeout' || p.outcome === 'cancelled' ? p.outcome : undefined
+  return {
+    phase: p.phase === 'resolved' ? 'resolved' : 'requested',
+    callId: typeof p.callId === 'string' ? p.callId : '',
+    ...(typeof p.toolCallId === 'string' ? { toolCallId: p.toolCallId } : {}),
+    ...(typeof p.name === 'string' ? { name: p.name } : {}),
+    ...(isObj(p.input) ? { input: p.input } : {}),
+    ...(typeof p.timeoutAt === 'string' ? { timeoutAt: p.timeoutAt } : {}),
+    ...(outcome ? { outcome } : {}),
+    ...(typeof p.isError === 'boolean' ? { isError: p.isError } : {}),
+    ...(typeof p.resolvedBy === 'string' ? { resolvedBy: p.resolvedBy } : {}),
+    ...(typeof p.resolutionChannel === 'string' ? { resolutionChannel: p.resolutionChannel } : {}),
+  }
 }
 
 /**
