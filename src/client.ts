@@ -216,6 +216,15 @@ export interface ModelInfo {
   display_name?: string
   family?: string
   api?: string
+  expired_at?: string | null
+  expired_fallback_to?: string | null
+  retired_at?: string | null
+  revision?: number
+  lifecycle_status?: 'active' | 'scheduled' | 'draining' | 'retired' | string
+  /** `false` means this catalog row cannot be selected for a new Agent or config. */
+  selectable?: boolean
+  retire_not_before?: string | null
+  default_for?: string[]
   [k: string]: unknown
 }
 
@@ -354,6 +363,8 @@ export interface OutcomeConfig {
 
 export interface AgentResource {
   name: string
+  /** Named IANA timezone used in prompt context and message timestamps, e.g. `Asia/Shanghai`. */
+  userTimezone?: string
   /**
    * Omit this section to pin the platform's current model defaults at create time. Those
    * defaults can rotate; call `listModels()` and set `primary` explicitly for deterministic
@@ -363,6 +374,11 @@ export interface AgentResource {
   model?: { primary: string; input?: string[]; max_tokens?: number }
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
   skills?: { skill_id: string; version?: number | 'latest' }[]
+  /**
+   * Defaults to true. False disables automatic global Skills without removing explicitly
+   * listed Skills. An explicit empty `skills` array also opts out.
+   */
+  include_global_skills?: boolean
   labels?: Record<string, string>
   /**
    * Tool-surface and approval policy. Name selectors in `allow`, `deny`, `rules[].match.tool`,
@@ -790,6 +806,8 @@ export interface SessionRecord {
   status?: string | null
   metadata?: Record<string, unknown>
   archived?: boolean
+  /** Present on filtered pages only when `includeDeleted` was requested. */
+  deleted?: boolean
   runtime_mode?: 'active' | 'preview' | 'authoring' | 'evaluation' | string
   config_version?: number
   updated_at?: string
@@ -851,12 +869,16 @@ export interface SessionListPageOptions {
   includeSurfaces?: string[]
   runtimeModes?: Array<'active' | 'preview' | 'authoring' | 'evaluation'>
   includeArchived?: boolean
+  /** Include deleted Session tombstones for history reconciliation. Changes the cursor scope. */
+  includeDeleted?: boolean
 }
 
 /** One filtered session page. `next_cursor` is null at the end. */
 export interface SessionListPage {
   sessions: SessionRecord[]
   next_cursor: string | null
+  /** Present and true only when deleted tombstones were requested. */
+  includes_deleted?: true
 }
 
 /** One `postEvents` receipt. An accepted event carries the full event object's fields too. */
@@ -2315,7 +2337,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       return data.sessions ?? []
     },
     listSessionPage: async (agentId, opts = {}) => {
-      const data = await json<{ sessions?: SessionRecord[]; next_cursor?: string | null }>(
+      const data = await json<{ sessions?: SessionRecord[]; next_cursor?: string | null; includes_deleted?: true }>(
         `${sessions(agentId)}${query({
           cursor: opts.cursor ?? 'sls1:0',
           limit: opts.limit,
@@ -2323,9 +2345,14 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
           include_surfaces: opts.includeSurfaces?.join(','),
           runtime_modes: opts.runtimeModes?.join(','),
           include_archived: opts.includeArchived === undefined ? undefined : String(opts.includeArchived),
+          include_deleted: opts.includeDeleted === undefined ? undefined : String(opts.includeDeleted),
         })}`,
       )
-      return { sessions: data.sessions ?? [], next_cursor: data.next_cursor ?? null }
+      return {
+        sessions: data.sessions ?? [],
+        next_cursor: data.next_cursor ?? null,
+        ...(data.includes_deleted === true ? { includes_deleted: true as const } : {}),
+      }
     },
     archiveSession: async (agentId, sessionId) => {
       const data = await json<{ session_id?: string; archived?: boolean }>(

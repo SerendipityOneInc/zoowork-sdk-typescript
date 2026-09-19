@@ -160,6 +160,17 @@ test('listModels accepts both the bare-array and the {models} envelope', async (
   expect(await c.client.listModels()).toEqual([])
 })
 
+test('listModels preserves model lifecycle metadata', async () => {
+  const model = {
+    model: 'litellm/example',
+    selectable: false,
+    lifecycle_status: 'draining',
+    expired_fallback_to: 'litellm/replacement',
+  }
+  const { client } = harness(jsonReply([model]))
+  expect(await client.listModels()).toEqual([model])
+})
+
 test('createAgent POSTs the envelope and sends Idempotency-Key only when given one', async () => {
   const { calls, client } = harness(jsonReply({ agent_id: 'agt_1', config_version: 1 }))
   const input = { resource: { name: 'a' }, ownership: { owner_uid: 'u', org_id: 'o' } }
@@ -409,8 +420,9 @@ test('listSessions pages, archiveSession normalizes, deleteSession is a 204 DELE
 
 test('listSessionPage selects the cursor lane and preserves its filters and response cursors', async () => {
   const { calls, client } = harness(jsonReply({
-    sessions: [{ session_id: 's1', list_cursor: 'sls1:row' }],
+    sessions: [{ session_id: 's1', list_cursor: 'sls1:row', deleted: true }],
     next_cursor: 'sls1:next',
+    includes_deleted: true,
   }))
   expect(await client.listSessionPage('a', {
     limit: 25,
@@ -418,9 +430,14 @@ test('listSessionPage selects the cursor lane and preserves its filters and resp
     includeSurfaces: ['inbox'],
     runtimeModes: ['active', 'preview'],
     includeArchived: false,
-  })).toEqual({ sessions: [{ session_id: 's1', list_cursor: 'sls1:row' }], next_cursor: 'sls1:next' })
+    includeDeleted: true,
+  })).toEqual({
+    sessions: [{ session_id: 's1', list_cursor: 'sls1:row', deleted: true }],
+    next_cursor: 'sls1:next',
+    includes_deleted: true,
+  })
   expect(path(calls)).toBe(
-    '/agents/a/sessions?cursor=sls1%3A0&limit=25&exclude_channels=api%2Cslack&include_surfaces=inbox&runtime_modes=active%2Cpreview&include_archived=false',
+    '/agents/a/sessions?cursor=sls1%3A0&limit=25&exclude_channels=api%2Cslack&include_surfaces=inbox&runtime_modes=active%2Cpreview&include_archived=false&include_deleted=true',
   )
 
   const next = harness(jsonReply({ sessions: [] }))
