@@ -223,21 +223,39 @@ test('custom tools and filtered session pages preserve the source-reviewed publi
     idempotency_key: 'price-result-1',
   } satisfies CustomToolResultEvent
   const create = harness({ agent_id: 'agent-test' })
-  await create.client.createAgent({ resource: { name: 'custom-tool-agent', custom_tools: [tool] } })
+  await create.client.createAgent({
+    resource: {
+      name: 'custom-tool-agent',
+      userTimezone: 'Asia/Shanghai',
+      include_global_skills: false,
+      custom_tools: [tool],
+    },
+  })
   expect(JSON.parse(String(create.calls[0].init.body))).toEqual({
-    resource: { name: 'custom-tool-agent', custom_tools: [tool], onboarding: false },
+    resource: {
+      name: 'custom-tool-agent',
+      userTimezone: 'Asia/Shanghai',
+      include_global_skills: false,
+      custom_tools: [tool],
+      onboarding: false,
+    },
   })
 
   const post = harness({ events: [{ accepted: true }] }, 202)
   await post.client.postEvents('agent-test', 'session-test', [resultEvent])
   expect(JSON.parse(String(post.calls[0].init.body))).toEqual({ events: [resultEvent] })
 
-  const pageReply = { sessions: [{ session_id: 'session-test', list_cursor: 'sls1:row' }], next_cursor: null }
+  const pageReply = {
+    sessions: [{ session_id: 'session-test', list_cursor: 'sls1:row', deleted: true }],
+    next_cursor: null,
+    includes_deleted: true as const,
+  }
   const pages = harness(pageReply)
-  const page = await pages.client.listSessionPage('agent-test', { includeArchived: true })
+  const page = await pages.client.listSessionPage('agent-test', { includeArchived: true, includeDeleted: true })
   expectTypeOf(page).toEqualTypeOf<SessionListPage>()
   expect(page).toEqual(pageReply)
   expect(new URL(pages.calls[0].url).searchParams.get('cursor')).toBe('sls1:0')
+  expect(new URL(pages.calls[0].url).searchParams.get('include_deleted')).toBe('true')
 })
 
 test('SSE resume keeps an opaque cursor in the query and preserves the next cursor', async () => {

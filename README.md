@@ -29,8 +29,10 @@ The base URL has a working default, so you do not configure an endpoint. Overrid
 //    send. Select a model returned by this deployment instead of relying on a
 //    remembered id or on a server default that can rotate.
 const models = await zc.listModels()
-const primary = models.find((model) => model.model === 'litellm/gpt-5.6-terra')?.model
-if (!primary) throw new Error('Choose a model returned by listModels()')
+const primary = models.find(
+  (model) => model.selectable !== false && model.model === 'litellm/gpt-5.6-terra',
+)?.model
+if (!primary) throw new Error('Choose a selectable model returned by listModels()')
 
 const agent = await zc.createAgent({
   resource: { name: 'research-agent', model: { primary } },
@@ -44,6 +46,15 @@ const session = await zc.createSession(agent.agent_id, {
   initial_events: [{ type: 'user.message', content: 'What can you do?' }],
 })
 ```
+
+`listModels()` can include a model whose retirement has started. Check `selectable !== false`
+before using a catalog row in a new Agent or config. A non-selectable choice returns
+`409 model_not_selectable`; `expired_fallback_to` names the reviewed replacement when present.
+
+Agent resources also accept `userTimezone`, a named IANA timezone used for prompt and message
+time context, and `include_global_skills: false` to disable automatic global Skills while keeping
+explicitly listed Skills. An explicit `skills: []` also opts out. Schedule timezones are configured
+separately.
 
 ## Configuration
 
@@ -204,6 +215,9 @@ const { exit_code, stdout } = await zc.exec(agent.agent_id, ['bash', '-lc', 'pwd
 `listSessions` keeps the legacy numeric-page contract. Use `listSessionPage` for the filtered
 cursor lane: it starts with `sls1:0`, accepts channel/surface/runtime/archive filters, and returns
 `next_cursor` plus a `list_cursor` on each row. Cursors are opaque and bound to the same filters.
+Pass `{ includeDeleted: true }` to include deletion tombstones for reconciliation; returned rows
+then carry `deleted` and the page carries `includes_deleted: true`. This flag is part of the cursor
+scope, so do not reuse a cursor created without it.
 `archiveSession` and `deleteSession` round out the session surface. There is no
 `patchSession`: the gateway does not proxy `PATCH` at all (405), so session `metadata` is fixed at
 creation time.

@@ -1166,6 +1166,7 @@ const SESSION_RECORD_KEYS = [
   'status',
   'metadata',
   'archived',
+  'deleted',
   'updated_at',
   'history',
   'pending_approvals',
@@ -1179,6 +1180,7 @@ const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)
 
 const SOURCE_REVIEWED_SESSION_CURSOR_ROW = {
   session_id: 'synthetic-session',
+  deleted: true,
   pending_custom_tool_calls: 1,
   runtime_mode: 'active',
   config_version: 4,
@@ -1333,11 +1335,37 @@ test('EnvironmentVersionRecord declares nothing the wire does not carry — this
   expect(ENVIRONMENT_VERSION_KEYS).not.toContain('state')
 })
 
-const MODEL_INFO_KEYS = ['model', 'display_name', 'family', 'api'] as const satisfies readonly DeclaredKeys<ModelInfo>[]
+const MODEL_INFO_KEYS = [
+  'model',
+  'display_name',
+  'family',
+  'api',
+  'expired_at',
+  'expired_fallback_to',
+  'retired_at',
+  'revision',
+  'lifecycle_status',
+  'selectable',
+  'retire_not_before',
+  'default_for',
+] as const satisfies readonly DeclaredKeys<ModelInfo>[]
 const _modelInfoCovered: Covered<ModelInfo, (typeof MODEL_INFO_KEYS)[number]> = undefined
 
 test('ModelInfo declares nothing the wire does not carry', () => {
-  expectDeclarationCoverage(MODEL_INFO_KEYS, [], fixture('list-models').body as unknown[])
+  expectDeclarationCoverage(MODEL_INFO_KEYS, [], [
+    ...(fixture('list-models').body as unknown[]),
+    {
+      model: 'litellm/synthetic',
+      expired_at: null,
+      expired_fallback_to: 'litellm/replacement',
+      retired_at: null,
+      revision: 2,
+      lifecycle_status: 'draining',
+      selectable: false,
+      retire_not_before: '2026-10-01T00:00:00.000Z',
+      default_for: ['text'],
+    },
+  ])
 })
 
 const SYSTEM_PROMPT_INFO_KEYS = ['agent_id', 'config_version', 'declaration', 'effective'] as const satisfies readonly DeclaredKeys<SystemPromptInfo>[]

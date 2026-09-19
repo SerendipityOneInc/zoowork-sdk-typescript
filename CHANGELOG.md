@@ -3,6 +3,19 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+### Added
+
+- Model catalog lifecycle metadata, including `selectable` and replacement hints.
+- Deleted Session tombstones in filtered cursor pages through `includeDeleted`.
+- Agent declaration fields for global-Skill opt-out and named user timezones.
+
+### Changed
+
+- Model-selection examples now reject non-selectable catalog rows; selecting one can return
+  `409 model_not_selectable`.
+
 ## 0.7.0 — 2026-09-14
 
 ### Added
