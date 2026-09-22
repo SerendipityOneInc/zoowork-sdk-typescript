@@ -325,7 +325,12 @@ export interface WebhookEvent {
    * a retry redelivers the SAME id. */
   id: string
   type: WebhookEventType | (string & {})
-  /** Envelope contract version, `1` today. A bump is announced; additive fields are not. */
+  /**
+   * Envelope contract version, `1` today. A bump is announced; additive fields are not.
+   *
+   * Always an INTEGER value — {@link unwrapWebhook} rejects anything else, so a receiver may
+   * compare it or switch on it without rounding first.
+   */
   schema_version: number
   /** When the FACT happened, ISO-8601. Not when this attempt was sent — that is the
    * `webhook-timestamp` header, which {@link verifyWebhookSignature} returns. */
@@ -696,10 +701,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * schema version, and rejecting one of those would drop a valid delivery. An unrecognized
  * `type` passes straight through; narrow it with {@link knownWebhookEvent}.
  *
- * `schema_version` IS required to be a number, although it is the one field a receiver rarely
- * reads: Engine's projector emits it unconditionally, so an envelope without it is not an
- * envelope, and admitting one would leave {@link WebhookEvent} lying about its own type. The
- * Python SDK checks the same six fields.
+ * `schema_version` IS required, although it is the one field a receiver rarely reads: Engine's
+ * projector emits it unconditionally, so an envelope without it is not an envelope, and admitting
+ * one would leave {@link WebhookEvent} lying about its own type. It must be a number with an
+ * INTEGER VALUE — `1` and `1.0` both pass, since JSON has a single numeric type and they are the
+ * same number, while `1.5` is rejected because no release could mean it. The Python SDK checks the
+ * same six fields and reaches the same verdict on the same envelope.
  *
  * Throws {@link ZooworkWebhookError} with `invalid_payload` when the body is not an envelope,
  * and with the verification codes before that.
@@ -721,7 +728,11 @@ export async function unwrapWebhook(input: VerifyWebhookInput): Promise<WebhookE
     object !== 'event' ||
     typeof id !== 'string' ||
     typeof type !== 'string' ||
-    typeof schemaVersion !== 'number' ||
+    // An integer VALUE, not merely a number. JSON has one numeric type, so `1` and `1.0` are the
+    // same number and both pass, while `1.5` is not a version this or any release could mean.
+    // `Number.isInteger` also rejects a string `"1"` and the Infinity a JSON overflow literal
+    // parses to; the `typeof` is kept for the reader, not for the check.
+    !(typeof schemaVersion === 'number' && Number.isInteger(schemaVersion)) ||
     typeof createdAt !== 'string' ||
     !isRecord(data)
   ) {

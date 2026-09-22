@@ -360,6 +360,11 @@ Four more things worth knowing:
 - **A repeated `webhook-id`, `webhook-timestamp` or `webhook-signature` header is rejected**, not
   resolved to one of its values: choosing would be a guess about which send arrived. The Python
   SDK rejects it too.
+- **`unwrapWebhook` checks six fields and no more** — `object`, `id`, `type`, `schema_version`,
+  `created_at`, `data` — so a field or event type a later Engine release adds is not a reason to
+  drop a delivery. `schema_version` must be a number with an **integer value**: `1` and `1.0` both
+  pass, since JSON has one numeric type and they are the same number, while `1.5` is rejected with
+  `invalid_payload`. The Python SDK reaches the same verdict on the same envelope.
 
 `ZooworkWebhookError.code` is the contract to match on — `invalid_secret`, `body_too_large`,
 `missing_header`, `invalid_header`, `timestamp_out_of_window`, `signature_mismatch`,

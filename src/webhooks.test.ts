@@ -552,6 +552,8 @@ test('a verified body that is not an envelope is invalid_payload', async () => {
     ['non-string id', '{"object":"event","id":1,"type":"run.started","schema_version":1,"created_at":"t","data":{}}'],
     ['missing type', '{"object":"event","id":"a","schema_version":1,"created_at":"t","data":{}}'],
     ['non-number schema_version', '{"object":"event","id":"a","type":"run.started","schema_version":"1","created_at":"t","data":{}}'],
+    ['missing schema_version', '{"object":"event","id":"a","type":"run.started","created_at":"t","data":{}}'],
+    ['fractional schema_version', '{"object":"event","id":"a","type":"run.started","schema_version":1.5,"created_at":"t","data":{}}'],
     ['missing created_at', '{"object":"event","id":"a","type":"run.started","schema_version":1,"data":{}}'],
     ['data is an array', '{"object":"event","id":"a","type":"run.started","schema_version":1,"created_at":"t","data":[]}'],
   ]
@@ -560,6 +562,31 @@ test('a verified body that is not an envelope is invalid_payload', async () => {
     await expect(
       unwrapWebhook({ headers, rawBody: body, secret: SECRET, now: NOW }),
       label,
+    ).rejects.toMatchObject({ code: 'invalid_payload' })
+  }
+})
+
+test('schema_version must be a number with an integer VALUE, matching the Python SDK', async () => {
+  const envelope = (version: string) =>
+    `{"object":"event","id":"${EVENT_ID}","type":"run.finished","schema_version":${version},"created_at":"2026-09-22T00:00:00Z","data":{"org_id":"org_1","owner_uid":"user_1","session_id":"api:sess_1","run_id":"run_1"}}`
+
+  // `1.0` is the documentary half of this pair: JSON has ONE numeric type, so `1.0` parses to the
+  // same number as `1` and JS cannot tell them apart. It is asserted anyway because Python CAN —
+  // there `1.0` parses to a float — and the Python SDK accepts an integral float and normalizes
+  // it. Written down so a later side-by-side review sees the two agree by intent.
+  for (const version of ['1', '1.0']) {
+    const body = envelope(version)
+    const event = await unwrapWebhook({ headers: await sealed(body), rawBody: body, secret: SECRET, now: NOW })
+    expect(event.schema_version, version).toBe(1)
+    expect(Number.isInteger(event.schema_version), version).toBe(true)
+  }
+
+  // `1.5` is no release's version. It was accepted by a bare `typeof === 'number'` check.
+  for (const version of ['1.5', '0.1', '-1.5', '1e400']) {
+    const body = envelope(version)
+    await expect(
+      unwrapWebhook({ headers: await sealed(body), rawBody: body, secret: SECRET, now: NOW }),
+      version,
     ).rejects.toMatchObject({ code: 'invalid_payload' })
   }
 })
