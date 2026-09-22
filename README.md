@@ -285,6 +285,72 @@ activation on its own — moving it is one explicit call, `upgradeSystemPrompt`,
 the agent's current `config_version` as a CAS (`409 config_version_changed` on a stale one)
 and answers the new pin plus the version bump it cost.
 
+## Receiving webhooks
+
+Verification needs the **raw request bytes**. `express.json()` and most framework body parsers
+consume them, and a `JSON.parse` → `JSON.stringify` round trip does not reproduce them byte for
+byte, so read the body before anything else touches it:
+
+```ts
+import { createServer } from 'node:http'
+import { knownWebhookEvent, unwrapWebhook, ZooworkWebhookError } from '@zoowork-ai/sdk'
+
+createServer(async (req, res) => {
+  const chunks: Buffer[] = []
+  for await (const chunk of req) chunks.push(chunk as Buffer)
+  const rawBody = Buffer.concat(chunks)
+
+  let event
+  try {
+    // Defaults to ZOOWORK_WEBHOOK_SECRET; pass `secret: [newest, previous]` during a rotation.
+    event = await unwrapWebhook({ headers: req.headers, rawBody })
+  } catch (error) {
+    if (error instanceof ZooworkWebhookError) {
+      console.warn('rejected webhook', error.code) // never carries the secret, signature or body
+      res.writeHead(400).end()
+      return
+    }
+    throw error
+  }
+
+  // Acknowledge first, then do the work: the sender retries a slow or failed response, and
+  // `event.id` is stable across retries, so it is also your deduplication key.
+  res.writeHead(204).end()
+
+  const known = knownWebhookEvent(event)
+  if (!known) return // a type this release does not know: already acknowledged, ignore it
+  switch (known.type) {
+    case 'run.finished':
+      console.log(known.data.run_id, known.data.status)
+      break
+    case 'approval.requested':
+      console.log(known.data.approval_id, known.data.tool_name)
+      break
+  }
+}).listen(3000)
+```
+
+`verifyWebhookSignature` is the same check without the parse, for a handler that wants the bytes.
+Both are `async`: the HMAC is WebCrypto (`crypto.subtle`), which is how this SDK verifies
+signatures with no runtime dependency and still runs in Workers, Deno and the browser.
+
+Three things worth knowing:
+
+- **The clock window is checked against the `webhook-timestamp` header, not the envelope's
+  `created_at`.** A retry of an old event carries a fresh timestamp and verifies; `created_at`
+  still says when the fact happened. The default tolerance is ±300s.
+- **A body over 16 KiB is refused before it is hashed** — the sender's own envelope ceiling.
+- **Unknown event types are normal.** New types ship within a schema version, and a receiver that
+  fails one only makes the sender retry it and then dead-letter it. Acknowledge and ignore.
+
+You do not have to use this SDK to verify. Engine emits plain
+[Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks), so the official
+library for any language works with the same `whsec_` secret and the same raw body — npm
+[`standardwebhooks`](https://www.npmjs.com/package/standardwebhooks), PyPI
+[`standardwebhooks`](https://pypi.org/project/standardwebhooks/), or another of the ports. The
+fixed vectors in [`src/__vectors__/webhook-vectors.json`](src/__vectors__/webhook-vectors.json)
+are copied verbatim from Engine and are byte-compatible with all of them.
+
 ## Two helpers
 
 ```ts
