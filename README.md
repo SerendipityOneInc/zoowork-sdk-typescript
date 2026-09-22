@@ -302,7 +302,7 @@ createServer(async (req, res) => {
 
   let event
   try {
-    // Defaults to ZOOWORK_WEBHOOK_SECRET; pass `secret: [newest, previous]` during a rotation.
+    // Defaults to ZOOWORK_WEBHOOK_SECRET, or pass `secret: [newest, previous]` explicitly.
     event = await unwrapWebhook({ headers: req.headers, rawBody })
   } catch (error) {
     if (error instanceof ZooworkWebhookError) {
@@ -334,7 +334,22 @@ createServer(async (req, res) => {
 Both are `async`: the HMAC is WebCrypto (`crypto.subtle`), which is how this SDK verifies
 signatures with no runtime dependency and still runs in Workers, Deno and the browser.
 
-Three things worth knowing:
+### Rotating the secret without a deploy
+
+`ZOOWORK_WEBHOOK_SECRET` accepts **several secrets**, separated by whitespace or commas. During a
+rotation window the sender signs under every active key, so a receiver that lists both accepts
+whichever one signed a given delivery:
+
+```sh
+ZOOWORK_WEBHOOK_SECRET="whsec_<new> whsec_<previous>"   # commas work too
+```
+
+Splitting is unambiguous because a secret is `whsec_` plus standard base64 of 32 bytes — no comma,
+no whitespace. The Python SDK reads the variable the same way, so one deployment's configuration
+serves both. A `secret` you pass explicitly is never split: a string is one secret, and several go
+in an array.
+
+Four more things worth knowing:
 
 - **The clock window is checked against the `webhook-timestamp` header, not the envelope's
   `created_at`.** A retry of an old event carries a fresh timestamp and verifies; `created_at`
@@ -342,6 +357,15 @@ Three things worth knowing:
 - **A body over 16 KiB is refused before it is hashed** — the sender's own envelope ceiling.
 - **Unknown event types are normal.** New types ship within a schema version, and a receiver that
   fails one only makes the sender retry it and then dead-letter it. Acknowledge and ignore.
+- **A repeated `webhook-id`, `webhook-timestamp` or `webhook-signature` header is rejected**, not
+  resolved to one of its values: choosing would be a guess about which send arrived. The Python
+  SDK rejects it too.
+
+`ZooworkWebhookError.code` is the contract to match on — `invalid_secret`, `body_too_large`,
+`missing_header`, `invalid_header`, `timestamp_out_of_window`, `signature_mismatch`,
+`invalid_payload` — and those strings are identical in the Python SDK. The class shape is not: here
+it extends `Error`, while the Python SDK makes it a subclass of its own `ZooworkError` carrying a
+400. Match on `code`, and do not port `instanceof` checks between the two.
 
 You do not have to use this SDK to verify. Engine emits plain
 [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks), so the official

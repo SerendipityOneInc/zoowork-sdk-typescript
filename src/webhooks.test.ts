@@ -407,26 +407,91 @@ test('a secret of the wrong shape is invalid_secret, and is caught before the bo
   ).rejects.toMatchObject({ code: 'invalid_secret' })
 })
 
-test('no secret and no environment variable is a named error, not a silent pass', async () => {
+/** Run `body` with `ZOOWORK_WEBHOOK_SECRET` set to `value`, or unset when it is undefined. */
+async function withSecretEnv(value: string | undefined, body: () => Promise<void>): Promise<void> {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-  expect(env, 'this test needs a runtime with process.env').toBeDefined()
-  const saved = env?.[WEBHOOK_SECRET_ENV]
-  const headers = await sealed()
+  expect(env, 'these tests need a runtime with process.env').toBeDefined()
+  if (!env) return
+  const saved = env[WEBHOOK_SECRET_ENV]
   try {
-    delete env?.[WEBHOOK_SECRET_ENV]
-    const failure = await verifyWebhookSignature({ headers, rawBody: ENVELOPE, now: NOW }).catch((e: unknown) => e)
-    expect(failure).toBeInstanceOf(ZooworkWebhookError)
-    expect((failure as ZooworkWebhookError).code).toBe('invalid_secret')
-    expect((failure as ZooworkWebhookError).message).toContain(WEBHOOK_SECRET_ENV)
-
-    if (env) env[WEBHOOK_SECRET_ENV] = SECRET
-    expect(await verifyWebhookSignature({ headers, rawBody: ENVELOPE, now: NOW })).toMatchObject({ eventId: EVENT_ID })
+    if (value === undefined) delete env[WEBHOOK_SECRET_ENV]
+    else env[WEBHOOK_SECRET_ENV] = value
+    await body()
   } finally {
-    if (env) {
-      if (saved === undefined) delete env[WEBHOOK_SECRET_ENV]
-      else env[WEBHOOK_SECRET_ENV] = saved
-    }
+    if (saved === undefined) delete env[WEBHOOK_SECRET_ENV]
+    else env[WEBHOOK_SECRET_ENV] = saved
   }
+}
+
+async function secretFailure(headers: Record<string, string>): Promise<ZooworkWebhookError> {
+  const failure = await verifyWebhookSignature({ headers, rawBody: ENVELOPE, now: NOW }).then(
+    () => undefined,
+    (error: unknown) => error,
+  )
+  expect(failure).toBeInstanceOf(ZooworkWebhookError)
+  return failure as ZooworkWebhookError
+}
+
+test('a single secret in the environment is used when none is passed', async () => {
+  const headers = await sealed()
+  await withSecretEnv(SECRET, async () => {
+    expect(await verifyWebhookSignature({ headers, rawBody: ENVELOPE, now: NOW })).toEqual({
+      eventId: EVENT_ID,
+      timestamp: SENT_AT,
+    })
+  })
+})
+
+test('the environment variable holds SEVERAL secrets, so a rotation needs no code change', async () => {
+  // A secret is `whsec_` + base64 of 32 bytes, an alphabet with no comma and no whitespace, so
+  // either separator parses unambiguously. Read the same way by the Python SDK.
+  for (const separator of [' ', ',', ', ', '\n', '  ,\t']) {
+    const value = `${OTHER_SECRET}${separator}${SECRET}`
+    await withSecretEnv(value, async () => {
+      // A delivery signed under EITHER active key verifies against the one variable.
+      for (const signer of [SECRET, OTHER_SECRET]) {
+        const headers = await sealed(ENVELOPE, signer)
+        expect(
+          await verifyWebhookSignature({ headers, rawBody: ENVELOPE, now: NOW }),
+          `${JSON.stringify(separator)} / ${signer.slice(0, 12)}`,
+        ).toEqual({ eventId: EVENT_ID, timestamp: SENT_AT })
+      }
+      // And a key that is in neither still fails.
+      const foreign = `whsec_${btoa('z'.repeat(32))}`
+      const headers = await sealed(ENVELOPE, foreign)
+      await expect(verifyWebhookSignature({ headers, rawBody: ENVELOPE, now: NOW })).rejects.toMatchObject({
+        code: 'signature_mismatch',
+      })
+    })
+  }
+})
+
+test('no secret, an empty variable, or only separators is a named error, not a silent pass', async () => {
+  const headers = await sealed()
+  for (const value of [undefined, '', ' ', ',', ' , \t\n ']) {
+    await withSecretEnv(value, async () => {
+      const failure = await secretFailure(headers)
+      expect(failure.code, JSON.stringify(value)).toBe('invalid_secret')
+      // The message has to say WHICH variable to set, or the deployer is guessing.
+      expect(failure.message, JSON.stringify(value)).toContain(WEBHOOK_SECRET_ENV)
+    })
+  }
+})
+
+test('an explicitly passed secret is never split, so a malformed one is not silently ignored', async () => {
+  const headers = await sealed()
+  // A string argument is ONE secret. Were it split, this would verify against SECRET; it must not.
+  await withSecretEnv(undefined, async () => {
+    await expect(
+      verifyWebhookSignature({ headers, rawBody: ENVELOPE, secret: `${OTHER_SECRET} ${SECRET}`, now: NOW }),
+    ).rejects.toMatchObject({ code: 'invalid_secret' })
+  })
+  // An explicit secret also wins over whatever the environment holds.
+  await withSecretEnv(SECRET, async () => {
+    await expect(
+      verifyWebhookSignature({ headers, rawBody: ENVELOPE, secret: OTHER_SECRET, now: NOW }),
+    ).rejects.toMatchObject({ code: 'signature_mismatch' })
+  })
 })
 
 test('no error message leaks the secret, the signature or the body', async () => {

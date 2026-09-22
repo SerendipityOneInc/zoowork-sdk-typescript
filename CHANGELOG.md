@@ -14,6 +14,10 @@ day the behaviour was verified, not the day it was written.
   `Headers`, a record in any casing, or Node's `IncomingHttpHeaders`. Failures throw
   `ZooworkWebhookError` with a machine-readable `code` and a message that carries no secret,
   signature or body.
+- **Rotation without a deploy.** `ZOOWORK_WEBHOOK_SECRET` accepts several secrets separated by
+  whitespace or commas, and a delivery signed under any of them verifies — the sender double-signs
+  for the length of the window. The Python SDK reads the variable identically, so one deployment's
+  configuration serves both. A `secret` passed explicitly is never split.
 - **The webhook event vocabulary.** `WEBHOOK_EVENT_TYPES` lists the sixteen types Engine
   delivers today, with a `data` shape per type behind `WebhookEventFor<T>` and
   `knownWebhookEvent()`. `WEBHOOK_SCHEDULE_CONFIG_EVENT_TYPES` declares the five schedule

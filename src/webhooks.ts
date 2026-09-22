@@ -365,7 +365,12 @@ const WEBHOOK_SIGNATURE_VERSION = 'v1'
 export const WEBHOOK_TOLERANCE_SECONDS = 300
 /** The sender's envelope ceiling. A receiver refuses a larger body without hashing it. */
 export const WEBHOOK_DEFAULT_MAX_BODY_BYTES = 16 * 1024
-/** Environment variable read when `secret` is omitted. */
+/**
+ * Environment variable read when `secret` is omitted.
+ *
+ * Holds one secret, or several separated by whitespace or commas for a rotation window. The
+ * Python SDK reads it identically, so one deployment's configuration serves both.
+ */
 export const WEBHOOK_SECRET_ENV = 'ZOOWORK_WEBHOOK_SECRET'
 
 export const WEBHOOK_ID_HEADER = 'webhook-id'
@@ -395,6 +400,11 @@ export type WebhookErrorCode =
  * Separate from `ZooworkError`, which carries the HTTP `status` of an API call the SDK made.
  * Nothing here is an HTTP response; a receiver decides its own status, and the right one is
  * usually 400 for a bad signature and 2xx for anything it means to ignore.
+ *
+ * Cross-language note: the `code` strings are the contract and are identical in the Python SDK.
+ * The class shape is not — there this is a subclass of that SDK's `ZooworkError`, carrying a 400
+ * and `retryable=False`, which suits an exception hierarchy built around one base error. Match on
+ * `code`, and do not port `instanceof` checks between the two.
  */
 export class ZooworkWebhookError extends Error {
   code: WebhookErrorCode
@@ -424,8 +434,12 @@ export interface VerifyWebhookInput {
   rawBody: Uint8Array | string
   /**
    * The endpoint's `whsec_` secret, or every active secret during a rotation window (order does
-   * not matter). Defaults to `ZOOWORK_WEBHOOK_SECRET`, which exists only where `process.env`
-   * does — in a browser, Workers or Deno, pass it explicitly.
+   * not matter). A string here is always ONE secret; it is never split.
+   *
+   * Omitted, it defaults to {@link WEBHOOK_SECRET_ENV} — which MAY list several secrets separated
+   * by whitespace or commas, so a rotation needs a configuration change rather than a code
+   * change. That variable exists only where `process.env` does, so in a browser, Workers or Deno
+   * pass the secret explicitly.
    */
   secret?: string | readonly string[]
   /** Receiver clock in MILLISECONDS, for tests and for replaying a captured delivery. */
@@ -502,16 +516,31 @@ function decodeSecret(secret: string): Uint8Array {
   return key
 }
 
-/** Every secret to try, from the argument or from the environment. */
+/**
+ * Every secret to try, from the argument or from the environment.
+ *
+ * The ENVIRONMENT variable may hold several secrets separated by whitespace or commas, so a
+ * receiver can sit through a rotation window by changing its configuration rather than its code.
+ * Splitting is unambiguous because a secret is `whsec_` plus standard base64 of 32 bytes, an
+ * alphabet that contains neither a comma nor whitespace. The Python SDK reads the variable the
+ * same way, so one deployment's env works for both.
+ *
+ * An explicitly passed `secret` is taken exactly as given and is never split — a string is one
+ * secret, and several go in an array.
+ */
 function resolveSecrets(secret: string | readonly string[] | undefined): Uint8Array[] {
-  const configured = secret ?? readEnv(WEBHOOK_SECRET_ENV)
-  if (configured === undefined) {
-    throw new ZooworkWebhookError(
-      'invalid_secret',
-      `no webhook secret: pass secret, or set ${WEBHOOK_SECRET_ENV} (which needs a runtime with process.env)`,
-    )
+  if (secret === undefined) {
+    const configured = readEnv(WEBHOOK_SECRET_ENV)
+    const fromEnv = configured === undefined ? [] : configured.split(/[\s,]+/).filter((entry) => entry.length > 0)
+    if (fromEnv.length === 0) {
+      throw new ZooworkWebhookError(
+        'invalid_secret',
+        `no webhook secret: pass secret, or set ${WEBHOOK_SECRET_ENV} to one secret, or to several separated by whitespace or commas (it needs a runtime with process.env)`,
+      )
+    }
+    return fromEnv.map(decodeSecret)
   }
-  const secrets = typeof configured === 'string' ? [configured] : configured
+  const secrets = typeof secret === 'string' ? [secret] : secret
   if (secrets.length === 0) {
     throw new ZooworkWebhookError('invalid_secret', 'at least one webhook secret is required')
   }
@@ -563,7 +592,8 @@ function requireHeader(headers: WebhookHeaders, name: string): string {
     throw new ZooworkWebhookError('missing_header', `${name} header is missing`)
   }
   // A repeated header arrives as an array. Picking one would be a guess about which send this
-  // is, so a duplicate is refused rather than resolved.
+  // is, so a duplicate is refused rather than resolved. The Python SDK refuses it too, on the
+  // same reasoning — this is deliberate shared behavior, not an implementation accident.
   if (typeof value !== 'string' || value.length === 0) {
     throw new ZooworkWebhookError('invalid_header', `${name} header must be a single non-empty value`)
   }
@@ -665,6 +695,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * `schema_version`, `created_at`, `data` — because Engine adds fields and event types within a
  * schema version, and rejecting one of those would drop a valid delivery. An unrecognized
  * `type` passes straight through; narrow it with {@link knownWebhookEvent}.
+ *
+ * `schema_version` IS required to be a number, although it is the one field a receiver rarely
+ * reads: Engine's projector emits it unconditionally, so an envelope without it is not an
+ * envelope, and admitting one would leave {@link WebhookEvent} lying about its own type. The
+ * Python SDK checks the same six fields.
  *
  * Throws {@link ZooworkWebhookError} with `invalid_payload` when the body is not an envelope,
  * and with the verification codes before that.
