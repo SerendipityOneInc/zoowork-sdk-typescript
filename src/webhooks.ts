@@ -120,6 +120,10 @@ export interface WebhookEventAttribution {
 
 /** One schedule fire folded into a run event's summary. */
 export interface WebhookScheduleRunRef {
+  /**
+   * The public schedule id — the same id you pass to the schedules API routes
+   * (`/schedules/{schedule_id}`). A heartbeat fire uses `heartbeat`.
+   */
   schedule_id: string
   fired_at: string
 }
@@ -217,6 +221,11 @@ export interface WebhookOutcomeEvaluatedData extends WebhookEventAttribution {
    * `verdict: 'needs_revision'`). */
   skipped?: true
   grader_type?: string
+  /**
+   * The public schedule id of the run's triggering fire, when one triggered it — the same id
+   * you pass to the schedules API routes (`/schedules/{schedule_id}`). A heartbeat fire uses
+   * `heartbeat`.
+   */
   schedule_id?: string
 }
 
@@ -237,6 +246,10 @@ export interface WebhookSessionDeletedData extends WebhookEventAttribution {
 
 /** Fields every schedule FIRE event shares. `fired_at` identifies the fire. */
 export interface WebhookScheduleFireData extends WebhookEventAttribution {
+  /**
+   * The public schedule id — the same id you pass to the schedules API routes
+   * (`/schedules/{schedule_id}`). A heartbeat fire uses `heartbeat`.
+   */
   schedule_id: string
   fired_at: string
   job_kind?: string
@@ -268,6 +281,10 @@ export interface WebhookScheduleFinishedData extends WebhookScheduleFireData {
  * not yet delivered.
  */
 export interface WebhookScheduleConfigData extends WebhookEventAttribution {
+  /**
+   * The public schedule id — the same id you pass to the schedules API routes
+   * (`/schedules/{schedule_id}`). A heartbeat fire uses `heartbeat`.
+   */
   schedule_id: string
   /** Monotonic per schedule; the ordering to trust, since deliveries can overtake each other. */
   resource_version?: number
