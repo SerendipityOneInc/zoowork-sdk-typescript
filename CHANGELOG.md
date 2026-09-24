@@ -3,6 +3,32 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+### Added
+
+- **Webhook receiving.** `verifyWebhookSignature` and `unwrapWebhook` check a delivery's Standard
+  Webhooks signature over the raw body and hand back the envelope; `signWebhook` is exported so a
+  receiver can build a delivery for its own tests. The HMAC is WebCrypto, so the zero-runtime-
+  dependency guarantee holds and the functions are `async`. Headers can come from a fetch
+  `Headers`, a record in any casing, or Node's `IncomingHttpHeaders`. Failures throw
+  `ZooworkWebhookError` with a machine-readable `code` and a message that carries no secret,
+  signature or body.
+- **Rotation without a deploy.** `ZOOWORK_WEBHOOK_SECRET` accepts several secrets separated by
+  whitespace or commas, and a delivery signed under any of them verifies — the sender double-signs
+  for the length of the window. The Python SDK reads the variable identically, so one deployment's
+  configuration serves both. A `secret` passed explicitly is never split.
+- **The webhook event vocabulary.** `WEBHOOK_EVENT_TYPES` lists the sixteen types Engine
+  delivers today, with a `data` shape per type behind `WebhookEventFor<T>` and
+  `knownWebhookEvent()`. `WEBHOOK_SCHEDULE_CONFIG_EVENT_TYPES` declares the five schedule
+  configuration events whose server side is not deployed yet. A type the release does not know
+  passes through with its raw `type` and `data` instead of throwing, so a receiver stays
+  forward compatible.
+- Fixed cross-language signing vectors in `src/__vectors__/webhook-vectors.json`, copied verbatim
+  from Engine's `packages/webhook-signing` and asserted three ways (an independent WebCrypto
+  computation, the recorded JSON, and this SDK). They are the compatibility contract with the
+  official `standardwebhooks` libraries; adding a vector is fine, editing one is not.
+
 ## 0.8.0 — 2026-09-20
 
 ### Added

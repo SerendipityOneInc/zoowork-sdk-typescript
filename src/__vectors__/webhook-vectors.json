@@ -1,0 +1,80 @@
+{
+  "$comment": "Standard Webhooks fixed vectors for @zooclaw/webhook-signing. The SDKs copy this file verbatim; changing a vector breaks the cross-language contract (design §5.3, C02). body is a string the test UTF-8 encodes; signed bytes are UTF8(event_id + \".\" + timestamp + \".\") || body.",
+  "signature_version": "v1",
+  "secret_prefix": "whsec_",
+  "secret_bytes": 32,
+  "default_tolerance_seconds": 300,
+  "vectors": [
+    {
+      "name": "single secret, JSON body",
+      "secrets": ["whsec_AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="],
+      "event_id": "whe_01K5QZ6W4X8B3T2V9J7R1M0P6A",
+      "timestamp": 1790035200,
+      "body": "{\"id\":\"whe_01K5QZ6W4X8B3T2V9J7R1M0P6A\",\"type\":\"run.finished\",\"created_at\":\"2026-09-22T00:00:00Z\",\"data\":{\"run_id\":\"run_01K5QZ6W4XAB\",\"session_id\":\"api:sess_01K5QZ\",\"status\":\"succeeded\"}}",
+      "expected": {
+        "webhook-signature": "v1,TrLcpkiXXe3R1/OAqYOMvcvT9KC/PjrTTNFseKT+nDY="
+      }
+    },
+    {
+      "name": "two secrets during a rotation window (newest first, space separated)",
+      "secrets": [
+        "whsec_oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8=",
+        "whsec_AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="
+      ],
+      "event_id": "whe_01K5QZ6W4X8B3T2V9J7R1M0P6A",
+      "timestamp": 1790035200,
+      "body": "{\"id\":\"whe_01K5QZ6W4X8B3T2V9J7R1M0P6A\",\"type\":\"run.finished\",\"created_at\":\"2026-09-22T00:00:00Z\",\"data\":{\"run_id\":\"run_01K5QZ6W4XAB\",\"session_id\":\"api:sess_01K5QZ\",\"status\":\"succeeded\"}}",
+      "expected": {
+        "webhook-signature": "v1,FWRibkXO5LmoXzuJR0jBLxz4S7YDom9JlMtmZ2i5Gt4= v1,TrLcpkiXXe3R1/OAqYOMvcvT9KC/PjrTTNFseKT+nDY="
+      }
+    },
+    {
+      "name": "non-ASCII body with whitespace and a trailing newline (raw UTF-8 bytes are signed)",
+      "secrets": ["whsec_AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="],
+      "event_id": "whe_01K5QZ7E2M4N8P1Q3R5S7T9V0W",
+      "timestamp": 1790035207,
+      "body": "{\"message\": \"你好，世界 🌍 — café\",\n  \"note\": \"  spaces kept  \"}\n",
+      "expected": {
+        "webhook-signature": "v1,CvmGw0Q6/dm0RzJHoHqQhXKsvO4Z1N8XwKjVRf+YIIo="
+      }
+    },
+    {
+      "name": "empty body",
+      "secrets": ["whsec_AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="],
+      "event_id": "whe_01K5QZ8A0B2C4D6E8F0G2H4J6K",
+      "timestamp": 1790035260,
+      "body": "",
+      "expected": {
+        "webhook-signature": "v1,ltdmAlpsYPdkhZvRzgFghZePGeW1DZIHPx4F1E9hdnM="
+      }
+    },
+    {
+      "name": "timestamp tolerance boundary (default 300s, inclusive)",
+      "secrets": ["whsec_AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="],
+      "event_id": "whe_01K5QZ6W4X8B3T2V9J7R1M0P6A",
+      "timestamp": 1790035200,
+      "body": "{\"id\":\"whe_01K5QZ6W4X8B3T2V9J7R1M0P6A\",\"type\":\"run.finished\",\"created_at\":\"2026-09-22T00:00:00Z\",\"data\":{\"run_id\":\"run_01K5QZ6W4XAB\",\"session_id\":\"api:sess_01K5QZ\",\"status\":\"succeeded\"}}",
+      "verify": [
+        {
+          "now": 1790035500,
+          "result": "ok"
+        },
+        {
+          "now": 1790035501,
+          "result": "timestamp_out_of_window"
+        },
+        {
+          "now": 1790034900,
+          "result": "ok"
+        },
+        {
+          "now": 1790034899,
+          "result": "timestamp_out_of_window"
+        }
+      ],
+      "expected": {
+        "webhook-signature": "v1,TrLcpkiXXe3R1/OAqYOMvcvT9KC/PjrTTNFseKT+nDY="
+      }
+    }
+  ]
+}
