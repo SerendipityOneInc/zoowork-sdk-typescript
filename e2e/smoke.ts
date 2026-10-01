@@ -59,8 +59,8 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
   try {
     stage('models')
     const models = await client.listModels()
-    const model = options.model ?? models[0]?.model
-    check(model && models.some(m => m.model === model), 'requested_model_unavailable')
+    const model = options.model ?? models.find(m => m.selectable !== false)?.model
+    check(model && models.some(m => m.model === model && m.selectable !== false), 'requested_model_unavailable')
     record.checks.push('model_catalog')
     stage('create_agent')
     creationStarted = true

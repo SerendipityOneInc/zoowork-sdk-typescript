@@ -16,13 +16,18 @@ export function safeFailure(error: unknown): { kind: string; http_status?: numbe
   if ((error as Error | null)?.name === 'AbortError' || (error as Error | null)?.name === 'TimeoutError') return { kind: 'timeout_or_cancelled' }
   return { kind: 'request_or_runner_failure' }
 }
-export function baseURL(value: string, production: string): string {
+export function validApiKey(value: string): boolean {
+  return /^zct_[A-Za-z0-9_-]+$/.test(value) || /^zwp_live_[A-Za-z0-9_-]{43}$/.test(value)
+}
+export function baseURL(value: string, production: string, confirmedProduction = false): string {
   let url: URL
   try { url = new URL(value) } catch { throw new CheckError('explicit_staging_url_required') }
   check(url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash,
     'staging_url_must_be_plain_https')
   check(url.pathname.replace(/\/$/, '') === '/service/v1', 'staging_public_api_prefix_required')
-  check(url.origin !== new URL(production).origin, 'production_endpoint_refused')
+  const isProduction = url.origin === new URL(production).origin
+  check(!isProduction || confirmedProduction, 'production_endpoint_refused')
+  check(!confirmedProduction || isProduction, 'confirm_production_requires_production_endpoint')
   return url.origin + '/service/v1'
 }
 export function guardedFetch(base: string, signal: () => AbortSignal, transport: typeof fetch = fetch,

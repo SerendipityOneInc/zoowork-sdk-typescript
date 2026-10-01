@@ -39,29 +39,35 @@ export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerato
     return msg
   }
 
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buf += dec.decode(value, { stream: true })
-    let i: number
-    while ((i = buf.indexOf('\n')) >= 0) {
-      const raw = buf.slice(0, i)
-      buf = buf.slice(i + 1)
-      const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
-      if (line === '') {
-        const m = flush()
-        if (m) yield m
-        continue
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += dec.decode(value, { stream: true })
+      let i: number
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const raw = buf.slice(0, i)
+        buf = buf.slice(i + 1)
+        const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
+        if (line === '') {
+          const m = flush()
+          if (m) yield m
+          continue
+        }
+        if (line.startsWith(':')) continue
+        const c = line.indexOf(':')
+        const field = c === -1 ? line : line.slice(0, c)
+        const val = c === -1 ? '' : line.slice(c + 1).replace(/^ /, '')
+        if (field === 'event') event = val
+        else if (field === 'data') dataLines.push(val)
+        else if (field === 'id') id = val
       }
-      if (line.startsWith(':')) continue
-      const c = line.indexOf(':')
-      const field = c === -1 ? line : line.slice(0, c)
-      const val = c === -1 ? '' : line.slice(c + 1).replace(/^ /, '')
-      if (field === 'event') event = val
-      else if (field === 'data') dataLines.push(val)
-      else if (field === 'id') id = val
     }
+    const m = flush()
+    if (m) yield m
+  } finally {
+    // A session stream outlives each turn. Closing the generator must close its HTTP body.
+    try { await reader.cancel() } catch { /* Preserve the original parse/transport failure. */ }
+    reader.releaseLock()
   }
-  const m = flush()
-  if (m) yield m
 }

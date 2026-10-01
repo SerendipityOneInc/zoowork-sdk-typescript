@@ -149,3 +149,30 @@ Recover only IDs recorded for this run. For ambiguous Agent creation, match the 
 Agent and match `metadata.run_id`. Do not delete by a loose name prefix or enumerate/delete
 the organization. If ownership or cleanup authority is uncertain, ask the maintainer.
 Finish recovery before starting another live run. Never edit failure records into success.
+
+## Platform keys and explicit production checks
+
+The runner accepts Work `zct_...` tokens and Platform `zwp_live_...` Project keys.
+Staging remains the default and `ZOOWORK_BASE_URL` is deliberately ignored.
+A production check requires both the explicit SDK production URL and its own confirmation:
+
+```sh
+pnpm test:e2e --base-url https://clawapi.ecap.gsmo.ai/service/v1 \
+  --confirm-production --model litellm/gpt-5.6-luna
+```
+
+Enter the key at the hidden prompt, or inject it with `ZOOWORK_API_KEY`/`--api-key-stdin`.
+Never pass it as an argument. `--confirm-staging` and `--confirm-production` are mutually
+exclusive, and confirmation must match the endpoint. Production consent must come from
+the maintainer; possession of a key alone does not authorize a live test.
+The advanced `e2e:run` helper accepts the same `--confirm-production` opt-in.
+
+Each attempt still creates at most one Agent and one Session, performs one model turn,
+and retains an independent cleanup reserve. Model selection skips `selectable: false`
+rows and rejects an explicitly selected retiring model. The runner never retries a paid
+attempt automatically and never publishes.
+
+Reports distinguish `environment`, `staging_smoke_passed` and `production_smoke_passed`.
+A production pass establishes only this bounded smoke; it does not establish cross-Project
+isolation, billing reconciliation, every API method, or replace any required staging release
+validation. Test those contracts separately with isolated resources and explicit authorization.

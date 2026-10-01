@@ -6,8 +6,10 @@ import { PassThrough } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { hiddenInput, STAGING_BASE_URL, testE2E } from './command.ts'
 import { CheckError } from './guard.ts'
+import { DEFAULT_BASE_URL } from '../src/client.ts'
 
 const syntheticKey = 'zct_SYNTHETIC_NOT_A_CREDENTIAL'
+const platformKey = 'zwp_live_' + 'X'.repeat(43)
 function fixture() {
   const calls: string[] = []
   const output: string[] = []
@@ -72,6 +74,39 @@ test('invalid key, unsafe URL and oversized stdin fail without preparation or li
   f.io.stdin = (async function* () { yield 'x'.repeat(4096) })()
   await assert.rejects(testE2E({ confirmed: true, keyStdin: true }, f.io), /credential_input_too_large/)
   assert.deepEqual(f.calls, [])
+})
+test('Platform key works through environment, hidden prompt and stdin without leaking it', async () => {
+  for (const source of ['environment', 'prompt', 'stdin']) {
+    const f = fixture()
+    f.io.prompt = async () => platformKey
+    f.io.stdin = (async function* () { yield platformKey })()
+    if (source === 'environment') f.io.env.ZOOWORK_API_KEY = platformKey
+    f.io.run = async (_directory, input) => { assert.equal(input.apiKey, platformKey); return 0 }
+    assert.equal(await testE2E({ confirmed: true, keyStdin: source === 'stdin' }, f.io), 0)
+    assert.equal(f.output.join('\n').includes(platformKey), false)
+  }
+})
+test('production requires a matching explicit endpoint and its own confirmation before preparation', async () => {
+  for (const options of [
+    { baseUrl: DEFAULT_BASE_URL, confirmed: true },
+    { baseUrl: DEFAULT_BASE_URL },
+    { confirmedProduction: true },
+    { baseUrl: STAGING_BASE_URL, confirmedProduction: true },
+    { baseUrl: DEFAULT_BASE_URL, confirmed: true, confirmedProduction: true },
+  ]) {
+    const f = fixture(); f.io.env.ZOOWORK_API_KEY = platformKey
+    await assert.rejects(testE2E(options, f.io))
+    assert.deepEqual(f.calls, [])
+  }
+  const f = fixture(); f.io.terminal = false; f.io.env.ZOOWORK_API_KEY = platformKey
+  f.io.run = async (_directory, input) => {
+    assert.equal(input.baseUrl, DEFAULT_BASE_URL)
+    assert.equal((input as { confirmedProduction?: boolean }).confirmedProduction, true)
+    return 0
+  }
+  assert.equal(await testE2E({ baseUrl: DEFAULT_BASE_URL, confirmedProduction: true }, f.io), 0)
+  assert.match(f.output.join('\n'), /Production:/)
+  assert.deepEqual(f.calls, ['prepare'])
 })
 test('preparation failure or prompt cancellation never starts a live attempt', async () => {
   const f = fixture()

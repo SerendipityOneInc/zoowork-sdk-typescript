@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import * as sdk from '../src/index.js'
-import { baseURL, guardedFetch, safeFailure } from './guard.ts'
+import { baseURL, guardedFetch, safeFailure, validApiKey } from './guard.ts'
 import { smoke } from './smoke.ts'
 import type { SmokeRecord } from './smoke.ts'
 import { LiveProgress, MAIN_STEPS } from './progress.ts'
@@ -144,6 +144,25 @@ test('endpoint is explicit HTTPS public prefix; production and credential-bearin
     'https://user:password@staging.example.invalid/service/v1', 'https://staging.example.invalid/v1']) {
     assert.throws(() => baseURL(url, sdk.DEFAULT_BASE_URL))
   }
+})
+test('production opt-in does not relax URL or credential validation', () => {
+  assert.equal(baseURL(sdk.DEFAULT_BASE_URL, sdk.DEFAULT_BASE_URL, true), sdk.DEFAULT_BASE_URL)
+  assert.throws(() => baseURL(base, sdk.DEFAULT_BASE_URL, true), /confirm_production_requires_production_endpoint/)
+  assert.throws(() => baseURL(sdk.DEFAULT_BASE_URL + '?secret=synthetic', sdk.DEFAULT_BASE_URL, true))
+  assert.equal(validApiKey('zwp_live_' + 'X'.repeat(43)), true)
+  assert.equal(validApiKey('zct_SYNTHETIC'), true)
+  for (const key of ['zwp_live_short', 'zwp_live_' + 'X'.repeat(44), 'other_' + 'X'.repeat(43), 'zct_']) assert.equal(validApiKey(key), false)
+})
+test('retiring models are skipped by default and rejected when explicitly selected', async () => {
+  const models = [{ model: 'retiring', selectable: false }, { model: 'synthetic-model', selectable: true }]
+  const f = setup({ listModels: async () => models })
+  const create = f.client.createAgent
+  f.client.createAgent = async (input, key) => { assert.equal(input.resource.model?.primary, 'synthetic-model'); return create(input, key) }
+  assert.equal((await smoke(sdk, f.client, f.options)).passed, true)
+  const g = setup({ listModels: async () => models })
+  const result = await smoke(sdk, g.client, { ...g.options, model: 'retiring' })
+  assert.equal(result.failure?.kind, 'requested_model_unavailable')
+  assert.equal(g.calls.includes('create'), false)
 })
 test('guarded fetch pins origin/prefix and refuses redirects even if caller asks to follow', async () => {
   let called = 0

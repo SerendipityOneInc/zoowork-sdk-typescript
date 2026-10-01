@@ -1,16 +1,16 @@
 // Executed ONLY from an isolated consumer with the packed SDK installed.
 import * as sdk from '@zoowork-ai/sdk'
-import { baseURL, check, guardedFetch, safeFailure, writeJSON } from './guard.ts'
+import { baseURL, check, guardedFetch, safeFailure, validApiKey, writeJSON } from './guard.ts'
 import { smoke } from './smoke.ts'
 import { join } from 'node:path'
 
 let buffer = ''
 try {
   for await (const chunk of process.stdin) { buffer += chunk; check(buffer.length < 16_384, 'input_too_large') }
-  const input = JSON.parse(buffer) as { apiKey: string; baseUrl: string; model?: string; runId: string; directory: string }
+  const input = JSON.parse(buffer) as { apiKey: string; baseUrl: string; model?: string; runId: string; directory: string; confirmedProduction?: boolean }
   buffer = ''
-  check(typeof input.apiKey === 'string' && /^zct_[A-Za-z0-9_-]+$/.test(input.apiKey), 'invalid_key_format')
-  const base = baseURL(input.baseUrl, sdk.DEFAULT_BASE_URL)
+  check(typeof input.apiKey === 'string' && validApiKey(input.apiKey), 'invalid_key_format')
+  const base = baseURL(input.baseUrl, sdk.DEFAULT_BASE_URL, input.confirmedProduction)
   const abort = new AbortController()
   const cancel = () => abort.abort()
   process.on('SIGINT', cancel); process.on('SIGTERM', cancel)

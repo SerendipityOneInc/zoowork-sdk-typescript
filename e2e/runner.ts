@@ -5,7 +5,7 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
-import { baseURL, check, explicitOutput, hash, hashTree, privateDir, readJSON, safeFailure, writeJSON } from './guard.ts'
+import { baseURL, check, explicitOutput, hash, hashTree, privateDir, readJSON, safeFailure, validApiKey, writeJSON } from './guard.ts'
 import type { SmokeRecord } from './smoke.ts'
 import { elapsed, LiveProgress } from './progress.ts'
 
@@ -74,9 +74,10 @@ export function verifyPassed(directory: string): Manifest {
   const manifest = verifyCandidate(directory)
   check(existsSync(join(directory, 'result.json')), 'successful_staging_check_required')
   const result = readJSON<{ schema_version: number; run_id: string; tarball_sha256: string;
-    staging_smoke_passed: boolean; cleanup_complete: boolean }>(join(directory, 'result.json'))
+    staging_smoke_passed: boolean; production_smoke_passed?: boolean; environment?: string; cleanup_complete: boolean }>(join(directory, 'result.json'))
+  check([undefined, 'staging', 'production'].includes(result.environment), 'invalid_result_environment')
   check(result.schema_version === 1 && result.run_id === manifest.run_id && result.tarball_sha256 === manifest.tarball_sha256
-    && result.staging_smoke_passed === true && result.cleanup_complete === true, 'successful_staging_check_required')
+    && (result.environment === 'production' ? result.production_smoke_passed === true && result.staging_smoke_passed === false : result.staging_smoke_passed === true && result.production_smoke_passed !== true) && result.cleanup_complete === true, 'successful_staging_check_required')
   return manifest
 }
 export function prepare(directoryPath: string): string {
@@ -122,13 +123,13 @@ export function prepare(directoryPath: string): string {
   console.log(`Offline preparation passed. Candidate: ${pkg.name}@${pkg.version}`)
   return directory
 }
-export async function run(directoryPath: string, input: { baseUrl: string; apiKey: string; model?: string; confirmed: boolean }): Promise<number> {
+export async function run(directoryPath: string, input: { baseUrl: string; apiKey: string; model?: string; confirmed: boolean; confirmedProduction?: boolean }): Promise<number> {
   check(input.confirmed, 'explicit_staging_mutation_confirmation_required')
   const directory = realpathSync(directoryPath)
   const manifest = verifyCandidate(directory)
   const installed = await import(pathToFileURL(join(directory, 'consumer/node_modules/@zoowork-ai/sdk/dist/index.js')).href) as { DEFAULT_BASE_URL: string }
-  const base = baseURL(input.baseUrl, installed.DEFAULT_BASE_URL)
-  check(/^zct_[A-Za-z0-9_-]+$/.test(input.apiKey), 'invalid_key_format')
+  const base = baseURL(input.baseUrl, installed.DEFAULT_BASE_URL, input.confirmedProduction)
+  check(validApiKey(input.apiKey), 'invalid_key_format')
   check(!existsSync(join(directory, 'live-started.json')), 'live_attempt_already_started_no_automatic_retry')
   // Detect accidental inclusion of this credential in the unpacked candidate without logging it.
   const packageRoot = join(directory, 'consumer/node_modules/@zoowork-ai/sdk')
@@ -143,7 +144,8 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
   writeFileSync(join(directory, 'live-started.json'), JSON.stringify({ run_id: manifest.run_id, base_url: base, tarball_sha256: manifest.tarball_sha256,
     started_at: new Date().toISOString(), limits: { agents: 1, sessions: 1, turns: 1, run_seconds: 180, cleanup_seconds: 60,
       main_requests: 80, cleanup_requests: 12, output_tokens_per_request: 2048 } }), { flag: 'wx', mode: 0o600 })
-  console.log(`\nLive staging smoke — ${manifest.package_name}@${manifest.version}\nOne temporary agent, one session, one model turn, then cleanup.`)
+  const deployment = input.confirmedProduction ? 'production' : 'staging'
+  console.log(`\nLive ${deployment} smoke — ${manifest.package_name}@${manifest.version}\nOne temporary agent, one session, one model turn, then cleanup.`)
   const started = performance.now()
   const progress = new LiveProgress()
   const showProgress = () => {
@@ -155,7 +157,7 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
   process.on('SIGINT', cancel); process.on('SIGTERM', cancel)
   child.stdout.resume(); child.stderr.resume() // No raw child output, stack, body, key or model reply is forwarded.
   child.stdin.on('error', () => {})
-  child.stdin.end(JSON.stringify({ apiKey: input.apiKey, baseUrl: base, model: input.model, runId: manifest.run_id, directory }))
+  child.stdin.end(JSON.stringify({ apiKey: input.apiKey, baseUrl: base, model: input.model, runId: manifest.run_id, directory, confirmedProduction: input.confirmedProduction }))
   input.apiKey = ''
   const watchdog = setTimeout(cancel, 250_000)
   const hardStop = setTimeout(() => child.kill('SIGKILL'), 320_000)
@@ -166,9 +168,9 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
   verifyCandidate(directory)
   const passed = code === 0 && record?.run_id === manifest.run_id && record?.passed === true && record.cleanup.complete === true
   writeJSON(join(directory, 'result.json'), { schema_version: 1, run_id: manifest.run_id, tarball_sha256: manifest.tarball_sha256,
-    staging_smoke_passed: passed, cleanup_complete: record?.cleanup.complete === true,
-    production_compatibility: 'unverified', publication_authorized: false, phase: record?.phase ?? 'runner_failed', failure: record?.failure })
-  progress.finish(record, passed, performance.now() - started)
+    environment: deployment, staging_smoke_passed: deployment === 'staging' && passed, production_smoke_passed: deployment === 'production' && passed, cleanup_complete: record?.cleanup.complete === true,
+    production_compatibility: deployment === 'production' && passed ? 'bounded_smoke_passed' : 'unverified', publication_authorized: false, phase: record?.phase ?? 'runner_failed', failure: record?.failure })
+  progress.finish(record, passed, performance.now() - started, deployment)
   console.log(`Reports: ${join(directory, 'result.json')}\nStep details: ${join(directory, 'live-result.json')}`)
   return passed ? 0 : 1
 }
@@ -176,22 +178,23 @@ export async function run(directoryPath: string, input: { baseUrl: string; apiKe
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     'out-dir': { type: 'string' }, 'base-url': { type: 'string' }, model: { type: 'string' },
-    'confirm-staging': { type: 'boolean' },
+    'confirm-staging': { type: 'boolean' }, 'confirm-production': { type: 'boolean' },
     'api-key-stdin': { type: 'boolean' }, help: { type: 'boolean' },
   } })
-  if (values.help) { console.log('prepare --out-dir NEW_PRIVATE_DIR\nrun --out-dir PREPARED_DIR --base-url HTTPS_SERVICE_V1 --confirm-staging [--api-key-stdin] [--model ID]\nverify --out-dir PREPARED_DIR\nE2E only; never publishes. Publish separately with npm publish. Node 22.20+. Key via stdin or ZOOWORK_API_KEY, never an argument.'); return }
+  if (values.help) { console.log('prepare --out-dir NEW_PRIVATE_DIR\nrun --out-dir PREPARED_DIR --base-url HTTPS_SERVICE_V1 (--confirm-staging | --confirm-production) [--api-key-stdin] [--model ID]\nverify --out-dir PREPARED_DIR\nE2E only; never publishes. Publish separately with npm publish. Node 22.20+. Key via stdin or ZOOWORK_API_KEY, never an argument.'); return }
   check(positionals.length === 1 && values['out-dir'], 'command_and_output_directory_required')
   if (positionals[0] === 'prepare') console.log(`Prepared candidate: ${prepare(values['out-dir'])}`)
-  else if (positionals[0] === 'verify') { const manifest = verifyPassed(realpathSync(values['out-dir'])); console.log(JSON.stringify({ candidate_unchanged: true, staging_smoke_passed: true, tarball_sha256: manifest.tarball_sha256, publication_authorized: false })) }
+  else if (positionals[0] === 'verify') { const manifest = verifyPassed(realpathSync(values['out-dir'])); console.log(JSON.stringify({ candidate_unchanged: true, live_smoke_passed: true, tarball_sha256: manifest.tarball_sha256, publication_authorized: false })) }
   else {
     check(positionals[0] === 'run' && values['base-url'], 'explicit_run_and_base_url_required')
+    check(!(values['confirm-staging'] && values['confirm-production']), 'conflicting_environment_confirmations')
     let apiKey = process.env.ZOOWORK_API_KEY ?? ''
     delete process.env.ZOOWORK_API_KEY
     if (values['api-key-stdin']) {
       apiKey = ''
       for await (const chunk of process.stdin) { apiKey += chunk; check(apiKey.length < 4096, 'credential_input_too_large') }
     }
-    process.exitCode = await run(values['out-dir'], { baseUrl: values['base-url'], apiKey: apiKey.trim(), model: values.model, confirmed: values['confirm-staging'] === true })
+    process.exitCode = await run(values['out-dir'], { baseUrl: values['base-url'], apiKey: apiKey.trim(), model: values.model, confirmed: values['confirm-staging'] === true || values['confirm-production'] === true, confirmedProduction: values['confirm-production'] === true })
     apiKey = ''
   }
 }

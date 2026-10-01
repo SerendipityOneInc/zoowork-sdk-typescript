@@ -52,14 +52,14 @@ export class LiveProgress {
       this.output(`  ${status} ${labels[step.id]}${detail}`)
     }
   }
-  finish(record: unknown, passed: boolean, durationMs: number): void {
+  finish(record: unknown, passed: boolean, durationMs: number, environment: 'staging' | 'production' = 'staging'): void {
     this.observe(record)
     const steps = stepsFrom(record)
     const count = (status: SmokeStep['status']) => steps.filter(step => step.status === status).length
-    this.output(`${passed ? 'PASS' : 'FAIL'} Live staging smoke: ${count('passed')} passed, ${count('failed')} failed, ${count('skipped')} skipped (${elapsed(durationMs)})`)
+    this.output(`${passed ? 'PASS' : 'FAIL'} Live ${environment} smoke: ${count('passed')} passed, ${count('failed')} failed, ${count('skipped')} skipped (${elapsed(durationMs)})`)
     if (!passed && count('failed') === 0) this.output('  Runner or result verification failed; inspect the retained reports.')
     const cleanup = (record as { cleanup?: { complete?: unknown } } | undefined)?.cleanup?.complete === true
     this.output(`Cleanup: ${cleanup ? 'complete' : 'incomplete or unverified'}`)
-    this.output('NOT COVERED: live pagination beyond 100 agents (offline cases cover this); full API coverage; production compatibility.')
+    this.output(`NOT COVERED: live pagination beyond 100 agents (offline cases cover this); full API coverage${environment === 'staging' ? '; production compatibility' : '; cross-project isolation; billing reconciliation'}.`)
   }
 }
