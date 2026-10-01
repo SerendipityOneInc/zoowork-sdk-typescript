@@ -5,6 +5,8 @@ day the behaviour was verified, not the day it was written.
 
 ## Unreleased
 
+## 0.9.0 — 2026-10-01
+
 ### Added
 
 - **Webhook receiving.** `verifyWebhookSignature` and `unwrapWebhook` check a delivery's Standard
@@ -28,6 +30,19 @@ day the behaviour was verified, not the day it was written.
   from Engine's `packages/webhook-signing` and asserted three ways (an independent WebCrypto
   computation, the recorded JSON, and this SDK). They are the compatibility contract with the
   official `standardwebhooks` libraries; adding a vector is fine, editing one is not.
+
+### Fixed
+
+- `streamEvents()` cancels and releases its response reader when a consumer exits early,
+  including a loop that stops at `run.finished`. This prevents an open SSE connection from
+  keeping a Node.js consumer alive after its turn has completed.
+
+### Changed
+
+- Local E2E checks accept Platform `zwp_live_` keys as well as legacy `zct_` keys. Production
+  checks require an explicit URL and confirmation, and record their scope separately from
+  staging checks. The SDK already accepts Platform keys without a client API change.
+- Live smoke tests select only selectable catalog models.
 
 ## 0.8.0 — 2026-09-20
 
