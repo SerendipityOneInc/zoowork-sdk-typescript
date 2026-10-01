@@ -76,7 +76,7 @@ test('E2E helper has no publication command and directs maintainers to npm', () 
   assert.equal(publish.status, 1)
   assert.match(publish.stdout, /explicit_run_and_base_url_required/)
 })
-test('real child runner reports timed steps while raw child output stays suppressed (synthetic SDK, no network)', async () => {
+for (const production of [false, true]) test(`real child runner ${production ? 'production' : 'staging'} reports timed steps while raw child output stays suppressed (synthetic SDK, no network)`, async () => {
   const c = candidate()
   const runnerFiles = ['live.ts', 'smoke.ts', 'guard.ts', 'progress.ts']
   for (const name of runnerFiles) copyFileSync(join(root, 'e2e', name), join(c.consumer, name))
@@ -109,15 +109,19 @@ export function createZooworkClient(options) {
   const log = console.log
   console.log = line => { lines.push(String(line)) }
   try {
-    assert.equal(await run(c.directory, { baseUrl: 'https://staging.example.invalid/service/v1', apiKey: 'zct_SYNTHETIC_INPUT_ONLY', confirmed: true }), 0)
+    assert.equal(await run(c.directory, { baseUrl: production ? 'https://production.invalid/service/v1' : 'https://staging.example.invalid/service/v1', apiKey: 'zwp_live_' + 'X'.repeat(43), confirmed: true, confirmedProduction: production }), 0)
   } finally { console.log = log }
   const output = lines.join('\n')
   assert.match(output, /RUN  Read model catalog/)
   assert.match(output, /PASS Read model catalog \([\d.]+ms\)/)
   assert.match(output, /10 passed, 0 failed, 0 skipped/)
   assert.match(output, /Cleanup: complete/)
-  for (const secret of ['zct_SYNTHETIC_INPUT_ONLY', 'synthetic-private-child-error', 'synthetic-private-reply', 'agt_SYNTHETIC']) assert.equal(output.includes(secret), false)
+  for (const secret of ['zwp_live_' + 'X'.repeat(43), 'synthetic-private-child-error', 'synthetic-private-reply', 'agt_SYNTHETIC']) assert.equal(output.includes(secret), false)
   const record = JSON.parse(readFileSync(join(c.directory, 'live-result.json'), 'utf8'))
+  const result = JSON.parse(readFileSync(join(c.directory, 'result.json'), 'utf8'))
+  assert.equal(result.environment, production ? 'production' : 'staging')
+  assert.equal(result.staging_smoke_passed, !production)
+  assert.equal(result.production_smoke_passed, production)
   assert.equal(record.steps.length, 10)
   assert.ok(record.steps.every((step: { status: string }) => step.status === 'passed'))
   assert.equal(verifyPassed(c.directory).run_id, 'synthetic')

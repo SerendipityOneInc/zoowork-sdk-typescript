@@ -10,7 +10,9 @@ npm install @zoowork-ai/sdk
 
 ## Quickstart
 
-You need an API key (`zct_...`) issued for your organization — create one in the ZooWork App under **Settings → API Keys** (any personal org; enterprise orgs need the admin role), or ask your org admin for one. The secret is shown exactly once at creation. Keep it server-side: it authenticates as your whole organization, not as one end user.
+Platform Project keys (`zwp_live_...`) and existing Work tokens (`zct_...`) both work with `apiKey`. Platform scopes Agent and Session access to the key’s Project and requires initialized Org billing and bound owner credentials. Rebind the key after signing in when the API requests it.
+
+Create a Project key in Platform, or a Work token under **Settings → API Keys** in the ZooWork App. Secrets are shown once at creation. Keep them server-side: Platform keys carry Project scope, while Work tokens use the existing organization authorization contract.
 
 ```ts
 import { createZooworkClient } from '@zoowork-ai/sdk'

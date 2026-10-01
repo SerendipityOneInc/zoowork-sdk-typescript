@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { CheckError, check, privateDir, safeFailure } from './guard.ts'
+import { CheckError, baseURL, check, privateDir, safeFailure, validApiKey } from './guard.ts'
 import { prepare, run } from './runner.ts'
 
 export const STAGING_BASE_URL = 'https://claw-interface.ecap.yesy.live/service/v1'
@@ -51,7 +51,7 @@ export function hiddenInput(label: string, input = process.stdin, output = proce
   })
 }
 
-interface Options { baseUrl?: string; outDir?: string; model?: string; confirmed?: boolean; keyStdin?: boolean }
+interface Options { baseUrl?: string; outDir?: string; model?: string; confirmed?: boolean; confirmedProduction?: boolean; keyStdin?: boolean }
 interface Services {
   env: NodeJS.ProcessEnv; terminal: boolean; stdin: AsyncIterable<Buffer | string>;
   prompt: (label: string) => Promise<string>; output: (message: string) => void;
@@ -73,23 +73,27 @@ export async function testE2E(options: Options, io: Services = services()): Prom
     const base = new URL(options.baseUrl ?? STAGING_BASE_URL)
     check(base.protocol === 'https:' && !base.username && !base.password && !base.search && !base.hash
       && base.pathname.replace(/\/$/, '') === '/service/v1', 'staging_public_https_url_required')
-    check(options.confirmed || (io.terminal && !options.keyStdin), 'noninteractive_run_requires_confirm_staging')
+    check(!(options.confirmed && options.confirmedProduction), 'conflicting_environment_confirmations')
+    check(!options.confirmedProduction || options.baseUrl, 'explicit_production_url_required')
+    baseURL(base.href, 'https://clawapi.ecap.gsmo.ai/service/v1', options.confirmedProduction)
+    check(options.confirmedProduction || options.confirmed || (io.terminal && !options.keyStdin), 'noninteractive_run_requires_confirm_staging')
     if (options.keyStdin) {
       apiKey = ''
       for await (const chunk of io.stdin) { apiKey += chunk; check(apiKey.length < 4096, 'credential_input_too_large') }
       apiKey = apiKey.trim()
     }
     check(apiKey || io.terminal, 'provide_ZOOWORK_API_KEY_or_api_key_stdin')
-    if (apiKey) check(/^zct_[A-Za-z0-9_-]+$/.test(apiKey), 'invalid_key_format')
-    io.output(`Staging: ${base.origin}/service/v1\nThis test creates one temporary Agent/Session, runs one potentially billable model turn, then cleans up. It never publishes.`)
+    if (apiKey) check(validApiKey(apiKey), 'invalid_key_format')
+    const environment = options.confirmedProduction ? 'Production' : 'Staging'
+    io.output(`${environment}: ${base.origin}/service/v1\nThis test creates one temporary Agent/Session, runs one potentially billable model turn, then cleans up. It never publishes.`)
     const directory = options.outDir ?? io.newDirectory()
     io.output(`Preparing candidate and retaining results in: ${directory}`)
     io.prepare(directory)
-    if (!apiKey) apiKey = (await io.prompt('Staging API key (hidden; Enter authorizes the test above; Ctrl+C cancels): ')).trim()
-    else if (!options.confirmed) check(await io.prompt('Key supplied by environment. Press Enter to authorize the test above; Ctrl+C cancels: ') === '', 'input_cancelled')
-    check(/^zct_[A-Za-z0-9_-]+$/.test(apiKey), 'invalid_key_format')
+    if (!apiKey) apiKey = (await io.prompt(`${environment} API key (hidden; Enter authorizes the test above; Ctrl+C cancels): `)).trim()
+    else if (!options.confirmed && !options.confirmedProduction) check(await io.prompt('Key supplied by environment. Press Enter to authorize the test above; Ctrl+C cancels: ') === '', 'input_cancelled')
+    check(validApiKey(apiKey), 'invalid_key_format')
     // run() rechecks the installed SDK's production endpoint, candidate integrity and one-attempt rule.
-    const code = await io.run(directory, { baseUrl: base.href, apiKey, model: options.model, confirmed: true })
+    const code = await io.run(directory, { baseUrl: base.href, apiKey, model: options.model, confirmed: true, confirmedProduction: options.confirmedProduction })
     io.output(code === 0 ? `E2E passed; not published. Candidate: ${directory}`
       : `E2E failed; not published. Review results and cleanup before another attempt: ${directory}`)
     return code
@@ -99,14 +103,14 @@ export async function testE2E(options: Options, io: Services = services()): Prom
 async function main(): Promise<void> {
   const { values } = parseArgs({ options: {
     'base-url': { type: 'string' }, 'out-dir': { type: 'string' }, model: { type: 'string' },
-    'confirm-staging': { type: 'boolean' }, 'api-key-stdin': { type: 'boolean' }, help: { type: 'boolean' },
+    'confirm-staging': { type: 'boolean' }, 'confirm-production': { type: 'boolean' }, 'api-key-stdin': { type: 'boolean' }, help: { type: 'boolean' },
   } })
   if (values.help) {
-    console.log(`pnpm test:e2e [--base-url HTTPS_SERVICE_V1] [--out-dir NEW_PRIVATE_DIR] [--model ID]\nDefault staging: ${STAGING_BASE_URL}\nEnter the key at the hidden terminal prompt, or supply ZOOWORK_API_KEY.\nNoninteractive: add --confirm-staging; --api-key-stdin accepts a secure pipe.\nAutomatically prepares, tests and cleans up. Never publishes. Node 22.20+.`)
+    console.log(`pnpm test:e2e [--base-url HTTPS_SERVICE_V1] [--out-dir NEW_PRIVATE_DIR] [--model ID]\nDefault staging: ${STAGING_BASE_URL}\nEnter the key at the hidden terminal prompt, or supply ZOOWORK_API_KEY.\nNoninteractive staging: add --confirm-staging. Production: explicitly pass --base-url and --confirm-production; --api-key-stdin accepts a secure pipe.\nAutomatically prepares, tests and cleans up. Never publishes. Node 22.20+.`)
     return
   }
   process.exitCode = await testE2E({ baseUrl: values['base-url'], outDir: values['out-dir'], model: values.model,
-    confirmed: values['confirm-staging'], keyStdin: values['api-key-stdin'] })
+    confirmed: values['confirm-staging'], confirmedProduction: values['confirm-production'], keyStdin: values['api-key-stdin'] })
 }
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(error => { console.error(JSON.stringify({ passed: false, failure: safeFailure(error) })); process.exitCode = 1 })

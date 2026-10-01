@@ -7,7 +7,26 @@
  * `TextDecoder` — the same path the live stream takes.
  */
 import { expect, test } from 'vitest'
-import { parseSSE } from './index.js'
+import { createZooworkClient, isRunFinished, parseSSE } from './index.js'
+
+test('breaking a session stream at run.finished cancels its body and releases the reader', async () => {
+  let cancelled = 0
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('id: pse1:1\ndata: {"seq":1,"event_type":"run.finished","payload":{"status":"succeeded"}}\n\n'))
+      // Session streams remain open after a turn; the consumer owns cancellation.
+    },
+    cancel() { cancelled++ },
+  })
+  const client = createZooworkClient({ apiKey: 'zwp_live_' + 'X'.repeat(43),
+    fetch: async () => new Response(body, { headers: { 'content-type': 'text/event-stream' } }),
+  })
+  for await (const event of client.streamEvents('agt_SYNTHETIC', 'SYNTHETIC_SESSION')) {
+    if (isRunFinished(event)) break
+  }
+  expect(cancelled).toBe(1)
+  expect(body.locked).toBe(false)
+})
 
 const stream = (text: string): ReadableStream<Uint8Array> => new Response(text).body as ReadableStream<Uint8Array>
 
