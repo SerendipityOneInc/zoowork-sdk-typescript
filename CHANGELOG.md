@@ -3,6 +3,13 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.10.1 — 2026-10-03
+
+- Correct production availability guidance for Files, Database viewer, Schedules and Agent configuration updates.
+- Clarify approval and blocked tool events, stream cursor recovery, repeated deletion and Usage validation.
+- Link to the public developer documentation.
+- Documentation and comments only; no runtime or public API changes. Existing service limitations remain.
+
 ## 0.10.0 — 2026-10-03
 
 - Add Files, read-only Agent Database, Usage, Run Output, action paging/detail and Agent webhook management helpers.
