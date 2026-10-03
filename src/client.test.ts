@@ -806,6 +806,64 @@ test('wake and exec post their documented bodies', async () => {
   expect(JSON.parse(ran.calls[0]!.body as string)).toEqual({ args: ['bash', '-lc', 'false'] })
 })
 
+/** A stub sandbox: answers each exec call and keeps the argv it was given. */
+function sandbox(reply: (args: string[], n: number) => { exit_code: number; stdout?: string; stderr?: string }) {
+  const argv: string[][] = []
+  const h = harness((rec) => {
+    const args = (JSON.parse(rec.body as string) as { args: string[] }).args
+    argv.push(args)
+    return jsonReply({ stdout: '', stderr: '', ...reply(args, argv.length - 1) })
+  })
+  return { ...h, argv }
+}
+
+const sha256Hex = async (data: Uint8Array): Promise<string> =>
+  Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data as BufferSource)), (b) => b.toString(16).padStart(2, '0')).join('')
+
+test('uploadFile sends base64 chunks through exec, verifies the checksum, then moves the file into place', async () => {
+  const data = new Uint8Array(150_000).map((_, i) => (i * 31 + 7) % 256)
+  const box = sandbox((args) => (args[2]!.includes('realpath') ? { exit_code: 0, stdout: '/workspace/input/a.bin\n' } : { exit_code: 0 }))
+
+  const result = await box.client.uploadFile('a', 'input/a.bin', data)
+
+  expect(result).toEqual({ path: '/workspace/input/a.bin', size: 150_000, sha256: await sha256Hex(data) })
+  expect(box.calls.every((call) => call.url.endsWith('/agents/a/exec'))).toBe(true)
+  // create, three chunks (72,000 bytes each at most), finalize
+  expect(box.argv).toHaveLength(5)
+  const partial = box.argv[0]![4]!
+  expect(partial).toMatch(/^input\/a\.bin\.upload-[0-9a-f-]{36}$/)
+  const chunks = box.argv.slice(1, 4)
+  for (const chunk of chunks) {
+    expect(chunk.slice(0, 2)).toEqual(['bash', '-c'])
+    expect(chunk[4]).toBe(partial)
+    expect(chunk[5]!.length).toBeLessThanOrEqual(96_000) // one argv string stays under the 128 KiB cap
+  }
+  const sent = Uint8Array.from(atob(chunks.map((chunk) => chunk[5]).join('')), (ch) => ch.charCodeAt(0))
+  expect(sent).toEqual(data)
+  expect(box.argv[4]!.slice(4)).toEqual([partial, 'input/a.bin', result.sha256])
+})
+
+test('uploadFile writes a string as UTF-8 and an empty file with no chunk calls', async () => {
+  const text = sandbox(() => ({ exit_code: 0, stdout: '/workspace/note.txt\n' }))
+  const written = await text.client.uploadFile('a', '/workspace/note.txt', 'héllo')
+  expect(written.size).toBe(6)
+  expect(atob(text.argv[1]![5]!)).toBe(String.fromCharCode(...new TextEncoder().encode('héllo')))
+
+  const empty = sandbox(() => ({ exit_code: 0, stdout: '/workspace/empty\n' }))
+  expect((await empty.client.uploadFile('a', 'empty', new Uint8Array())).size).toBe(0)
+  expect(empty.argv).toHaveLength(2) // create, finalize
+})
+
+test('uploadFile rejects and removes the partial file when a sandbox command fails', async () => {
+  const box = sandbox((args) => (args[2]?.includes('sha256sum') ? { exit_code: 3, stderr: 'checksum mismatch: got 00\n' } : { exit_code: 0 }))
+
+  await expect(box.client.uploadFile('a', 'a.txt', 'x')).rejects.toThrow('uploadFile: sandbox command exited 3: checksum mismatch: got 00')
+
+  const partial = box.argv[0]![4]!
+  expect(box.argv.at(-1)).toEqual(['rm', '-f', partial])
+  await expect(box.client.uploadFile('a', '', 'x')).rejects.toThrow('path is required')
+})
+
 // ── environments ───────────────────────────────────────────────────────────
 
 test('environment reads and creates hit the documented paths', async () => {
