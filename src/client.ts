@@ -1395,10 +1395,13 @@ export interface ZooworkClient extends DeveloperApi {
   listAgents(opts?: AgentListParams): AgentPagePromise
   getAgent(agentId: string): Promise<AgentRecord>
   /** PUT declared sections. Ownership-only changes do not bump config_version.
-   * Supply expected_config_version for an atomic version check; a mismatch returns 409 active_config_changed. */
+   * Production currently rejects expected_config_version with 400 invalid_declared_key.
+   * Omit it for last-write-wins updates and serialize competing writes in the application. */
   updateAgent(agentId: string, sections: Record<string, unknown>): Promise<AgentRecord>
   /**
    * Soft delete: the agent stops resolving on the API, but this is not a resource purge.
+   * The first public-API deletion returns 204; repeating it returns 404. A 404 can also
+   * hide an inaccessible resource, so cleanup retries must retain the original key scope.
    * On gateway releases that carry the channels surface, a successful delete also
    * best-effort disables the agent's bound channels — a failure there never turns the
    * delete into an error, so a chat binding can in rare cases outlive its agent.
