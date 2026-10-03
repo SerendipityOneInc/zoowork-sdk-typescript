@@ -3,6 +3,12 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.11.1 — 2026-10-04
+
+- `uploadFile` no longer runs `chown` on the uploaded file or on directories it creates. The
+  sandbox workspace mount does not enforce ownership, and a staging check showed the Agent's
+  edit and write tools modify uploaded files without it. Existing calls remain compatible.
+
 ## 0.11.0 — 2026-10-04
 
 - Add `uploadFile(agentId, path, content)`, which copies a file into an Agent's sandbox through
