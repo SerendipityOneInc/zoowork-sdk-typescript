@@ -1,6 +1,6 @@
 # @zoowork-ai/sdk
 
-TypeScript SDK for the [ZooWork Managed Agents](https://github.com/SerendipityOneInc/zoowork-agents-docs) API. Developer Preview.
+TypeScript SDK for the [ZooWork Managed Agents](https://zoowork.ai/docs/) API. Developer Preview.
 
 Zero runtime dependencies — it uses the platform `fetch`, which you can override for edge runtimes and tests. ESM only, Node 20+.
 
@@ -149,7 +149,7 @@ to use the owner; IM sessions reject it. See the field's SDK comment for input c
 
 ## Agent Skills
 
-New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, `resource.skills` accepts a catalog name or `skill_id`; `include_global_skills: false` or an explicit empty list opts out of automatic Skills. Root Skill uploads are unavailable to Project keys. Keep source changes in your application or the Agent workspace through the Files API.
+New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, `resource.skills` accepts a catalog name or `skill_id`; `include_global_skills: false` or an explicit empty list opts out of automatic Skills. Root Skill uploads are unavailable to Project keys. Keep source changes in your application; use persona documents for standing instructions and Session messages for text task data.
 
 ## Schedules, wake and exec
 
@@ -357,7 +357,7 @@ and `listEvents` truncates at 500 events with nothing in the response to say it 
 
 ## Documentation
 
-Full guides and the capability matrix: **[zoowork-agents-docs](https://github.com/SerendipityOneInc/zoowork-agents-docs)**.
+Full guides and the capability matrix: **[zoowork-agents-docs](https://zoowork.ai/docs/)**.
 
 Runnable examples in [`examples/`](examples):
 
@@ -408,11 +408,6 @@ MIT
 These helpers require an SDK release that includes them. Check the installed declarations before using an example; use the documented HTTP endpoint if the installed release lacks the method.
 
 ```ts
-const files = await zc.getWorkspaceFile(agentId, '/workspace')
-await zc.writeWorkspaceFile(agentId, '/workspace/input.txt', 'hello')
-const bytes = await zc.getWorkspaceFileContent(agentId, '/workspace/result.bin')
-const database = await zc.getAgentDatabase(agentId) // reading never provisions it
-const rows = await zc.getAgentDatabaseRows(agentId, 'results', { limit: 100, offset: 0 })
 const usage = await zc.getUsage({ range: '7d', view: 'both' })
 const endpoint = await zc.createAgentWebhook(agentId, {
   url: 'https://receiver.example/webhook', event_types: ['run.finished'],
@@ -423,9 +418,10 @@ const output = await zc.getRunOutput(agentId, sessionId, runId)
 const approvals = await zc.listApprovalPage(agentId, { sessionId })
 ```
 
-File reads derive `owner_uid` and `org_id` from the Agent projection. Raw file content is
-`Uint8Array`; text writes are not binary uploads. Database inspection is read-only. Usage stays
-within the current key scope. Page helpers retain `next_cursor` and `has_more`; replay cursors
+Direct workspace Files and the database viewer are not supported production workflows.
+Supply text in Session messages, ask the Agent to create and publish Artifacts, and download
+those through the Artifact API. The Agent can use `agent_db` and return query results in its
+reply. Method presence is not production availability. Usage stays within the current key scope. Page helpers retain `next_cursor` and `has_more`; replay cursors
 verbatim. `getApproval` and `getCustomToolCall` read terminal as well as pending actions.
 
 Agent webhook methods include get/update/delete, `rotateAgentWebhookSecret`, `testAgentWebhook`,
@@ -436,5 +432,28 @@ records to learn the result. SDK writes do not retry automatically.
 `createSession` accepts `runtime_mode: 'active'` to pin the current active configuration at
 creation. Omit it to resolve active configuration on later turns. `idle_compaction` preserves
 false, null and omission. MCP tool overrides accept `requireConfirmation?: boolean`.
-`updateAgent` accepts `expected_config_version`; a stale version returns
-`409 active_config_changed`. Ownership-only changes do not increment the configuration version.
+Production `updateAgent` currently rejects `expected_config_version` with
+`400 invalid_declared_key`. Omit it for ordinary last-write-wins updates; serialize competing
+writes in your application. A GET followed by PUT is not atomic. Ownership-only changes do not
+increment the configuration version. The separate `upgradeSystemPrompt` precondition remains supported.
+
+## Current production behavior
+
+- Manual Schedule execution requires `enabled: true`, which also enables automatic firings.
+  A disabled Schedule can return `triggered: true` and still be skipped. The receipt is not a
+  run result; run rows can lack status/session linkage.
+- Approval waiting is `agent.approval` / `requested`; `resolved` ends the approval wait.
+  `agent.tool` / `blocked` is a terminal policy rejection without execution, with no later `end`.
+- Save each processed stream cursor with its Session ID. Pass it when reading a subsequent
+  turn in that Session. No cursor means replay from the beginning, including old `run.finished`.
+  REST events and post-event receipts do not supply a cursor; the last REST page has a null
+  continuation token. There is no current-tail helper. Without a saved cursor, replay and
+  reconstruct state or deliberately start a new conversation; do not synthesize a cursor from seq.
+- First Agent deletion succeeds with 204; repeated deletion returns 404 through the public API.
+  For cleanup retries, interpret 404 as absence only for a known Agent with unchanged key scope.
+  Other-tenant or inaccessible resources also return 404.
+- Invalid Usage parameters can return either `400 usage.invalid_query` or 422 with no business
+  error type. Correct the parameters rather than retrying unchanged. Match status as well as type.
+
+See the [public guides](https://zoowork.ai/docs/) for supported workflows. These notes do not
+change SDK transport behavior or make unavailable endpoints usable.

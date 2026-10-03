@@ -198,9 +198,9 @@ export function customToolUse(e: SessionEvent): CustomToolUse | undefined {
  * `phase: 'end'` carries `isError` and `resultPreview`. Pair them by `toolCallId` — they are
  * NOT adjacent in the stream when calls run concurrently.
  *
- * `phase: 'blocked'` is a third state (see the Events reference): the call is waiting on an
- * approval and has NOT run. Treat it as pending, not as an end — the matching `agent.approval`
- * event carries the request, and an `end` still follows once it resolves.
+ * `phase: 'blocked'` is a terminal policy rejection before execution; no `end` follows
+ * for that call. Approval waiting uses `agent.approval` with `phase: 'requested'`,
+ * followed by `phase: 'resolved'`. A resolution is not proof of successful execution.
  */
 export function toolCall(e: SessionEvent): ToolCall | undefined {
   if (e.eventType !== 'agent.tool') return undefined
