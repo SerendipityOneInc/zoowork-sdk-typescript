@@ -5,6 +5,10 @@ day the behaviour was verified, not the day it was written.
 
 ## Unreleased
 
+- Add Files, read-only Agent Database, Usage, Run Output, action paging/detail and Agent webhook management helpers.
+- Add typed MCP confirmation, active Session creation and configuration concurrency metadata.
+- Align onboarding and capability examples with Platform Project keys.
+
 ## 0.9.0 — 2026-10-01
 
 ### Added
@@ -23,7 +27,7 @@ day the behaviour was verified, not the day it was written.
 - **The webhook event vocabulary.** `WEBHOOK_EVENT_TYPES` lists the sixteen types Engine
   delivers today, with a `data` shape per type behind `WebhookEventFor<T>` and
   `knownWebhookEvent()`. `WEBHOOK_SCHEDULE_CONFIG_EVENT_TYPES` declares the five schedule
-  configuration events whose server side is not deployed yet. A type the release does not know
+  configuration events for schedule configuration changes. A type the release does not know
   passes through with its raw `type` and `data` instead of throwing, so a receiver stays
   forward compatible.
 - Fixed cross-language signing vectors in `src/__vectors__/webhook-vectors.json`, copied verbatim
@@ -39,9 +43,8 @@ day the behaviour was verified, not the day it was written.
 
 ### Changed
 
-- Local E2E checks accept Platform `zwp_live_` keys as well as legacy `zct_` keys. Production
-  checks require an explicit URL and confirmation, and record their scope separately from
-  staging checks. The SDK already accepts Platform keys without a client API change.
+- Local E2E checks accept Platform Project keys. Production checks require an explicit URL
+  and confirmation, and record their scope separately from staging checks.
 - Live smoke tests select only selectable catalog models.
 
 ## 0.8.0 — 2026-09-20
@@ -220,8 +223,7 @@ No runtime change — comments only.
   - `createZooclawClient` → `createZooworkClient`; `ZooclawClient`, `ZooclawError`,
     `ZooclawAuth`, `ZooclawConfig` → `Zoowork*`.
   - `ZOOCLAW_API_KEY` / `ZOOCLAW_BASE_URL` → `ZOOWORK_API_KEY` / `ZOOWORK_BASE_URL`.
-- Server-side identifiers are unchanged: API keys still start with `zct_`, and skill or
-  environment names the API returns (e.g. `zooclaw-tts`) are whatever the server says.
+- Server-side identifiers and resource names remain opaque.
 
 ## 0.3.4 — 2026-08-25
 

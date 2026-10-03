@@ -1,7 +1,7 @@
 /**
  * Surface probe — exercises the SDK surfaces added after `capability-probe.ts`, live.
  *
- *   ZOOWORK_API_KEY=zct_... pnpm exec tsx examples/surface-probe.ts
+ *   ZOOWORK_API_KEY=zwp_live_... pnpm exec tsx examples/surface-probe.ts
  *
  * `capability-probe.ts` walks the agent LIFECYCLE (create → turn → interrupt → stop).
  * This one walks everything that hangs off a running agent: the skill registry, schedules,

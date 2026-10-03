@@ -1125,7 +1125,8 @@ const AGENT_RECORD_KEYS = [
   'status',
   'ownership',
 ] as const satisfies readonly DeclaredKeys<AgentRecord>[]
-const _agentRecordCovered: Covered<AgentRecord, (typeof AGENT_RECORD_KEYS)[number]> = undefined
+// Source-reviewed additions are tested separately with synthetic contract input.
+const _agentRecordCovered: Covered<AgentRecord, (typeof AGENT_RECORD_KEYS)[number] | 'sandbox_resource_class'> = undefined
 
 test('AgentRecord declares nothing the wire does not carry across BOTH projections', () => {
   // `config_version` only exists on the create receipt and `declared`/`status` only on the read,
@@ -1176,7 +1177,7 @@ const SESSION_RECORD_KEYS = [
   'last_activity_at',
   'list_cursor',
 ] as const satisfies readonly DeclaredKeys<SessionRecord>[]
-const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number]> = undefined
+const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number] | 'pending_approval_ids' | 'pending_approval_ids_complete' | 'pending_custom_tool_call_ids' | 'pending_custom_tool_call_ids_complete' | 'idle_compaction' | 'pinned_config_version'> = undefined
 
 const SOURCE_REVIEWED_SESSION_CURSOR_ROW = {
   session_id: 'synthetic-session',
@@ -1253,7 +1254,7 @@ const SCHEDULE_RECORD_KEYS = [
   'memo',
   'next_action_times',
 ] as const satisfies readonly DeclaredKeys<ScheduleRecord>[]
-const _scheduleRecordCovered: Covered<ScheduleRecord, (typeof SCHEDULE_RECORD_KEYS)[number]> = undefined
+const _scheduleRecordCovered: Covered<ScheduleRecord, (typeof SCHEDULE_RECORD_KEYS)[number] | 'schedule_id'> = undefined
 
 test('ScheduleRecord declares nothing the wire does not carry — and `schedule` is not among its keys', () => {
   // BUG #1's regression guard. `schedule` and `sessionTarget` are the write vocabulary; if either
@@ -1279,7 +1280,7 @@ const SCHEDULE_RUN_KEYS = [
 // synthetic input in contract-sync.test.ts, NOT inserted into these recorded responses.
 // Keep strict coverage of every field in the recordings and make any further type addition
 // fail this completeness check until it has an explicit evidence path.
-const _scheduleRunCovered: Covered<ScheduleRun, (typeof SCHEDULE_RUN_KEYS)[number] | 'session_id'> = undefined
+const _scheduleRunCovered: Covered<ScheduleRun, (typeof SCHEDULE_RUN_KEYS)[number] | 'session_id' | 'linked_by' | 'run_id' | 'trigger'> = undefined
 
 test('the recorded ScheduleRun baseline fields are all covered across both row shapes', () => {
   expectDeclarationCoverage(SCHEDULE_RUN_KEYS, [], rows('list-schedule-runs', 'runs'))

@@ -67,10 +67,7 @@ export const WEBHOOK_EVENT_TYPES = [
 /**
  * Schedule CONFIGURATION changes, as distinct from the fire events above.
  *
- * Declared here so a receiver can write the subscription and the handler now, but the server
- * side ships with Engine E5a and is NOT emitted yet — the projector currently retires such a
- * receipt as `unknown_source`. Do not read a delivered one of these as evidence the feature is
- * live; check the Engine release notes.
+ * Subscribe to these types for schedule configuration changes. Deliveries may be reordered.
  */
 export const WEBHOOK_SCHEDULE_CONFIG_EVENT_TYPES = [
   'schedule.created',
@@ -278,7 +275,7 @@ export interface WebhookScheduleFinishedData extends WebhookScheduleFireData {
 
 /**
  * A schedule's configuration changed. See {@link WEBHOOK_SCHEDULE_CONFIG_EVENT_TYPES}: declared,
- * not yet delivered.
+ * delivered for schedule configuration changes.
  */
 export interface WebhookScheduleConfigData extends WebhookEventAttribution {
   /**

@@ -1,7 +1,7 @@
 /**
  * Live smoke test. Not a unit test — it drives a real agent through a real turn.
  *
- *   ZOOWORK_API_KEY=zct_... AGENT_ID=agt_... pnpm exec tsx examples/live-smoke.ts
+ *   ZOOWORK_API_KEY=zwp_live_... AGENT_ID=agt_... pnpm exec tsx examples/live-smoke.ts
  *
  * Set ZOOWORK_API_KEY and AGENT_ID; nothing else is required. The base URL defaults to
  * the public API.
