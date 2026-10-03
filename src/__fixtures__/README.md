@@ -28,12 +28,15 @@ recorded bugs, not typos.
 Written by `examples/surface-probe.ts` with recording enabled:
 
 ```sh
-ZOOWORK_API_KEY=zct_… ZOOWORK_RECORD_FIXTURES=1 pnpm exec tsx examples/surface-probe.ts
+ZOOWORK_RECORD_FIXTURES=1 pnpm exec tsx examples/surface-probe.ts
 ```
 
-The probe creates its own throwaway agent, skill, schedule and environment, drives the whole
-surface, and deletes everything it made. Re-recording rewrites this directory from scratch, so
-a re-record is a clean diff of what the server changed.
+Fixture recording is a maintainer operation. Inject `ZOOWORK_API_KEY` through approved
+secret configuration, and obtain authorization for live writes before running the probe.
+The full probe also exercises root Skill and Environment administration; a Platform Project
+key does not grant those permissions. Verify access to each resource family before recording.
+The probe creates throwaway resources and deletes what it creates. Re-recording rewrites
+this directory from scratch, so a re-record is a clean diff of what the server changed.
 
 ## Scrubbing
 
