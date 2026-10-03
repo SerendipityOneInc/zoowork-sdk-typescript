@@ -443,7 +443,9 @@ increment the configuration version. The separate `upgradeSystemPrompt` precondi
   A disabled Schedule can return `triggered: true` and still be skipped. The receipt is not a
   run result; run rows can lack status/session linkage.
 - Approval waiting is `agent.approval` / `requested`; `resolved` ends the approval wait.
-  `agent.tool` / `blocked` is a terminal policy rejection without execution, with no later `end`.
+  `agent.tool` / `blocked` ends a call without execution, with no later `end`. Reasons include
+  policy denial, approval denial/timeout/cancellation, or interruption; inspect the event
+  payload's `deniedReason`.
 - Save each processed stream cursor with its Session ID. Pass it when reading a subsequent
   turn in that Session. No cursor means replay from the beginning, including old `run.finished`.
   REST events and post-event receipts do not supply a cursor; the last REST page has a null

@@ -198,8 +198,9 @@ export function customToolUse(e: SessionEvent): CustomToolUse | undefined {
  * `phase: 'end'` carries `isError` and `resultPreview`. Pair them by `toolCallId` — they are
  * NOT adjacent in the stream when calls run concurrently.
  *
- * `phase: 'blocked'` is a terminal policy rejection before execution; no `end` follows
- * for that call. Approval waiting uses `agent.approval` with `phase: 'requested'`,
+ * `phase: 'blocked'` ends the call without execution; no `end` follows. Reasons include
+ * policy denial, approval denial/timeout/cancellation, or interruption. Inspect
+ * `e.payload.deniedReason` for the reason. Approval waiting uses `agent.approval` with `phase: 'requested'`,
  * followed by `phase: 'resolved'`. A resolution is not proof of successful execution.
  */
 export function toolCall(e: SessionEvent): ToolCall | undefined {
