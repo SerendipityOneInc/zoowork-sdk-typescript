@@ -70,6 +70,7 @@ export {
   type ScheduleRun,
   type WakeResult,
   type ExecResult,
+  type UploadFileResult,
   type EnvironmentConfig,
   type EnvironmentResource,
   type EnvironmentRecord,

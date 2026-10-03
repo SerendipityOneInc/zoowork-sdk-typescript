@@ -157,10 +157,22 @@ export interface WebhookBatchRedeliveryInput {
     limit?: number;
 }
 export interface DeveloperApi {
+    /**
+     * @deprecated The hosted service does not enable the workspace Files routes; this call
+     * fails with HTTP 501 or 502. Ask the Agent to publish an Artifact and download that.
+     */
     getWorkspaceFile(agentId: string, path: string, opts?: {
         showHidden?: boolean;
     }): Promise<WorkspaceFile>;
+    /**
+     * @deprecated The hosted service does not enable the workspace Files routes; this call
+     * fails with HTTP 501 or 502. Use `uploadFile` to send a file to an Agent.
+     */
     writeWorkspaceFile(agentId: string, path: string, content: string): Promise<ApiObject>;
+    /**
+     * @deprecated The hosted service does not enable the workspace Files routes; this call
+     * fails with HTTP 501 or 502. Ask the Agent to publish an Artifact and download that.
+     */
     getWorkspaceFileContent(agentId: string, path: string, opts?: {
         download?: boolean;
     }): Promise<Uint8Array>;

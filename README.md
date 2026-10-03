@@ -165,6 +165,20 @@ await zc.wake(agent.agent_id, { text: 'Review the pending deployment.' }) // at 
 const { exit_code, stdout } = await zc.exec(agent.agent_id, ['bash', '-lc', 'pwd'])
 ```
 
+## Send a file to an Agent
+
+```ts
+import { readFile } from 'node:fs/promises'
+
+const file = await zc.uploadFile(agent.agent_id, 'input/report.pdf', await readFile('report.pdf'))
+// file.path === '/workspace/input/report.pdf'; tell the Agent to read that path.
+```
+
+`uploadFile` copies bytes or a string into the Agent's sandbox and verifies the SHA-256 there
+before the file appears at its path. A relative path resolves against `/workspace`. It sends the
+content through `exec` about 72 KB per call, so it suits files up to a few megabytes, and it
+needs an agent-scope sandbox.
+
 - **Schedules outlive their agent.** `stopAgent` and `deleteAgent` leave them running; list and
   delete them yourself. Also available: `getSchedule`, `updateSchedule`, `triggerSchedule`,
   `listScheduleRuns`.
@@ -418,9 +432,11 @@ const output = await zc.getRunOutput(agentId, sessionId, runId)
 const approvals = await zc.listApprovalPage(agentId, { sessionId })
 ```
 
-Direct workspace Files and the database viewer are not supported production workflows.
-Supply text in Session messages, ask the Agent to create and publish Artifacts, and download
-those through the Artifact API. The Agent can use `agent_db` and return query results in its
+The workspace Files methods (`getWorkspaceFile`, `writeWorkspaceFile`,
+`getWorkspaceFileContent`) are deprecated: the hosted service does not enable those routes.
+Send a file to an Agent with `uploadFile`, and retrieve results by asking the Agent to publish
+Artifacts and downloading those through the Artifact API. The database viewer is not a
+supported production workflow. The Agent can use `agent_db` and return query results in its
 reply. Method presence is not production availability. Usage stays within the current key scope. Page helpers retain `next_cursor` and `has_more`; replay cursors
 verbatim. `getApproval` and `getCustomToolCall` read terminal as well as pending actions.
 

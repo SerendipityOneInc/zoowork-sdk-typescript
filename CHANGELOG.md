@@ -3,6 +3,16 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+- Add `uploadFile(agentId, path, content)`, which copies a file into an Agent's sandbox through
+  `exec` and verifies its SHA-256 there. Verified against staging on 2026-10-04 with files up
+  to 3 MiB.
+- Deprecate `getWorkspaceFile`, `writeWorkspaceFile` and `getWorkspaceFileContent`. The hosted
+  service does not enable the workspace Files routes, so these calls fail with HTTP 501 or 502
+  ([ecap #4006](https://github.com/SerendipityOneInc/ecap-workspace/issues/4006)). The methods
+  remain callable.
+
 ## 0.10.2 — 2026-10-04
 
 - Accept `project` in `uploadSkill` for named Project keys.

@@ -40,6 +40,7 @@ import type {
   EnvironmentResource,
   EnvironmentVersionRecord,
   ExecResult,
+  UploadFileResult,
   FeishuPollResult,
   FeishuChannelProviderStatus,
   FeishuDocumentsCapability,
@@ -173,6 +174,7 @@ test('every exported value is the kind of thing it claims to be', () => {
 test('the client built from the entry point exposes every documented method', () => {
   const client = sdk.createZooworkClient({ apiKey: 'zct_test_key', baseUrl: 'https://api.test/service/v1' })
   const methods = [
+    'uploadFile',
     'getWorkspaceFile',
     'writeWorkspaceFile',
     'getWorkspaceFileContent',
@@ -300,6 +302,7 @@ type PublicTypes = [
   EnvironmentResource,
   EnvironmentVersionRecord,
   ExecResult,
+  UploadFileResult,
   FeishuPollResult,
   FeishuChannelProviderStatus,
   FeishuDocumentsCapability,

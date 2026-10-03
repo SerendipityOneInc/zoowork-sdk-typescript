@@ -1363,6 +1363,16 @@ export interface ExecResult {
   stderr: string
 }
 
+/** What {@link ZooworkClient.uploadFile} wrote. */
+export interface UploadFileResult {
+  /** Absolute path of the file in the sandbox. */
+  path: string
+  /** Bytes written. */
+  size: number
+  /** Lowercase hex SHA-256 of the content, verified inside the sandbox. */
+  sha256: string
+}
+
 export interface WakeResult {
   mode: 'now' | 'next-heartbeat' | string
   /** The reminder was written to the pending queue. */
@@ -1881,6 +1891,24 @@ export interface ZooworkClient extends DeveloperApi {
    */
   exec(agentId: string, args: string[]): Promise<ExecResult>
 
+  /**
+   * Copy a file into the agent's sandbox so the Agent can read it by path.
+   *
+   * `path` is absolute, or relative to `/workspace`; parent directories are created. A string is
+   * written as UTF-8. The content travels through {@link ZooworkClient.exec} in base64 chunks,
+   * lands in a temporary file beside the target, is checked against its SHA-256 inside the
+   * sandbox, and only then moves into place, so a failed upload leaves nothing at `path`. The
+   * file and any directory created for it take the owner of the nearest existing ancestor, so
+   * the Agent's own tools can modify them.
+   *
+   * Each chunk is one `exec` call carrying about 72 KB, so this suits files up to a few
+   * megabytes. It has exec's requirements: an agent-scope sandbox and a rendered config.
+   *
+   * Rejects with `ZooworkError` when a call fails, and with `Error` when a sandbox command exits
+   * non-zero or the checksum does not match.
+   */
+  uploadFile(agentId: string, path: string, content: Blob | ArrayBuffer | Uint8Array | string): Promise<UploadFileResult>
+
   // ── environments ──
   /**
    * Environments visible to your org, 1-based `page`. Note that the platform DEFAULT
@@ -2099,6 +2127,68 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     const res = await doFetch(`${base}${path}`, { headers: { Authorization: `Bearer ${bearer}` } })
     if (!res.ok) throw httpError(res, await res.text())
     return new Uint8Array(await res.arrayBuffer())
+  }
+
+  const exec = (agentId: string, args: string[]): Promise<ExecResult> =>
+    json(`${agents(agentId)}/exec`, { method: 'POST', body: JSON.stringify({ args }) })
+
+  /**
+   * Linux caps one argv string at 128 KiB. 72,000 bytes is 96,000 base64 characters, which
+   * leaves room under that cap and is a multiple of 3, so every chunk decodes on its own.
+   */
+  const UPLOAD_CHUNK_BYTES = 72_000
+
+  const uploadFile = async (
+    agentId: string,
+    path: string,
+    content: Blob | ArrayBuffer | Uint8Array | string,
+  ): Promise<UploadFileResult> => {
+    if (path === '') throw new Error('uploadFile: path is required')
+    const data =
+      typeof content === 'string' ? new TextEncoder().encode(content)
+      : content instanceof Blob ? new Uint8Array(await content.arrayBuffer())
+      : content instanceof ArrayBuffer ? new Uint8Array(content)
+      : content
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data as BufferSource))
+    const sha256 = Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('')
+
+    // `bash -c SCRIPT NAME ARG…`: values arrive as "$1", "$2", … and are never parsed as shell.
+    const sh = async (script: string, ...args: string[]): Promise<ExecResult> => {
+      const res = await exec(agentId, ['bash', '-c', script, 'upload', ...args])
+      if (res.exit_code !== 0) {
+        throw new Error(`uploadFile: sandbox command exited ${res.exit_code}: ${res.stderr.trim().slice(0, 500)}`)
+      }
+      return res
+    }
+
+    const partial = `${path}.upload-${crypto.randomUUID()}`
+    try {
+      // exec may run as root while the Agent's tools do not. Give the file, and any directory
+      // created for it, the owner of the nearest existing ancestor so the Agent can edit them.
+      await sh(
+        'dir=$(dirname "$1"); top=; probe=$dir; '
+        + 'while [ ! -e "$probe" ]; do top=$probe; probe=$(dirname "$probe"); done; '
+        + 'owner=$(stat -c %u:%g "$probe"); mkdir -p "$dir" && : > "$1" || exit 1; '
+        + 'chown "$owner" "$1" 2>/dev/null; [ -z "$top" ] || chown -R "$owner" "$top" 2>/dev/null; true',
+        partial,
+      )
+      for (let offset = 0; offset < data.length; offset += UPLOAD_CHUNK_BYTES) {
+        let binary = ''
+        for (const byte of data.subarray(offset, offset + UPLOAD_CHUNK_BYTES)) binary += String.fromCharCode(byte)
+        await sh('printf %s "$2" | base64 -d >> "$1"', partial, btoa(binary))
+      }
+      const moved = await sh(
+        'actual=$(sha256sum "$1" | cut -d" " -f1); '
+        + 'if [ "$actual" != "$3" ]; then echo "checksum mismatch: got $actual" >&2; exit 3; fi; '
+        + 'mv -f "$1" "$2" && realpath "$2"',
+        partial, path, sha256,
+      )
+      return { path: moved.stdout.trim(), size: data.length, sha256 }
+    } catch (error) {
+      // Best effort: the original failure is what the caller needs to see.
+      await exec(agentId, ['rm', '-f', partial]).catch(() => undefined)
+      throw error
+    }
   }
 
   const client: ZooworkClient = {
@@ -2618,7 +2708,8 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     },
     wake: (agentId, input) => json(`${agents(agentId)}/wake`, { method: 'POST', body: JSON.stringify(input) }),
 
-    exec: (agentId, args) => json(`${agents(agentId)}/exec`, { method: 'POST', body: JSON.stringify({ args }) }),
+    exec,
+    uploadFile,
 
     listEnvironments: async (opts = {}) => {
       const data = await json<{ environments?: EnvironmentRecord[] }>(`/environments${query({ page: opts.page })}`)
