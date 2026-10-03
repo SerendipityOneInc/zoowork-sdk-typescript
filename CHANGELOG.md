@@ -3,6 +3,12 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.10.2 — 2026-10-04
+
+- Accept `project` in `uploadSkill` for named Project keys.
+- Clarify Skill registry read/write scopes, version publishing, and Agent bindings for Platform keys.
+- Existing calls remain compatible. Project-scoped uploads require service-side support; this SDK release does not deploy the service.
+
 ## 0.10.1 — 2026-10-03
 
 - Correct production availability guidance for Files, Database viewer, Schedules and Agent configuration updates.
