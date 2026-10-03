@@ -3,11 +3,20 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.10.0 — 2026-10-03
 
 - Add Files, read-only Agent Database, Usage, Run Output, action paging/detail and Agent webhook management helpers.
 - Add typed MCP confirmation, active Session creation and configuration concurrency metadata.
 - Align onboarding and capability examples with Platform Project keys.
+
+### Known service and documentation limitations
+
+Verified against production on 2026-10-03; these are not resolved by this SDK release:
+
+- Workspace Files read/write APIs return HTTP 502 with both Platform and legacy keys ([ecap #4006](https://github.com/SerendipityOneInc/ecap-workspace/issues/4006)).
+- Legacy keys cannot update or remove visible global Skill assignments on their own Agents; Platform keys succeed ([ecap #4007](https://github.com/SerendipityOneInc/ecap-workspace/issues/4007)).
+- Published Authentication URLs redirect to Quickstart, including the AI Markdown entry ([docs #56](https://github.com/SerendipityOneInc/zoowork-agents-docs/issues/56)).
+- Agent Database reads depend on deployment support. The production viewer was disabled, so its successful read path has not been validated.
 
 ## 0.9.0 — 2026-10-01
 
