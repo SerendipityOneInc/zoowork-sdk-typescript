@@ -1,7 +1,7 @@
 /**
  * Capability probe — exercises the SDK surfaces that ship but have never been run.
  *
- *   ZOOWORK_API_KEY=zct_... pnpm exec tsx examples/capability-probe.ts
+ *   ZOOWORK_API_KEY=zwp_live_... pnpm exec tsx examples/capability-probe.ts
  *
  * Unlike `live-smoke.ts` (which drives one pre-existing agent through one turn),
  * this creates a THROWAWAY agent from zero, walks its whole lifecycle, and deletes

@@ -1,14 +1,14 @@
 /**
  * ZooWork Managed Agents SDK — core client. Developer Preview.
  *
- * Authenticate with your organization API key (`zct_…`). It carries full tenant
- * authority, so it is SERVER-SIDE ONLY: never ship it in a browser or mobile bundle.
+ * Create a Project API key at https://platform.zoowork.ai. Keep it server-side: never ship it in a browser or mobile bundle.
  *
  * IDs are opaque strings and unknown response fields must be ignored — both are
  * forward-compatibility rules, not suggestions. Errors surface an `error.type`; match on
  * that, never on the message text.
  */
 
+import { createDeveloperApi, type DeveloperApi } from './developer-api.js'
 import { parseSSE, isObj } from './sse.js'
 import { normalizeEvent, type SessionEvent } from './events.js'
 
@@ -47,9 +47,9 @@ export type ZooworkAuth = { serviceToken: string } | { apiKey: string }
 
 export interface ZooworkConfig {
   /**
-   * Your API key (`zct_...`). Defaults to `ZOOWORK_API_KEY`.
+   * Your Platform Project API key (`zwp_live_...`). Defaults to `ZOOWORK_API_KEY`.
    *
-   * Server-side only: it authenticates as your whole organization, not as one end user.
+   * Server-side only: access is scoped to the selected Project. Authorize application users separately.
    */
   apiKey?: string
   /**
@@ -209,6 +209,8 @@ function httpError(res: Response, text: string): ZooworkError {
 export interface Ownership {
   owner_uid: string
   org_id: string
+  project_id?: string | null
+  visibility?: 'private' | 'project'
 }
 
 export interface ModelInfo {
@@ -241,6 +243,9 @@ export interface McpContextConfig {
 
 export interface McpToolPermissionOverride {
   permission: McpToolPermission
+  /** True requires permission: 'always_ask' and a decision for each call, even with a persistent grant.
+   * Only allow-once or deny is offered. False/omission retains permission policy behavior. */
+  requireConfirmation?: boolean
 }
 
 /**
@@ -373,7 +378,7 @@ export interface AgentResource {
    */
   model?: { primary: string; input?: string[]; max_tokens?: number }
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
-  skills?: { skill_id: string; version?: number | 'latest' }[]
+  skills?: (({ skill_id: string; name?: string } | { name: string; skill_id?: string }) & { version?: number | 'latest' })[]
   /**
    * Defaults to true. False disables automatic global Skills without removing explicitly
    * listed Skills. An explicit empty `skills` array also opts out.
@@ -728,6 +733,7 @@ export interface AgentRecord {
   environment_locked_at?: string | null
   status?: AgentStatus
   ownership?: Ownership
+  sandbox_resource_class?: string
   [k: string]: unknown
 }
 
@@ -798,6 +804,10 @@ export interface SessionRecord {
   pending_approvals?: number
   /** Pending application-executed custom-tool count on getSession. */
   pending_custom_tool_calls?: number
+  pending_approval_ids?: string[]
+  pending_approval_ids_complete?: boolean
+  pending_custom_tool_call_ids?: string[]
+  pending_custom_tool_call_ids_complete?: boolean
   /**
    * `running` on a `createSession` receipt, nullable on `getSession`, and absent from
    * `listSessions` rows. This is not the run outcome; read {@link SessionRecord.run_status}
@@ -808,6 +818,8 @@ export interface SessionRecord {
   archived?: boolean
   /** Present on filtered pages only when `includeDeleted` was requested. */
   deleted?: boolean
+  idle_compaction?: boolean | null
+  pinned_config_version?: number | null
   runtime_mode?: 'active' | 'preview' | 'authoring' | 'evaluation' | string
   config_version?: number
   updated_at?: string
@@ -991,12 +1003,13 @@ export interface ScheduleUpdate {
  *  - `scheduleId` is the FULLY-QUALIFIED name `cron/{computer_id}/{agent_id}/{schedule_id}`, not
  *    the id you chose. Your id is `name`.
  *
- * The three responses also disagree with each other: `POST` answers with only snake_case
- * `schedule_name`; `GET /schedules/{id}` answers the camelCase projection below; `GET /schedules`
+ * Create receipts include the public `schedule_id` and snake_case `schedule_name`; `GET /schedules/{id}` answers the camelCase projection below; `GET /schedules`
  * answers the raw Temporal describe (`spec` / `state` / `memo` / `next_action_times`) with the
  * camelCase projection merged on top. Read defensively and match on what you find.
  */
 export interface ScheduleRecord {
+  /** Public opaque id, also present on create receipts. */
+  schedule_id?: string
   /** FULLY-QUALIFIED: `cron/{computer_id}/{agent_id}/{schedule_id}`. Not the id you passed in. */
   scheduleId?: string
   /** The `schedule_id` you chose. This is the one you pass back to get/update/delete. */
@@ -1060,6 +1073,9 @@ export interface ScheduleRecord {
 export interface ScheduleRun {
   /** Which projection this row came from. Decides which of the field groups below is populated. */
   source?: 'temporal' | 'run_projection' | string
+  linked_by?: string
+  run_id?: string
+  trigger?: string
   /** Present only when a session can be associated with this fire. */
   session_id?: string
 
@@ -1094,6 +1110,9 @@ export type ApprovalDecision = 'allow-once' | 'allow-always' | 'deny'
  * completion of the tool or run. Verify the resulting state separately.
  */
 export interface ApprovalRecord {
+  run_id?: string
+  tool_call_id?: string
+  resolution_channel?: string
   approval_id?: string
   session_id?: string
   tool_name?: string
@@ -1116,6 +1135,8 @@ export type CustomToolCallStatus = 'pending' | 'completed' | 'timeout' | 'cancel
 
 /** One application-executed custom-tool call. Unknown response fields are preserved. */
 export interface CustomToolCallRecord {
+  run_id?: string
+  resolution_channel?: string
   call_id: string
   session_id: string
   tool_call_id: string
@@ -1352,25 +1373,20 @@ export interface WakeResult {
 
 export type { SessionEvent } from './events.js'
 
-export interface ZooworkClient {
+export interface ZooworkClient extends DeveloperApi {
   listModels(): Promise<ModelInfo[]>
 
   // ── agents ──
   /**
    * Create an agent. The gateway derives ownership from your API key and always skips the
    * interactive onboarding interview — the agent answers your first message directly.
-   * `ownership` is accepted for callers that talk to the engine without the gateway;
-   * through the gateway it is overwritten and can be omitted.
+   * Ownership is derived from the key. Omit caller-supplied ownership.
    */
   createAgent(input: { resource: AgentResource; ownership?: Ownership }, idempotencyKey?: string): Promise<AgentRecord>
   /**
-   * List the agents owned by your key's bound user (engine query: `owner_uid AND org_id`,
-   * both injected by the gateway). `labels` filters on declared labels — e.g.
-   * `{ labels: { workspace_id: '…' } }` resolves an app workspace id (the first path
-   * segment of a ZooWork chat URL) to its agent. Page size is fixed at 100 by the engine.
-   *
-   * Note the scope is `owner_uid AND org_id`: an agent a colleague created in your org is
-   * fetchable by `getAgent` but will not appear here.
+   * List Agents within the key's Project and applicable owner visibility. Labels filter
+   * declared labels, and page size is 100. Reads by id still recheck authorization;
+   * a colleague's Agent is not automatically accessible.
    *
    * `await listAgents()` returns one {@link AgentPage}; read `.data` for its agents and
    * `.next_page` / `.hasNextPage()` for continuation. `for await (const agent of listAgents())`
@@ -1378,7 +1394,8 @@ export interface ZooworkClient {
    */
   listAgents(opts?: AgentListParams): AgentPagePromise
   getAgent(agentId: string): Promise<AgentRecord>
-  /** PUT declared sections; bumps config_version on EVERY call — gate on drift, don't blind-retry. */
+  /** PUT declared sections. Ownership-only changes do not bump config_version.
+   * Supply expected_config_version for an atomic version check; a mismatch returns 409 active_config_changed. */
   updateAgent(agentId: string, sections: Record<string, unknown>): Promise<AgentRecord>
   /**
    * Soft delete: the agent stops resolving on the API, but this is not a resource purge.
@@ -1650,7 +1667,7 @@ export interface ZooworkClient {
   // PATCH is not proxied at all. Session metadata is therefore write-once, at createSession.
   createSession(
     agentId: string,
-    input: { initial_events?: OutboundEvent[]; metadata?: Record<string, unknown> },
+    input: { initial_events?: OutboundEvent[]; metadata?: Record<string, unknown>; runtime_mode?: 'active'; idle_compaction?: boolean | null },
     idempotencyKey?: string,
   ): Promise<SessionRecord>
   getSession(agentId: string, sessionId: string, opts?: { history?: boolean; limit?: number }): Promise<SessionRecord>
@@ -1715,7 +1732,7 @@ export interface ZooworkClient {
 
   // ── application-executed custom tools ──
   /** Pending calls only. Any other status is rejected by the API. */
-  listCustomToolCalls(agentId: string, opts?: { status?: 'pending' }): Promise<CustomToolCallRecord[]>
+  listCustomToolCalls(agentId: string, opts?: { status?: 'pending'; sessionId?: string }): Promise<CustomToolCallRecord[]>
   /**
    * Return one call's result. A pending call answers 202/signaled:true but stays pending until
    * the paused run consumes it; an already-terminal call answers 200/signaled:false.
@@ -1737,7 +1754,7 @@ export interface ZooworkClient {
    * The response contract is source-reviewed; end-to-end approval and turn-budget behavior
    * need separate verification on the deployment you use.
    */
-  listApprovals(agentId: string, opts?: { status?: 'pending' }): Promise<ApprovalRecord[]>
+  listApprovals(agentId: string, opts?: { status?: 'pending'; sessionId?: string }): Promise<ApprovalRecord[]>
   /** Resolve one approval. `decision` is exactly one of allow-once / allow-always / deny. */
   resolveApproval(
     agentId: string,
@@ -1899,7 +1916,7 @@ export interface ZooworkClient {
  * Create a client.
  *
  * ```ts
- * const zc = createZooworkClient({ apiKey: 'zct_...' })
+ * const zc = createZooworkClient({ apiKey: 'zwp_live_...' })
  * const zc = createZooworkClient()            // reads ZOOWORK_API_KEY
  * ```
  *
@@ -1925,7 +1942,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
   if (!auth) {
     throw new Error(
       'No ZooWork API key. Pass createZooworkClient({ apiKey }) or set ZOOWORK_API_KEY. ' +
-        'Keys look like zct_… and are issued by an organization administrator.',
+        'Create a Project API key at https://platform.zoowork.ai.',
     )
   }
   const bearer = 'serviceToken' in auth ? auth.serviceToken : auth.apiKey
@@ -2039,8 +2056,8 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
    * projection's `ownership` is the one source a key-holder always has. Ownership is
    * immutable for the life of an agent, so the cache never needs invalidating.
    */
-  const ownershipByAgent = new Map<string, Ownership>()
-  const artifactSelectors = async (agentId: string): Promise<Ownership> => {
+  const ownershipByAgent = new Map<string, Pick<Ownership, 'owner_uid' | 'org_id'>>()
+  const artifactSelectors = async (agentId: string): Promise<Pick<Ownership, 'owner_uid' | 'org_id'>> => {
     const hit = ownershipByAgent.get(agentId)
     if (hit) return hit
     const projection = await json<AgentRecord>(agents(agentId))
@@ -2049,7 +2066,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       throw new ZooworkError(
         500,
         `agent ${agentId} projection carries no ownership — cannot derive the owner_uid/org_id ` +
-          'selectors the artifact routes require',
+          'selectors the file and artifact routes require',
         'ownership_unavailable',
       )
     }
@@ -2058,7 +2075,14 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     return sel
   }
 
+  const bytes = async (path: string): Promise<Uint8Array> => {
+    const res = await doFetch(`${base}${path}`, { headers: { Authorization: `Bearer ${bearer}` } })
+    if (!res.ok) throw httpError(res, await res.text())
+    return new Uint8Array(await res.arrayBuffer())
+  }
+
   const client: ZooworkClient = {
+    ...createDeveloperApi(json, bytes, artifactSelectors),
     listModels: async () => {
       const data = await json<ModelInfo[] | { models?: ModelInfo[] }>('/models')
       return Array.isArray(data) ? data : (data.models ?? [])
@@ -2463,7 +2487,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
 
     listCustomToolCalls: async (agentId, opts = {}) => {
       const data = await json<{ custom_tool_calls?: CustomToolCallRecord[] }>(
-        `${agents(agentId)}/custom_tool_calls${query({ status: opts.status })}`,
+        `${agents(agentId)}/custom_tool_calls${query({ status: opts.status, session_id: opts.sessionId })}`,
       )
       return data.custom_tool_calls ?? []
     },
@@ -2475,7 +2499,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
 
     listApprovals: async (agentId, opts = {}) => {
       const data = await json<{ approvals?: ApprovalRecord[] }>(
-        `${agents(agentId)}/approvals${query({ status: opts.status })}`,
+        `${agents(agentId)}/approvals${query({ status: opts.status, session_id: opts.sessionId })}`,
       )
       return data.approvals ?? []
     },

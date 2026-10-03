@@ -28,6 +28,7 @@
  *     leak; ids, org/tenant identifiers and e-mails are rewritten to stable placeholders; and
  *     the API key itself is used as a search needle for a final belt-and-braces pass.
  */
+import { redactApiKeys } from '../src/secret-redaction.js'
 import { writeFile, mkdir, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -185,9 +186,7 @@ export function createFixtureRecorder(opts: {
     // Belt and braces. The key is never recorded (headers are not captured at all); this only
     // guarantees that a server that ECHOED it back cannot smuggle it onto disk.
     const key = typeof process !== 'undefined' ? process.env?.ZOOWORK_API_KEY : undefined
-    if (key && key.length >= MIN_SCRUB_LEN) out = out.split(key).join('REDACTED')
-    out = out.replace(/zct_[A-Za-z0-9_-]{8,}/g, 'zct_REDACTED')
-    out = out.replace(/(Bearer )[A-Za-z0-9._~+/-]{8,}=*/g, '$1REDACTED')
+    out = redactApiKeys(out, key)
     out = out.replace(EMAIL_RE, 'user@example.invalid')
     // This repository is English-only, and some platform skills carry bilingual descriptions.
     // A whole string literal goes, rather than the CJK runs inside it, so the result is honest

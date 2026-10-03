@@ -152,7 +152,8 @@ Finish recovery before starting another live run. Never edit failure records int
 
 ## Platform keys and explicit production checks
 
-The runner accepts Work `zct_...` tokens and Platform `zwp_live_...` Project keys.
+Create a Platform Project key at `https://platform.zoowork.ai` and use the
+`zwp_live_...` secret for the runner.
 Staging remains the default and `ZOOWORK_BASE_URL` is deliberately ignored.
 A production check requires both the explicit SDK production URL and its own confirmation:
 

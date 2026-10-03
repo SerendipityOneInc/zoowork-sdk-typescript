@@ -10,9 +10,7 @@ npm install @zoowork-ai/sdk
 
 ## Quickstart
 
-Platform Project keys (`zwp_live_...`) and existing Work tokens (`zct_...`) both work with `apiKey`. Platform scopes Agent and Session access to the key’s Project and requires initialized Org billing and bound owner credentials. Rebind the key after signing in when the API requests it.
-
-Create a Project key in Platform, or a Work token under **Settings → API Keys** in the ZooWork App. Secrets are shown once at creation. Keep them server-side: Platform keys carry Project scope, while Work tokens use the existing organization authorization contract.
+Create a Project API key in [ZooWork Platform](https://platform.zoowork.ai). The secret is shown once. Save it as `ZOOWORK_API_KEY` on your server. Agent and Session access is scoped to the key's Project. Initialize Organization billing and bind owner credentials; sign in and rebind when the API requests it.
 
 ```ts
 import { createZooworkClient } from '@zoowork-ai/sdk'
@@ -67,12 +65,6 @@ separately.
 | `fetch` | - | `globalThis.fetch` |
 
 An explicit option always beats the environment variable.
-
-> **Finding the agent you built in the app.** The first path segment of a ZooWork chat URL
-> (`/chat/<32-hex>/sessions/…`) is a *workspace* id, not an `agt_…`. Resolve it with
-> `zc.listAgents({ labels: { workspace_id: '<32-hex>' } })`; use the pagination patterns
-> below to read one page or traverse every match. Scope is `owner_uid AND org_id` — an agent a *colleague*
-> created in your org is fetchable by id but will not appear in your list.
 
 > **Wait on `status.desired_state`, never on `status.actual_state`.**
 > `actual_state` reports chat-channel connectivity. An API-only agent has no channels,
@@ -155,30 +147,9 @@ must authenticate the user and authorize the session; `actor.ref` does neither. 
 isolate the shared agent's sandbox files or erase a session's previous context. Omit `actor`
 to use the owner; IM sessions reject it. See the field's SDK comment for input constraints.
 
-## Bring your own skill
+## Agent Skills
 
-A skill is a zip. One upload creates the skill *and* its first version; `putAgentSkill` attaches it.
-
-```ts
-import { readFile } from 'node:fs/promises'
-
-const skill = await zc.uploadSkill(await readFile('market-research.zip'), { scope: 'org' })
-await zc.putAgentSkill(agent.agent_id, skill.skill_id)
-```
-
-The zip's single top-level directory must be named exactly like the `name` in its `SKILL.md`
-frontmatter — `market-research/SKILL.md` declaring `name: market-research`. A mismatch is a 400,
-and it is the first one nearly everyone gets. `scope` is `org` or `personal`; the preinstalled
-`global` skills are listable but not installable with an API key, so this is the only way to
-control what a skill says. `uploadSkillVersion` publishes an update, and agents that installed it
-unpinned follow along without another `putAgentSkill`.
-
-`uploadSkillVersion` returns a `SkillVersionRecord` with `version` and `state`, not the
-`latest_version` and `status` of the `SkillRecord` returned by `uploadSkill`. This return
-contract is source-reviewed, not a new live recording. On initial create, put the description
-in the zip's frontmatter: the gateway drops the `description` option. Version uploads can
-use that override. A successful create retried under the same name can return `409 skill_exists`;
-read back first. Version uploads deduplicate identical content for the same skill, not HTTP keys.
+New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, `resource.skills` accepts a catalog name or `skill_id`; `include_global_skills: false` or an explicit empty list opts out of automatic Skills. Root Skill uploads are unavailable to Project keys. Keep source changes in your application or the Agent workspace through the Files API.
 
 ## Schedules, wake and exec
 
@@ -249,20 +220,7 @@ Approval response fields are source-reviewed, not end-to-end verified: read `req
 `allowed_decisions` and optional timeout/resolution fields defensively. `signaled: true` means
 the resolution was accepted; a returned `status: 'pending'` is not completed execution.
 
-`listEnvironments`, `getEnvironment`, `createEnvironment`, `createEnvironmentVersion`,
-`getEnvironmentVersion` and `archiveEnvironment` manage prebuilt sandbox images (apt/npm/pip
-packages, files, a build script, and an outbound allowlist). Two facts worth having before you
-start: an agent's Environment **freezes on its first sandbox creation** — after that every change
-is `409 environment_locked`, and stopping the agent does not clear it — and sandbox networking
-defaults to unrestricted unless the Environment declares `networking: { type: 'limited' }`.
-
-Build polling must have a deadline and handle `partial_ready`: some resource classes can be
-ready while others are building or failed. `getEnvironmentVersion(id, version, { resourceClass:
-'starter' })` selects one class; omitting the option keeps the aggregate read. Re-read the
-aggregate before concluding the build is fully ready. These details are source-reviewed.
-
-Channel callers must not use `allow_from` as an access-control list: the public gateway ignores
-it. Use supported `dm_policy` settings.
+Platform uses its managed Environment. Root Environment administration and Channel binding return `404 service_api.not_found` for Project keys. An exported method does not expand a key's permissions.
 
 ## Artifacts and the system prompt
 
@@ -291,7 +249,9 @@ and answers the new pin plus the version bump it cost.
 
 Verification needs the **raw request bytes**. `express.json()` and most framework body parsers
 consume them, and a `JSON.parse` → `JSON.stringify` round trip does not reproduce them byte for
-byte, so read the body before anything else touches it:
+byte, so read the body before anything else touches it. The example requires your
+application to supply `acceptOnce`, an atomic durable insert plus work-item enqueue, before it
+returns 204. A worker processes that item separately:
 
 ```ts
 import { createServer } from 'node:http'
@@ -315,12 +275,15 @@ createServer(async (req, res) => {
     throw error
   }
 
-  // Acknowledge first, then do the work: the sender retries a slow or failed response, and
-  // `event.id` is stable across retries, so it is also your deduplication key.
+  // Validate identity, then atomically persist the event and a durable work item.
+  // Implement acceptOnce with a unique webhook-id; a duplicate is successful too.
+  if (event.id !== req.headers['webhook-id']) { res.writeHead(400).end(); return }
+  try { await acceptOnce(event.id, event) } catch { res.writeHead(503).end(); return }
   res.writeHead(204).end()
 
+  // Dispatch this switch in the durable worker.
   const known = knownWebhookEvent(event)
-  if (!known) return // a type this release does not know: already acknowledged, ignore it
+  if (!known) return // keep unknown events accepted without side effects
   switch (known.type) {
     case 'run.finished':
       console.log(known.data.run_id, known.data.status)
@@ -363,7 +326,7 @@ Four more things worth knowing:
   resolved to one of its values: choosing would be a guess about which send arrived. The Python
   SDK rejects it too.
 - **`unwrapWebhook` checks six fields and no more** — `object`, `id`, `type`, `schema_version`,
-  `created_at`, `data` — so a field or event type a later Engine release adds is not a reason to
+  `created_at`, `data` — so a field or event type a later API release adds is not a reason to
   drop a delivery. `schema_version` must be a number with an **integer value**: `1` and `1.0` both
   pass, since JSON has one numeric type and they are the same number, while `1.5` is rejected with
   `invalid_payload`. The Python SDK reaches the same verdict on the same envelope.
@@ -374,7 +337,7 @@ Four more things worth knowing:
 it extends `Error`, while the Python SDK makes it a subclass of its own `ZooworkError` carrying a
 400. Match on `code`, and do not port `instanceof` checks between the two.
 
-You do not have to use this SDK to verify. Engine emits plain
+You do not have to use this SDK to verify. ZooWork emits plain
 [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks), so the official
 library for any language works with the same `whsec_` secret and the same raw body — npm
 [`standardwebhooks`](https://www.npmjs.com/package/standardwebhooks), PyPI
@@ -439,3 +402,39 @@ before creating the GitHub Release when live verification is required. Use
 ## License
 
 MIT
+
+## Developer API helpers
+
+These helpers require an SDK release that includes them. Check the installed declarations before using an example; use the documented HTTP endpoint if the installed release lacks the method.
+
+```ts
+const files = await zc.getWorkspaceFile(agentId, '/workspace')
+await zc.writeWorkspaceFile(agentId, '/workspace/input.txt', 'hello')
+const bytes = await zc.getWorkspaceFileContent(agentId, '/workspace/result.bin')
+const database = await zc.getAgentDatabase(agentId) // reading never provisions it
+const rows = await zc.getAgentDatabaseRows(agentId, 'results', { limit: 100, offset: 0 })
+const usage = await zc.getUsage({ range: '7d', view: 'both' })
+const endpoint = await zc.createAgentWebhook(agentId, {
+  url: 'https://receiver.example/webhook', event_types: ['run.finished'],
+}, 'register-hook-v1')
+// Save signing_secret securely when present; an idempotent replay can return null.
+const hooks = await zc.listAgentWebhooks(agentId) // hooks.webhooks
+const output = await zc.getRunOutput(agentId, sessionId, runId)
+const approvals = await zc.listApprovalPage(agentId, { sessionId })
+```
+
+File reads derive `owner_uid` and `org_id` from the Agent projection. Raw file content is
+`Uint8Array`; text writes are not binary uploads. Database inspection is read-only. Usage stays
+within the current key scope. Page helpers retain `next_cursor` and `has_more`; replay cursors
+verbatim. `getApproval` and `getCustomToolCall` read terminal as well as pending actions.
+
+Agent webhook methods include get/update/delete, `rotateAgentWebhookSecret`, `testAgentWebhook`,
+`getAgentWebhookEvent`, delivery list/detail and single/batch redelivery. Pass a stable idempotency
+key to create, rotation, test and redelivery. A 202 receipt confirms queuing; query delivery
+records to learn the result. SDK writes do not retry automatically.
+
+`createSession` accepts `runtime_mode: 'active'` to pin the current active configuration at
+creation. Omit it to resolve active configuration on later turns. `idle_compaction` preserves
+false, null and omission. MCP tool overrides accept `requireConfirmation?: boolean`.
+`updateAgent` accepts `expected_config_version`; a stale version returns
+`409 active_config_changed`. Ownership-only changes do not increment the configuration version.
