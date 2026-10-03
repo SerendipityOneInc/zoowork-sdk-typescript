@@ -96,8 +96,8 @@ test('skill create and version upload keep distinct response records and multipa
   expect((upload.calls[0].init.body as FormData).get('description')).toBe('Synthetic version description')
   const record: SkillRecord = { skill_id: 'skill-test', latest_version: '1', status: 'active' }
   const create = harness(record, 201)
-  expectTypeOf(await create.client.uploadSkill(new Uint8Array([1]), { scope: 'org' })).toEqualTypeOf<SkillRecord>()
-  expect((create.calls[0].init.body as FormData).get('scope')).toBe('org')
+  expectTypeOf(await create.client.uploadSkill(new Uint8Array([1]), { scope: 'project' })).toEqualTypeOf<SkillRecord>()
+  expect((create.calls[0].init.body as FormData).get('scope')).toBe('project')
 })
 
 test('getEnvironmentVersion preserves the old URL and optionally sends resource_class', async () => {

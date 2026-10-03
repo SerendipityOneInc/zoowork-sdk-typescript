@@ -745,7 +745,7 @@ export interface AgentRecord {
  */
 export interface SkillRecord {
   skill_id: string
-  scope?: 'org' | 'personal' | 'global' | 'pack' | string
+  scope?: 'project' | 'org' | 'personal' | 'global' | 'pack' | string
   name?: string
   description?: string
   latest_version?: number | string | null
@@ -760,7 +760,7 @@ export interface SkillRecord {
    * `org`-scope skill — it belongs to the org, not to a person — so this is deliberately looser
    * than {@link Ownership}, which requires both.
    */
-  ownership?: { owner_uid?: string | null; org_id?: string | null; [k: string]: unknown }
+  ownership?: { owner_uid?: string | null; org_id?: string | null; project_id?: string | null; [k: string]: unknown }
   [k: string]: unknown
 }
 
@@ -1442,9 +1442,10 @@ export interface ZooworkClient extends DeveloperApi {
   /** Skills already attached to the agent, resolved and merged. `verbose` includes ineligible/excluded entries. */
   listAgentSkills(agentId: string, opts?: { verbose?: boolean }): Promise<AgentSkill[]>
   /**
-   * Attach a skill by id. Only skills the caller's tenant owns are installable
-   * through the `/service/v1` gateway (`org` / `personal` scope); `global`
-   * catalog entries are listable but answer 404 here.
+   * Attach a visible Skill by id. Platform keys can attach global, same-org org,
+   * same-Project project, and eligible owner-personal Skills. Binding a visible Skill
+   * does not grant permission to publish its versions or delete its registry record.
+   * Work service tokens retain their org/personal visibility rules.
    */
   putAgentSkill(agentId: string, skillId: string, opts?: { enabled?: boolean; versionPin?: number | null }): Promise<{ config_version?: number; warnings?: string[] }>
   deleteAgentSkill(agentId: string, skillId: string): Promise<void>
@@ -1628,15 +1629,19 @@ export interface ZooworkClient extends DeveloperApi {
    * accepted. `SKILL.md` must be non-empty and declare both `name` and `description`.
    * 50 MB expanded, zip only (store/deflate), encrypted zips rejected.
    *
-   * scope is org or personal. Other values are rejected by the public gateway with HTTP 400.
-   * Ownership comes from your key. On this CREATE operation the public gateway drops the
+   * Platform keys on deployments with Project Skill registry support use project scope for a
+   * named Project and org scope for the Default Project. Ownership is derived from the key;
+   * Default Project org Skills are shared across the Organization. Other scopes return
+   * 400 service_api.invalid_body. Work service tokens retain org/personal create scopes.
+   * Older deployments may reject Platform registry requests with 404; SDK support alone
+   * does not prove deployment availability. On CREATE the public gateway drops the
    * description option: put the description in the zip's frontmatter instead.
    * idempotencyKey is retained as a transport option, not a replay guarantee for Skill uploads.
    * A retry after a successful create can return 409 skill_exists; read back before retrying.
    */
   uploadSkill(
     zip: Blob | ArrayBuffer | Uint8Array,
-    opts: { scope: 'org' | 'personal'; fileName?: string; description?: string; idempotencyKey?: string },
+    opts: { scope: 'project' | 'org' | 'personal'; fileName?: string; description?: string; idempotencyKey?: string },
   ): Promise<SkillRecord>
   /**
    * Publish a new version of an existing skill from a zip. Same zip rules as
@@ -1644,6 +1649,10 @@ export interface ZooworkClient extends DeveloperApi {
    * skill's name. Unlike root create, description can override the frontmatter here.
    * Returns a version row (version/state), not a SkillRecord (latest_version/status).
    * Identical content for the same skill is deduplicated by content, not by Idempotency-Key.
+   * Platform keys can publish only within their write scope: their own named Project's
+   * project Skills, or their Organization's org Skills for a Default Project key. Visible
+   * global/personal Skills and a named Project's visible org Skills remain read-only in the
+   * registry; writes return 404 service_api.not_found. Requires Project registry deployment support.
    *
    * Agents that installed the skill unpinned follow the new version on their own — the registry
    * bumps their `config_version`; you do not re-`putAgentSkill`.
@@ -1654,12 +1663,20 @@ export interface ZooworkClient extends DeveloperApi {
     opts?: { fileName?: string; description?: string; idempotencyKey?: string },
   ): Promise<SkillVersionRecord>
   /**
-   * The catalog visible to your key: global skills plus your org/personal ones. `q` matches on
-   * name; `page` is 1-based with a fixed page size of 100. Only the `org`/`personal` rows are
-   * installable — `global` entries list but answer 404 from `putAgentSkill`.
+   * One page of the visible catalog. With Project registry deployment support, Platform keys
+   * see global Skills, their Organization's org Skills, their named Project's project Skills,
+   * and eligible personal Skills owned by the key's owner. Visibility does not grant registry
+   * write permission. Ownership selectors come from the key. Work service tokens retain their
+   * existing catalog behavior. `q` matches name; `page` is 1-based with a page size of 100.
    */
-  listSkills(opts?: { scope?: 'org' | 'personal' | 'global' | string; q?: string; page?: number }): Promise<SkillRecord[]>
-  /** 204. No in-use guard for org/personal skills: agents holding it just lose it. */
+  listSkills(opts?: { scope?: 'project' | 'org' | 'personal' | 'global' | string; q?: string; page?: number }): Promise<SkillRecord[]>
+  /**
+   * Delete the registry Skill (204), not just one Agent binding. Platform keys require Project
+   * registry deployment support and may delete only their own named Project's project Skills
+   * or, for a Default Project key, their Organization's org Skills. Other IDs, including visible
+   * read-only Skills, return 404 service_api.not_found. Check consumers before deleting a shared
+   * org Skill; use deleteAgentSkill to detach only one Agent.
+   */
   deleteSkill(skillId: string): Promise<void>
 
   // ── sessions ──

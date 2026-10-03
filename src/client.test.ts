@@ -338,10 +338,10 @@ test('putAgentSkill defaults to enabled and an unpinned version', async () => {
   expect(JSON.parse(pinned.calls[0]!.body as string)).toEqual({ enabled: false, version_pin: 3 })
 })
 
-test('uploadSkill posts multipart with files[] + scope and lets the runtime set Content-Type', async () => {
+test.each(['project', 'org', 'personal'] as const)('uploadSkill preserves %s scope and multipart boundaries', async (scope) => {
   const { calls, client } = harness(jsonReply({ skill_id: 'skl_1', latest_version: '1' }))
   const zip = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
-  const rec = await client.uploadSkill(zip, { scope: 'org', fileName: 'market-research.zip', description: 'd', idempotencyKey: 'k' })
+  const rec = await client.uploadSkill(zip, { scope, fileName: 'market-research.zip', description: 'd', idempotencyKey: 'k' })
   expect(rec.skill_id).toBe('skl_1')
   expect([calls[0]!.method, path(calls)]).toEqual(['POST', '/skills'])
   // Hand-writing the boundary produces a body the server cannot parse, so the SDK must NOT
@@ -349,7 +349,9 @@ test('uploadSkill posts multipart with files[] + scope and lets the runtime set 
   expect('Content-Type' in calls[0]!.headers).toBe(false)
   expect(calls[0]!.headers['Idempotency-Key']).toBe('k')
   const form = calls[0]!.body as FormData
-  expect(form.get('scope')).toBe('org')
+  expect(form.get('scope')).toBe(scope)
+  expect(form.has('org_id')).toBe(false)
+  expect(form.has('project_id')).toBe(false)
   expect(form.get('description')).toBe('d')
   const file = form.get('files[]') as File
   expect(file.name).toBe('market-research.zip')
