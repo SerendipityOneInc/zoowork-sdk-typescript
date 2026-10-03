@@ -1897,9 +1897,7 @@ export interface ZooworkClient extends DeveloperApi {
    * `path` is absolute, or relative to `/workspace`; parent directories are created. A string is
    * written as UTF-8. The content travels through {@link ZooworkClient.exec} in base64 chunks,
    * lands in a temporary file beside the target, is checked against its SHA-256 inside the
-   * sandbox, and only then moves into place, so a failed upload leaves nothing at `path`. The
-   * file and any directory created for it take the owner of the nearest existing ancestor, so
-   * the Agent's own tools can modify them.
+   * sandbox, and only then moves into place, so a failed upload leaves nothing at `path`.
    *
    * Each chunk is one `exec` call carrying about 72 KB, so this suits files up to a few
    * megabytes. It has exec's requirements: an agent-scope sandbox and a rendered config.
@@ -2163,15 +2161,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
 
     const partial = `${path}.upload-${crypto.randomUUID()}`
     try {
-      // exec may run as root while the Agent's tools do not. Give the file, and any directory
-      // created for it, the owner of the nearest existing ancestor so the Agent can edit them.
-      await sh(
-        'dir=$(dirname "$1"); top=; probe=$dir; '
-        + 'while [ ! -e "$probe" ]; do top=$probe; probe=$(dirname "$probe"); done; '
-        + 'owner=$(stat -c %u:%g "$probe"); mkdir -p "$dir" && : > "$1" || exit 1; '
-        + 'chown "$owner" "$1" 2>/dev/null; [ -z "$top" ] || chown -R "$owner" "$top" 2>/dev/null; true',
-        partial,
-      )
+      await sh('mkdir -p "$(dirname "$1")" && : > "$1"', partial)
       for (let offset = 0; offset < data.length; offset += UPLOAD_CHUNK_BYTES) {
         let binary = ''
         for (const byte of data.subarray(offset, offset + UPLOAD_CHUNK_BYTES)) binary += String.fromCharCode(byte)
