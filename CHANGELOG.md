@@ -3,7 +3,7 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.11.0 — 2026-10-04
 
 - Add `uploadFile(agentId, path, content)`, which copies a file into an Agent's sandbox through
   `exec` and verifies its SHA-256 there. Verified against staging on 2026-10-04 with files up
