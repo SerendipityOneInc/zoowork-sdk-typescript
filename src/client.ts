@@ -213,7 +213,11 @@ export interface Ownership {
   visibility?: 'private' | 'project'
 }
 
-/** Reasoning effort tier. `off` disables extended thinking; the rest are increasing effort. */
+/**
+ * Thinking level, in ascending order of reasoning. A model resolves a level it does not list in
+ * `ModelInfo.thinking.levels` to the nearest listed one (ties go up), so `off` on a model that
+ * cannot stop thinking becomes its lowest level.
+ */
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
 
 export interface ModelInfo {
@@ -231,9 +235,9 @@ export interface ModelInfo {
   retire_not_before?: string | null
   default_for?: string[]
   /**
-   * Thinking tiers this model accepts. `levels` is an ascending subset of {@link ThinkingLevel};
-   * `default` is what the platform applies when an Agent sets none. Optional so older
-   * servers that omit it still type-check.
+   * Thinking levels that take effect as named on this model, ascending; any other
+   * {@link ThinkingLevel} resolves to the nearest listed one. `default` is what the platform
+   * applies when an Agent sets none. Optional so older servers that omit it still type-check.
    */
   thinking?: { default: ThinkingLevel; levels: ThinkingLevel[] }
   [k: string]: unknown
@@ -946,8 +950,8 @@ export interface SchedulePayload {
    */
   outcome?: OutcomeConfig | null
   /**
-   * Thinking level for THIS job's turn. Omit to use the Agent's level; `null` clears it so the
-   * platform default applies.
+   * Thinking level for THIS job's turns, outranking the Agent's `model.thinking`. Omit it on an
+   * update to keep the stored value; `null` clears it so the job follows the Agent again.
    */
   thinking?: ThinkingLevel | null
   [k: string]: unknown
