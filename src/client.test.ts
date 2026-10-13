@@ -13,8 +13,8 @@
  * consumer resolves — so a symbol that falls out of `src/index.ts` fails a test here rather than
  * somebody's build.
  */
-import { expect, test } from 'vitest'
-import { createZooworkClient, DEFAULT_BASE_URL, ZooworkError, type AgentResource, type ScheduleUpdate } from './index.js'
+import { expect, expectTypeOf, test } from 'vitest'
+import { createZooworkClient, DEFAULT_BASE_URL, ZooworkError, type AgentResource, type ScheduleInput, type ScheduleUpdate, type ThinkingLevel } from './index.js'
 
 const BASE = 'https://api.test/service/v1'
 const KEY = 'zct_test_key'
@@ -169,6 +169,24 @@ test('listModels preserves model lifecycle metadata', async () => {
   }
   const { client } = harness(jsonReply([model]))
   expect(await client.listModels()).toEqual([model])
+})
+
+test('listModels exposes thinking levels and AgentResource accepts model.thinking', async () => {
+  const model = { model: 'litellm/example', thinking: { default: 'medium', levels: ['off', 'low', 'medium', 'high'] } }
+  const { client } = harness(jsonReply([model]))
+  const [row] = await client.listModels()
+  expectTypeOf(row.thinking).toEqualTypeOf<{ default: ThinkingLevel; levels: ThinkingLevel[] } | undefined>()
+  expect(row.thinking?.levels).toEqual(['off', 'low', 'medium', 'high'])
+  const resource: AgentResource = { name: 'a', model: { primary: row.model, thinking: row.thinking?.default } }
+  const cleared: AgentResource = { name: 'a', model: { primary: row.model, thinking: null } }
+  expect(resource.model?.thinking).toBe('medium')
+  expect(cleared.model?.thinking).toBeNull()
+  const turn: ScheduleInput = { schedule_id: 's', schedule: { kind: 'cron', expr: '0 9 * * *' }, payload: { kind: 'agentTurn', thinking: 'low' } }
+  const turnCleared: ScheduleInput = { ...turn, payload: { kind: 'agentTurn', thinking: null } }
+  expect([turn.payload.thinking, turnCleared.payload.thinking]).toEqual(['low', null])
+  // @ts-expect-error not a thinking level
+  const bad: AgentResource = { name: 'a', model: { primary: 'm', thinking: 'extreme' } }
+  void bad
 })
 
 test('createAgent POSTs the envelope and sends Idempotency-Key only when given one', async () => {

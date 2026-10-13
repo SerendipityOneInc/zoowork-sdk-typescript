@@ -213,6 +213,9 @@ export interface Ownership {
   visibility?: 'private' | 'project'
 }
 
+/** Reasoning effort tier. `off` disables extended thinking; the rest are increasing effort. */
+export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
+
 export interface ModelInfo {
   model: string
   display_name?: string
@@ -227,6 +230,12 @@ export interface ModelInfo {
   selectable?: boolean
   retire_not_before?: string | null
   default_for?: string[]
+  /**
+   * Thinking tiers this model accepts. `levels` is an ascending subset of {@link ThinkingLevel};
+   * `default` is what the platform applies when an Agent sets none. Optional so older
+   * servers that omit it still type-check.
+   */
+  thinking?: { default: ThinkingLevel; levels: ThinkingLevel[] }
   [k: string]: unknown
 }
 
@@ -375,8 +384,12 @@ export interface AgentResource {
    * defaults can rotate; call `listModels()` and set `primary` explicitly for deterministic
    * provisioning. `max_tokens` caps output tokens per model request; omit only that field to
    * use the platform token limit.
+   *
+   * `thinking` is the Agent's default thinking level. Omit it to use the platform default for
+   * the model; send `null` in an update (PUT) to clear a previously declared value. Check
+   * `ModelInfo.thinking.levels` from `listModels()` for the levels a model accepts.
    */
-  model?: { primary: string; input?: string[]; max_tokens?: number }
+  model?: { primary: string; input?: string[]; max_tokens?: number; thinking?: ThinkingLevel | null }
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
   skills?: (({ skill_id: string; name?: string } | { name: string; skill_id?: string }) & { version?: number | 'latest' })[]
   /**
@@ -932,6 +945,11 @@ export interface SchedulePayload {
    * 2026-08-14 (201, read back verbatim). See {@link OutcomeConfig}.
    */
   outcome?: OutcomeConfig | null
+  /**
+   * Thinking level for THIS job's turn. Omit to use the Agent's level; `null` clears it so the
+   * platform default applies.
+   */
+  thinking?: ThinkingLevel | null
   [k: string]: unknown
 }
 

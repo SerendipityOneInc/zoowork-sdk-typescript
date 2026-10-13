@@ -51,6 +51,21 @@ const session = await zc.createSession(agent.agent_id, {
 before using a catalog row in a new Agent or config. A non-selectable choice returns
 `409 model_not_selectable`; `expired_fallback_to` names the reviewed replacement when present.
 
+To set a default thinking level, read the levels a model supports from `listModels()` and
+choose one of them in `model.thinking` (`'off' | 'low' | 'medium' | 'high' | 'max'`). Omit it to
+use the platform default; send `thinking: null` in an `updateAgent` call to clear it. A schedule's
+`agentTurn` payload accepts the same `thinking` values.
+
+```ts
+const info = models.find((m) => m.model === primary)
+const wanted = 'high'
+const thinking = info?.thinking?.levels.includes(wanted) ? wanted : info?.thinking?.default
+
+const tuned = await zc.createAgent({
+  resource: { name: 'deep-research-agent', model: { primary, thinking } },
+})
+```
+
 Agent resources also accept `userTimezone`, a named IANA timezone used for prompt and message
 time context, and `include_global_skills: false` to disable automatic global Skills while keeping
 explicitly listed Skills. An explicit `skills: []` also opts out. Schedule timezones are configured

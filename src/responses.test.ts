@@ -1349,6 +1349,7 @@ const MODEL_INFO_KEYS = [
   'selectable',
   'retire_not_before',
   'default_for',
+  'thinking',
 ] as const satisfies readonly DeclaredKeys<ModelInfo>[]
 const _modelInfoCovered: Covered<ModelInfo, (typeof MODEL_INFO_KEYS)[number]> = undefined
 
@@ -1365,6 +1366,7 @@ test('ModelInfo declares nothing the wire does not carry', () => {
       selectable: false,
       retire_not_before: '2026-10-01T00:00:00.000Z',
       default_for: ['text'],
+      thinking: { default: 'medium', levels: ['off', 'low', 'medium', 'high'] },
     },
   ])
 })
