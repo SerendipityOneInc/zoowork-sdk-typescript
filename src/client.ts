@@ -213,6 +213,13 @@ export interface Ownership {
   visibility?: 'private' | 'project'
 }
 
+/**
+ * Thinking level, in ascending order of reasoning. A model resolves a level it does not list in
+ * `ModelInfo.thinking.levels` to the nearest listed one (ties go up), so `off` on a model that
+ * cannot stop thinking becomes its lowest level.
+ */
+export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
+
 export interface ModelInfo {
   model: string
   display_name?: string
@@ -227,6 +234,12 @@ export interface ModelInfo {
   selectable?: boolean
   retire_not_before?: string | null
   default_for?: string[]
+  /**
+   * Thinking levels that take effect as named on this model, ascending; any other
+   * {@link ThinkingLevel} resolves to the nearest listed one. `default` is what the platform
+   * applies when an Agent sets none. Optional so older servers that omit it still type-check.
+   */
+  thinking?: { default: ThinkingLevel; levels: ThinkingLevel[] }
   [k: string]: unknown
 }
 
@@ -366,6 +379,20 @@ export interface OutcomeConfig {
   publish?: 'after_satisfied' | 'always' | 'never'
 }
 
+/**
+ * Partial `model` section for {@link ZooworkClient.updateAgent}. `model.thinking` merges on its
+ * own, so `{ thinking: null }` alone clears the declared level; `primary` is not required.
+ */
+export type AgentModelUpdate = Partial<NonNullable<AgentResource['model']>>
+
+/**
+ * Opt-in typing for the `sections` argument of `updateAgent`. `updateAgent` itself still takes
+ * `Record<string, unknown>` so existing callers compile unchanged; write
+ * `const update = { model: { thinking: null } } satisfies AgentUpdate` (or annotate with this
+ * type) to have the compiler check `model` and reject an unknown thinking level.
+ */
+export type AgentUpdate = { model?: AgentModelUpdate; [section: string]: unknown }
+
 export interface AgentResource {
   name: string
   /** Named IANA timezone used in prompt context and message timestamps, e.g. `Asia/Shanghai`. */
@@ -375,8 +402,12 @@ export interface AgentResource {
    * defaults can rotate; call `listModels()` and set `primary` explicitly for deterministic
    * provisioning. `max_tokens` caps output tokens per model request; omit only that field to
    * use the platform token limit.
+   *
+   * `thinking` is the Agent's default thinking level. Omit it to use the platform default for
+   * the model; send `null` in an update (PUT) to clear a previously declared value. Check
+   * `ModelInfo.thinking.levels` from `listModels()` for the levels a model accepts.
    */
-  model?: { primary: string; input?: string[]; max_tokens?: number }
+  model?: { primary: string; input?: string[]; max_tokens?: number; thinking?: ThinkingLevel | null }
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
   skills?: (({ skill_id: string; name?: string } | { name: string; skill_id?: string }) & { version?: number | 'latest' })[]
   /**
@@ -932,6 +963,16 @@ export interface SchedulePayload {
    * 2026-08-14 (201, read back verbatim). See {@link OutcomeConfig}.
    */
   outcome?: OutcomeConfig | null
+  /**
+   * Thinking level for THIS job's turns, outranking the Agent's `model.thinking`. Only an
+   * `agentTurn` payload honours it. On an update it has three states: omit it (or send an empty or
+   * whitespace-only string) to keep the stored value, send `null` to clear it so the job follows
+   * the Agent again, or send a level to set it. The server trims and lowercases a new value and
+   * normalizes legacy spellings (`xhigh`, `minimal`, `adaptive` become `max`, `low`, `medium`);
+   * a stored value written back unchanged stays as is, so a job stored before this change may
+   * still read back a legacy spelling.
+   */
+  thinking?: ThinkingLevel | null
   [k: string]: unknown
 }
 
