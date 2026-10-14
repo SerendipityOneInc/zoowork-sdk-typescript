@@ -54,16 +54,24 @@ before using a catalog row in a new Agent or config. A non-selectable choice ret
 To set a default thinking level, read the levels a model supports from `listModels()` and
 choose one of them in `model.thinking` (`'off' | 'low' | 'medium' | 'high' | 'max'`). Omit it to
 use the platform default; send `thinking: null` in an `updateAgent` call to clear it. A schedule's
-`agentTurn` payload accepts the same `thinking` values.
+`agentTurn` payload accepts the same `thinking` values; on `updateSchedule`, omitting it keeps the
+stored value and `null` clears it.
 
 ```ts
+// `models` and `primary` come from the listModels() example above.
 const info = models.find((m) => m.model === primary)
-const wanted = 'high'
-const thinking = info?.thinking?.levels.includes(wanted) ? wanted : info?.thinking?.default
+const wanted: ThinkingLevel = 'high'
 
-const tuned = await zc.createAgent({
-  resource: { name: 'deep-research-agent', model: { primary, thinking } },
-})
+// Set the level only when the model supports it; otherwise leave `thinking` out and the
+// Agent follows the platform default.
+const model: AgentResource['model'] = { primary }
+if (info?.thinking?.levels.includes(wanted)) model.thinking = wanted
+
+const tuned = await zc.createAgent({ resource: { name: 'deep-research-agent', model } })
+
+// Clear it later. `model.thinking` merges, so `primary` is not needed. `satisfies AgentUpdate`
+// makes the compiler reject an unknown level (updateAgent itself accepts any object).
+await zc.updateAgent(tuned.agent_id, { model: { thinking: null } } satisfies AgentUpdate)
 ```
 
 Agent resources also accept `userTimezone`, a named IANA timezone used for prompt and message

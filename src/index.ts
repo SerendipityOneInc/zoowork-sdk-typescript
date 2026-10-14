@@ -9,6 +9,8 @@ export {
   type ModelInfo,
   type ThinkingLevel,
   type AgentResource,
+  type AgentModelUpdate,
+  type AgentUpdate,
   type AgentRecord,
   type AgentListParams,
   type AgentPage,

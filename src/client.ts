@@ -379,6 +379,20 @@ export interface OutcomeConfig {
   publish?: 'after_satisfied' | 'always' | 'never'
 }
 
+/**
+ * Partial `model` section for {@link ZooworkClient.updateAgent}. `model.thinking` merges on its
+ * own, so `{ thinking: null }` alone clears the declared level; `primary` is not required.
+ */
+export type AgentModelUpdate = Partial<NonNullable<AgentResource['model']>>
+
+/**
+ * Opt-in typing for the `sections` argument of `updateAgent`. `updateAgent` itself still takes
+ * `Record<string, unknown>` so existing callers compile unchanged; write
+ * `const update = { model: { thinking: null } } satisfies AgentUpdate` (or annotate with this
+ * type) to have the compiler check `model` and reject an unknown thinking level.
+ */
+export type AgentUpdate = { model?: AgentModelUpdate; [section: string]: unknown }
+
 export interface AgentResource {
   name: string
   /** Named IANA timezone used in prompt context and message timestamps, e.g. `Asia/Shanghai`. */
@@ -950,8 +964,12 @@ export interface SchedulePayload {
    */
   outcome?: OutcomeConfig | null
   /**
-   * Thinking level for THIS job's turns, outranking the Agent's `model.thinking`. Omit it on an
-   * update to keep the stored value; `null` clears it so the job follows the Agent again.
+   * Thinking level for THIS job's turns, outranking the Agent's `model.thinking`. Only an
+   * `agentTurn` payload honours it. On an update it has three states: omit it (or send an empty or
+   * whitespace-only string) to keep the stored value, send `null` to clear it so the job follows
+   * the Agent again, or send a level to set it. The server trims and lowercases a new value and
+   * normalizes legacy spellings (`xhigh`, `minimal`, `adaptive` become `max`, `low`, `medium`);
+   * a stored value written back unchanged stays as is. Reads are the five public levels.
    */
   thinking?: ThinkingLevel | null
   [k: string]: unknown
