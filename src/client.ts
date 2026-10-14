@@ -969,7 +969,8 @@ export interface SchedulePayload {
    * whitespace-only string) to keep the stored value, send `null` to clear it so the job follows
    * the Agent again, or send a level to set it. The server trims and lowercases a new value and
    * normalizes legacy spellings (`xhigh`, `minimal`, `adaptive` become `max`, `low`, `medium`);
-   * a stored value written back unchanged stays as is. Reads are the five public levels.
+   * a stored value written back unchanged stays as is, so a job stored before this change may
+   * still read back a legacy spelling.
    */
   thinking?: ThinkingLevel | null
   [k: string]: unknown
