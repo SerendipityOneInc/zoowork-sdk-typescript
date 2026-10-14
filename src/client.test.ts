@@ -14,7 +14,7 @@
  * somebody's build.
  */
 import { expect, expectTypeOf, test } from 'vitest'
-import { createZooworkClient, DEFAULT_BASE_URL, ZooworkError, type AgentResource, type ScheduleInput, type ScheduleUpdate, type ThinkingLevel } from './index.js'
+import { createZooworkClient, DEFAULT_BASE_URL, ZooworkError, type AgentResource, type ScheduleInput, type ScheduleUpdate, type ThinkingLevel, type AgentUpdate } from './index.js'
 
 const BASE = 'https://api.test/service/v1'
 const KEY = 'zct_test_key'
@@ -243,6 +243,26 @@ test('updateAgent PUTs the sections verbatim', async () => {
   await client.updateAgent('agt_1', { model: { primary: 'm' } })
   expect([calls[0]!.method, path(calls)]).toEqual(['PUT', '/agents/agt_1'])
   expect(JSON.parse(calls[0]!.body as string)).toEqual({ model: { primary: 'm' } })
+})
+
+test('thinking, including null, reaches the wire on updateAgent / createSchedule / updateSchedule', async () => {
+  const { calls, client } = harness(jsonReply({}))
+  const clear = { model: { thinking: null } } satisfies AgentUpdate
+  await client.updateAgent('agt_1', clear)
+  await client.createSchedule('agt_1', {
+    schedule_id: 's',
+    schedule: { kind: 'cron', expr: '0 9 * * *' },
+    payload: { kind: 'agentTurn', thinking: 'high' },
+  })
+  await client.updateSchedule('agt_1', 's', { payload: { kind: 'agentTurn', thinking: null } })
+  const bodies = calls.map((c) => JSON.parse(c.body as string))
+  expect(bodies[0]).toEqual({ model: { thinking: null } })
+  expect(bodies[1].payload.thinking).toBe('high')
+  expect('thinking' in bodies[2].payload).toBe(true)
+  expect(bodies[2].payload.thinking).toBeNull()
+  // @ts-expect-error not a thinking level
+  const bad: AgentUpdate = { model: { thinking: 'extreme' } }
+  void bad
 })
 
 test('deleteAgent tolerates a 204 with no body', async () => {
