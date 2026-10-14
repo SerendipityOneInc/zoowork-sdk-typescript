@@ -177,3 +177,47 @@ Reports distinguish `environment`, `staging_smoke_passed` and `production_smoke_
 A production pass establishes only this bounded smoke; it does not establish cross-Project
 isolation, billing reconciliation, every API method, or replace any required staging release
 validation. Test those contracts separately with isolated resources and explicit authorization.
+
+## Thinking settings and Schedule overrides
+
+The separate thinking runner checks Agent creation with `model.thinking`, read-back of all
+five levels, actual `high` calls, `null` clearing to the default, a Schedule's `low` override,
+and clearing the Schedule override back to the Agent's `high`. It reads assistant transcript
+`metadata.thinking.level`; a successful reply alone is not a pass. Missing capabilities,
+missing metadata, forced/clamped levels, failed runs or incomplete cleanup fail the test.
+
+Build the current SDK checkout, then run the opt-in test:
+
+```sh
+pnpm build
+node e2e/thinking.ts --out-dir /absolute/private/new-thinking-result \
+  --base-url https://your-staging-host/service/v1 --confirm-staging --api-key-stdin
+```
+
+Supply the key over secure stdin or through `ZOOWORK_API_KEY`, never as a command argument.
+The parent output directory must already exist. Use `--model ID` to select an alias; it must
+report `low` and `high` and have a default other than `high`, so clearing is observable.
+
+To test the packed candidate instead, first run `e2e:prepare` and copy `thinking.ts` and
+`thinking-smoke.ts` into its `consumer/` directory (which already contains `guard.ts`). Run
+`node /absolute/candidate/consumer/thinking.ts` with the same flags. The record includes the
+installed SDK version, SDK dist hash and runner hash. This result is separate from the
+ordinary `e2e:verify` result; it does not convert a failed basic test into a pass.
+
+Production additionally requires its explicit public URL and `--confirm-production`, replacing
+`--confirm-staging`. These confirmations are mutually exclusive. Maintainer authorization for
+production mutations and model charges is required; possession of a production key is not consent.
+
+Each attempt creates one temporary Agent, four Sessions and one Schedule, with four intended
+model turns. The Schedule's automatic fire is seven days ahead; the runner manually triggers
+two executions. Main requests are capped at 400 over ten minutes, with an independent 40-request,
+90-second cleanup reserve. Cleanup deletes the Schedule, stops the Agent, removes its Sessions,
+then deletes the Agent and checks 404. An earlier cleanup failure preserves the Agent for recovery.
+Lost create responses are recovered only with this run's exact label/name and are never retried
+as paid attempts. Results and resource IDs stay in the private output directory, without replies,
+headers or credentials. Recover incomplete cleanup before starting a fresh attempt.
+
+`thinking-result.json` is bound to this runner and installed package. Re-run when the tested
+package or runner changes. Tests under `e2e/thinking.test.ts` are synthetic, offline runner
+regressions and do not prove live availability. Changes confined to `e2e/` do not require an SDK
+version bump or registry publication; a runtime/API change follows the normal release process.
