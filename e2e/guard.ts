@@ -31,7 +31,7 @@ export function baseURL(value: string, production: string, confirmedProduction =
   return url.origin + '/service/v1'
 }
 export function guardedFetch(base: string, signal: () => AbortSignal, transport: typeof fetch = fetch,
-  cleanup: () => boolean = () => false) {
+  cleanup: () => boolean = () => false, limits = { main: 80, cleanup: 12 }) {
   const expected = new URL(base)
   let calls = 0
   let cleanupCalls = 0
@@ -40,7 +40,7 @@ export function guardedFetch(base: string, signal: () => AbortSignal, transport:
     check(url.origin === expected.origin && url.pathname.startsWith(expected.pathname + '/')
       && !url.username && !url.password && !url.hash, 'out_of_scope_request_refused')
     // Main-loop exhaustion must not consume the independent cleanup reserve.
-    check(cleanup() ? ++cleanupCalls <= 12 : ++calls <= 80, 'request_budget_exceeded')
+    check(cleanup() ? ++cleanupCalls <= limits.cleanup : ++calls <= limits.main, 'request_budget_exceeded')
     const streaming = new Headers(init.headers).get('accept')?.includes('text/event-stream')
     return transport(input, { ...init, redirect: 'error', signal: AbortSignal.any([
       signal(), AbortSignal.timeout(streaming ? 120_000 : 30_000), ...(init.signal ? [init.signal] : []),
