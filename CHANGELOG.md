@@ -3,6 +3,19 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.12.0 — 2026-10-14
+
+- Add the Agent default thinking level (Managed API `model.thinking`, live in production from
+  Engine `v0.2.33-release`). New exported types `ThinkingLevel`
+  (`'off' | 'low' | 'medium' | 'high' | 'max'`), `AgentModelUpdate` and `AgentUpdate`.
+  `AgentResource.model.thinking` accepts a level or `null`. `null` in an update clears it, and
+  `{ model: { thinking: null } } satisfies AgentUpdate` type-checks without `primary`.
+- `ModelInfo.thinking` types the new `GET /v1/models` field `{ default, levels }`, which lists the
+  levels a model honours as named. A level a model does not list resolves to the nearest one.
+- `SchedulePayload.thinking` overrides the Agent's level for an `agentTurn` job. On update,
+  omitting it keeps the stored value and `null` clears it.
+- Additive only. Existing calls and types compile unchanged.
+
 ## 0.11.1 — 2026-10-04
 
 - `uploadFile` no longer runs `chown` on the uploaded file or on directories it creates. The
