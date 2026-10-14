@@ -1,0 +1,73 @@
+name: auto-review
+
+# Codex-only AI review for pull requests, gated into one commit status
+# (`auto-review / auto-review`) that a repository ruleset can require.
+# Mirrors zooclaw-engine's auto-review.yaml with the Claude reviewer turned off.
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled, reopened]
+
+# Two lanes per PR: push-type events and label events. GitHub keeps only one
+# pending run per group, so sharing a group would let a reviewer's own label
+# sync displace the queued synchronize run for a new head (zooclaw-engine#1922).
+concurrency:
+  group: auto-review-${{ github.event.pull_request.number || github.ref }}-${{ (github.event.action == 'labeled' || github.event.action == 'unlabeled') && 'label' || 'review' }}
+  cancel-in-progress: false
+
+jobs:
+  codex-review:
+    # Fork PRs get no secrets; review only same-repository branches.
+    if: >-
+      vars.AUTO_REVIEW_CODEX_ENABLED != 'false'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.action != 'labeled'
+      && github.event.action != 'unlabeled'
+    uses: SerendipityOneInc/srp-actions/.github/workflows/codex-review.yaml@main
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    with:
+      needs_human_review_label: gpt:need-human-review
+      request_changes_label: gpt:request-changes
+      model: gpt-5.6-terra
+      responses_api_endpoint: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+      claude_md_paths: AGENTS.md
+      additional_prompt: |
+        This is a published public SDK. AGENTS.md is authoritative: keep the
+        package free of runtime dependencies, keep public types and docstrings
+        in step with the Managed API contract, and do not bump the version or
+        prepare a release unless the PR says it is a release.
+    secrets:
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+
+  # The reusable gate turns the reviewer result and the blocking labels into the
+  # `auto-review / auto-review` status. always() lets it run when the reviewer
+  # job is skipped (label events, forks).
+  auto-review:
+    needs: [codex-review]
+    # Ignore the reviewer app's own label syncs so a second gate cannot race
+    # the review status and leave a stale red check behind.
+    if: >-
+      always()
+      && !(
+        (github.event.action == 'labeled' || github.event.action == 'unlabeled')
+        && github.actor == 'srp-codex[bot]'
+      )
+    uses: SerendipityOneInc/srp-actions/.github/workflows/auto-review-gate.yaml@main
+    permissions:
+      pull-requests: read
+      actions: read
+      statuses: write
+    with:
+      cc_local_result: skipped
+      gpt_local_result: ${{ needs.codex-review.result }}
+      cc_enabled: 'false'
+      gpt_enabled: ${{ vars.AUTO_REVIEW_CODEX_ENABLED != 'false' && github.event.pull_request.head.repo.full_name == github.repository }}
+      block_labels: |
+        gpt:request-changes
+        do-not-merge
