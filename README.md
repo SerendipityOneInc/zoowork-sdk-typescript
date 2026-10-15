@@ -471,10 +471,15 @@ records to learn the result. SDK writes do not retry automatically.
 `createSession` accepts `runtime_mode: 'active'` to pin the current active configuration at
 creation. Omit it to resolve active configuration on later turns. `idle_compaction` preserves
 false, null and omission. MCP tool overrides accept `requireConfirmation?: boolean`.
-Production `updateAgent` currently rejects `expected_config_version` with
-`400 invalid_declared_key`. Omit it for ordinary last-write-wins updates; serialize competing
-writes in your application. A GET followed by PUT is not atomic. Ownership-only changes do not
-increment the configuration version. The separate `upgradeSystemPrompt` precondition remains supported.
+
+Pass an optional positive `expected_config_version` in the `updateAgent` sections object to
+check the current configuration version atomically with the update. Read it from
+`agent.status?.config_version ?? agent.config_version`. A mismatch returns
+`409 active_config_changed` without changing the configuration. Re-read and recompute the
+intended change before retrying; the precondition itself is not stored in `declared`.
+Omitting it keeps last-write-wins behavior. Ownership-only changes do not increment the
+configuration version. The separate `upgradeSystemPrompt` method requires its version
+precondition and uses `409 config_version_changed`.
 
 ## Current production behavior
 

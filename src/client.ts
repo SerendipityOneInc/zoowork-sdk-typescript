@@ -1446,8 +1446,10 @@ export interface ZooworkClient extends DeveloperApi {
   listAgents(opts?: AgentListParams): AgentPagePromise
   getAgent(agentId: string): Promise<AgentRecord>
   /** PUT declared sections. Ownership-only changes do not bump config_version.
-   * Production currently rejects expected_config_version with 400 invalid_declared_key.
-   * Omit it for last-write-wins updates and serialize competing writes in the application. */
+   * Pass optional expected_config_version as a positive integer in sections for an atomic
+   * version precondition. A mismatch returns 409 active_config_changed without applying
+   * the update; re-read and recompute the change before retrying. Omit it for last-write-wins
+   * updates. The precondition is not stored in declared configuration. */
   updateAgent(agentId: string, sections: Record<string, unknown>): Promise<AgentRecord>
   /**
    * Soft delete: the agent stops resolving on the API, but this is not a resource purge.
