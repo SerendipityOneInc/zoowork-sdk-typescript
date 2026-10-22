@@ -56,7 +56,11 @@ export type PublicInputEventType = (typeof PUBLIC_INPUT_EVENT_TYPES)[number]
 
 /** A durable session event, normalized across the REST and SSE shapes. */
 export interface SessionEvent {
-  /** Durable per-session sequence: strictly increasing, not necessarily contiguous. */
+  /**
+   * Durable per-session sequence: strictly increasing, not necessarily contiguous. It orders
+   * events; it is not a resume position. The unified history and the deprecated engine-only
+   * lane number events differently, so never pass it as `after`. Resume with `cursor`.
+   */
   seq: number
   eventType: SessionEventType | PublicInputEventType | string
   payload: Record<string, unknown>
@@ -67,7 +71,10 @@ export interface SessionEvent {
   id?: string
   /** Input events only: `null` while queued, set once the agent has consumed it. */
   processedAt?: string | null
-  /** Resume token for `streamEvents({ cursor })`, present on streamed events. */
+  /**
+   * Opaque resume token, set only on events from `streamEvents`. Listed events do not carry
+   * one; resume a listing from its page's `nextCursor`.
+   */
   cursor?: string
 }
 

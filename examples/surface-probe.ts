@@ -95,18 +95,18 @@ const errNote = (e: unknown): string =>
 async function runTurn(
   agentId: string,
   sessionId: string,
-  opts: { after?: number; budgetMs?: number } = {},
-): Promise<{ outcome?: string; text: string; lastSeq: number; events: number }> {
+  opts: { cursor?: string; budgetMs?: number } = {},
+): Promise<{ outcome?: string; text: string; lastCursor?: string; events: number }> {
   const ctl = new AbortController()
   const budget = setTimeout(() => ctl.abort(), opts.budgetMs ?? 120_000)
   let text = ''
-  let lastSeq = opts.after ?? 0
+  let lastCursor = opts.cursor
   let events = 0
   let outcome: string | undefined
   try {
-    for await (const ev of zc.streamEvents(agentId, sessionId, { after: opts.after ?? 0, signal: ctl.signal })) {
+    for await (const ev of zc.streamEvents(agentId, sessionId, { cursor: opts.cursor, signal: ctl.signal })) {
       events += 1
-      lastSeq = ev.seq
+      lastCursor = ev.cursor ?? lastCursor
       text += assistantText(ev)
       if (isRunFinished(ev)) {
         outcome = runOutcome(ev)
@@ -117,7 +117,7 @@ async function runTurn(
     clearTimeout(budget)
     ctl.abort()
   }
-  return { ...(outcome ? { outcome } : {}), text, lastSeq, events }
+  return { ...(outcome ? { outcome } : {}), text, ...(lastCursor ? { lastCursor } : {}), events }
 }
 
 /**

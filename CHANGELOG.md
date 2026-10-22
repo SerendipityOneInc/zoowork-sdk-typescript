@@ -3,6 +3,26 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+- Make the deprecated engine-only event lane visible in the types (#58). `listEvents`,
+  `listEventsPage`, `listAllEvents` and `streamEvents` now have a cursor overload and a
+  `@deprecated` overload for `after`, so editors strike through `{ after: ev.seq }`. That call
+  reads a lane whose numbering differs from the unified `seq` and which omits your inputs, so it
+  silently skips and renumbers events. Use `cursor`.
+- `listAllEvents` accepts `cursor` and starts the unified walk after it. A walk that starts from
+  a cursor never falls back to the `after` lane. Passing both `cursor` and `after` throws a
+  `TypeError` before any request.
+- Type-level change: an options object that sets both `cursor` and `after` no longer compiles,
+  matching the server, which rejects that combination with `400 invalid_request`. A variable
+  typed `{ after?: number; cursor?: string }` also no longer matches either overload; narrow it
+  to one lane. New exported types: `EventCursorPosition`, `LegacyEventPosition` (deprecated),
+  `ListEventsOptions`, `ListAllEventsOptions` and `StreamEventsOptions`.
+- Document that `SessionEvent.seq` orders events but is not a resume position, and that
+  `SessionEvent.cursor` is set only on streamed events.
+- `examples/capability-probe.ts` and `examples/surface-probe.ts` resume turns with `cursor`
+  instead of passing a unified `seq` as `after`.
+
 ## 0.12.0 — 2026-10-14
 
 - Add the Agent default thinking level (Managed API `model.thinking`, live in production from
