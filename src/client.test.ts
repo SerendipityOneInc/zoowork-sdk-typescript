@@ -526,6 +526,32 @@ test('listAllEvents follows next_cursor/has_more on the unified lane', async () 
   expect(path(calls, 1)).toBe('/agents/a/sessions/s/events?cursor=pse1%3A2&limit=2')
 })
 
+test('listAllEvents starts the unified walk from a saved cursor', async () => {
+  const pages = [
+    jsonReply({ events: [{ id: 'e3', seq: 3, event_type: 'agent.assistant', payload: {}, created_at: 't' }], has_more: true, next_cursor: 'pse1:3' }),
+    jsonReply({ events: [{ id: 'e4', seq: 4, event_type: 'run.finished', payload: {}, created_at: 't' }], has_more: false, next_cursor: null }),
+  ]
+  const { calls, client } = harness((_c, i) => pages[Math.min(i, pages.length - 1)]!)
+  const all = await client.listAllEvents('a', 's', { cursor: 'pse1:2', pageSize: 1 })
+  expect(all.map((e) => e.seq)).toEqual([3, 4])
+  expect(path(calls, 0)).toBe('/agents/a/sessions/s/events?cursor=pse1%3A2&limit=1')
+  expect(path(calls, 1)).toBe('/agents/a/sessions/s/events?cursor=pse1%3A3&limit=1')
+})
+
+test('listAllEvents from a cursor does not fall back to the engine-only lane', async () => {
+  const { calls, client } = harness(jsonReply({ events: [{ seq: 3, event_type: 'x', payload: {} }, { seq: 4, event_type: 'x', payload: {} }] }))
+  const all = await client.listAllEvents('a', 's', { cursor: 'pse1:2', pageSize: 2 })
+  expect(all.map((e) => e.seq)).toEqual([3, 4])
+  expect(calls.length).toBe(1)
+})
+
+test('listAllEvents rejects cursor and after together without a request', async () => {
+  const { calls, client } = harness(jsonReply({ events: [] }))
+  // @ts-expect-error -- the overloads reject mixing the lanes; this checks the runtime guard for untyped callers
+  await expect(client.listAllEvents('a', 's', { cursor: 'pse1:2', after: 2 })).rejects.toThrow(TypeError)
+  expect(calls.length).toBe(0)
+})
+
 test('listAllEvents falls back to walking `after` on servers without cursor pagination', async () => {
   const pages = [
     jsonReply({ events: [{ seq: 1, event_type: 'x', payload: {} }, { seq: 2, event_type: 'x', payload: {} }] }),

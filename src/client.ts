@@ -940,6 +940,50 @@ export interface SessionEventPage {
 }
 
 /**
+ * Where an event read starts: omit `cursor` for the beginning of the unified history, or pass a
+ * saved one to continue after it. `after` is not accepted here; it selects a separate,
+ * deprecated overload, so an editor flags any call that uses it.
+ */
+export interface EventCursorPosition {
+  /** Opaque resume token: a page's `nextCursor`, or a streamed event's `cursor`. Do not build one from `seq`. */
+  cursor?: string
+  after?: undefined
+}
+
+/**
+ * @deprecated Engine-only lane position. Use {@link EventCursorPosition}.
+ *
+ * That lane numbers events differently from the unified history and omits your own inputs
+ * (`user.message`, …), so `after: event.seq` with a `seq` from the unified history silently
+ * skips events and returns them renumbered. Keep it only for numeric positions stored from that
+ * lane before cursors existed. The server rejects `after` and `cursor` together.
+ */
+export interface LegacyEventPosition {
+  /** @deprecated Engine-only lane sequence, not a unified `SessionEvent.seq`. Use `cursor`. */
+  after?: number
+  cursor?: undefined
+}
+
+type AnyEventPosition = EventCursorPosition | LegacyEventPosition
+
+/** Filters for {@link ZooworkClient.listEvents} and {@link ZooworkClient.listEventsPage}. */
+export interface ListEventsOptions {
+  types?: string[]
+  limit?: number
+}
+
+/** Filters for {@link ZooworkClient.listAllEvents}. */
+export interface ListAllEventsOptions {
+  types?: string[]
+  pageSize?: number
+}
+
+/** Options for {@link ZooworkClient.streamEvents}. */
+export interface StreamEventsOptions {
+  signal?: AbortSignal
+}
+
+/**
  * When a schedule fires: cron expression, everyMs interval in milliseconds (optional
  * anchorMs), or an ISO instant in at. The everyMs contract is source-reviewed; it was
  * previously misdeclared as every. Use everyMs explicitly: the SDK does not convert units
@@ -1769,39 +1813,55 @@ export interface ZooworkClient extends DeveloperApi {
    * (`user.message`, …) alongside engine events. `limit` defaults to 100 and is capped at 500;
    * the page's pagination fields are dropped, so use {@link ZooworkClient.listAllEvents}, or
    * {@link ZooworkClient.listEventsPage} to page by hand.
-   * Passing `after` selects the deprecated engine-only lane — old cursors only.
    */
-  listEvents(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; types?: string[]; limit?: number }): Promise<SessionEvent[]>
+  listEvents(agentId: string, sessionId: string, opts?: ListEventsOptions & EventCursorPosition): Promise<SessionEvent[]>
+  /**
+   * @deprecated `after` reads the engine-only lane, whose numbering differs from the unified
+   * `seq` and which omits your inputs. Use `cursor`; see {@link LegacyEventPosition}.
+   */
+  listEvents(agentId: string, sessionId: string, opts: ListEventsOptions & LegacyEventPosition): Promise<SessionEvent[]>
   /**
    * The page-returning primitive under `listEvents`: same options, plus the page's `hasMore`
    * and `nextCursor` (absent on servers without cursor pagination). Feed `nextCursor` back as
-   * `cursor` to page by hand.
+   * `cursor` to page by hand. Listed events carry no per-event `cursor`; resume from
+   * `nextCursor`, not from an event's `seq`.
    */
-  listEventsPage(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; types?: string[]; limit?: number }): Promise<SessionEventPage>
+  listEventsPage(agentId: string, sessionId: string, opts?: ListEventsOptions & EventCursorPosition): Promise<SessionEventPage>
+  /**
+   * @deprecated `after` reads the engine-only lane, whose numbering differs from the unified
+   * `seq` and which omits your inputs. Use `cursor`; see {@link LegacyEventPosition}.
+   */
+  listEventsPage(agentId: string, sessionId: string, opts: ListEventsOptions & LegacyEventPosition): Promise<SessionEventPage>
   /**
    * Every durable event: follows the server's `next_cursor` until `has_more` is false, and
    * falls back to walking `after` against servers without cursor pagination (that walk stops
    * when a page fails to advance, so a server that ignored `after` cannot spin it forever).
    *
-   * `pageSize` is the per-request `limit` (default and maximum 500). Events come back in
-   * ascending `seq`, deduplicated across page boundaries. Passing `after` forces the
-   * deprecated engine-only lane.
+   * Pass `cursor` (a saved `nextCursor` or streamed event `cursor`) to start after that
+   * position; a walk that starts from a cursor never falls back to `after`. `pageSize` is the
+   * per-request `limit` (default and maximum 500). Events come back in ascending `seq`,
+   * deduplicated across page boundaries.
    */
-  listAllEvents(
-    agentId: string,
-    sessionId: string,
-    opts?: { after?: number; types?: string[]; pageSize?: number },
-  ): Promise<SessionEvent[]>
+  listAllEvents(agentId: string, sessionId: string, opts?: ListAllEventsOptions & EventCursorPosition): Promise<SessionEvent[]>
+  /**
+   * @deprecated `after` forces the engine-only lane, whose numbering differs from the unified
+   * `seq` and which omits your inputs. Use `cursor`; see {@link LegacyEventPosition}.
+   */
+  listAllEvents(agentId: string, sessionId: string, opts: ListAllEventsOptions & LegacyEventPosition): Promise<SessionEvent[]>
   /**
    * Durable event stream with server-side resume.
    *
    * The stream is SESSION-scoped and unbounded: it does NOT close when a turn ends, and the
    * server closes it on idle. Detect turn end with `isRunFinished`, and resume by passing the
-   * last event's `cursor` (its `after` fallback selects the deprecated engine-only lane).
-   * `chat.delta` preview frames are skipped — they are snapshot-replace frames on a separate
-   * Redis-only lane, not durable events.
+   * last event's `cursor`. `chat.delta` preview frames are skipped — they are snapshot-replace
+   * frames on a separate Redis-only lane, not durable events.
    */
-  streamEvents(agentId: string, sessionId: string, opts?: { after?: number; cursor?: string; signal?: AbortSignal }): AsyncGenerator<SessionEvent>
+  streamEvents(agentId: string, sessionId: string, opts?: StreamEventsOptions & EventCursorPosition): AsyncGenerator<SessionEvent>
+  /**
+   * @deprecated `after` resumes the engine-only lane, whose numbering differs from the unified
+   * `seq` and which omits your inputs. Use `cursor`; see {@link LegacyEventPosition}.
+   */
+  streamEvents(agentId: string, sessionId: string, opts: StreamEventsOptions & LegacyEventPosition): AsyncGenerator<SessionEvent>
 
   // ── application-executed custom tools ──
   /** Pending calls only. Any other status is rejected by the API. */
@@ -2224,6 +2284,28 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     }
   }
 
+  // Both public overloads share this implementation; the deprecated `after` one only differs in
+  // which lane the server reads.
+  const listEventsPage = async (
+    agentId: string,
+    sessionId: string,
+    opts: ListEventsOptions & AnyEventPosition = {},
+  ): Promise<SessionEventPage> => {
+    const data = await json<{ events?: unknown[]; has_more?: boolean; next_cursor?: string | null }>(
+      `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events${query({
+        after: opts.after,
+        cursor: opts.cursor,
+        types: opts.types?.join(','),
+        limit: opts.limit,
+      })}`,
+    )
+    return {
+      events: (data.events ?? []).map((e) => normalizeEvent(e)),
+      ...(data.has_more !== undefined ? { hasMore: data.has_more } : {}),
+      ...(data.next_cursor !== undefined ? { nextCursor: data.next_cursor } : {}),
+    }
+  }
+
   const client: ZooworkClient = {
     ...createDeveloperApi(json, bytes, artifactSelectors),
     listModels: async () => {
@@ -2538,30 +2620,20 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       )
       return { events: data.events ?? [] }
     },
-    listEvents: async (agentId, sessionId, opts = {}) => (await client.listEventsPage(agentId, sessionId, opts)).events,
-    listEventsPage: async (agentId, sessionId, opts = {}) => {
-      const data = await json<{ events?: unknown[]; has_more?: boolean; next_cursor?: string | null }>(
-        `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events${query({
-          after: opts.after,
-          cursor: opts.cursor,
-          types: opts.types?.join(','),
-          limit: opts.limit,
-        })}`,
-      )
-      return {
-        events: (data.events ?? []).map((e) => normalizeEvent(e)),
-        ...(data.has_more !== undefined ? { hasMore: data.has_more } : {}),
-        ...(data.next_cursor !== undefined ? { nextCursor: data.next_cursor } : {}),
+    listEvents: async (agentId: string, sessionId: string, opts: ListEventsOptions & AnyEventPosition = {}) =>
+      (await listEventsPage(agentId, sessionId, opts)).events,
+    listEventsPage,
+    listAllEvents: async (agentId: string, sessionId: string, opts: ListAllEventsOptions & AnyEventPosition = {}) => {
+      if (opts.cursor !== undefined && opts.after !== undefined) {
+        throw new TypeError('listAllEvents: pass either cursor or after, not both')
       }
-    },
-    listAllEvents: async (agentId, sessionId, opts = {}) => {
       const pageSize = Math.min(Math.max(opts.pageSize ?? 500, 1), 500)
       const out: SessionEvent[] = []
       // Unified lane (default): follow the server's cursor until has_more is false.
       if (opts.after === undefined) {
-        let pageCursor: string | undefined
+        let pageCursor = opts.cursor
         for (;;) {
-          const page = await client.listEventsPage(agentId, sessionId, {
+          const page = await listEventsPage(agentId, sessionId, {
             ...(pageCursor !== undefined ? { cursor: pageCursor } : {}),
             ...(opts.types ? { types: opts.types } : {}),
             limit: pageSize,
@@ -2584,7 +2656,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       }
       let cursor = opts.after ?? out.reduce((max, e) => (e.seq > max ? e.seq : max), 0)
       for (;;) {
-        const page = await client.listEvents(agentId, sessionId, {
+        const { events: page } = await listEventsPage(agentId, sessionId, {
           after: cursor,
           ...(opts.types ? { types: opts.types } : {}),
           limit: pageSize,
@@ -2599,7 +2671,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       }
     },
 
-    async *streamEvents(agentId, sessionId, opts = {}) {
+    async *streamEvents(agentId: string, sessionId: string, opts: StreamEventsOptions & AnyEventPosition = {}) {
       const after = opts.after ?? 0
       let lastSeq = after
       const qs = query(opts.cursor !== undefined ? { cursor: opts.cursor } : { after: after > 0 ? after : undefined })

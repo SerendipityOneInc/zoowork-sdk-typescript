@@ -95,18 +95,18 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 async function runTurn(
   agentId: string,
   sessionId: string,
-  opts: { after?: number; budgetMs?: number; onEvent?: (ev: SessionEvent) => void } = {},
-): Promise<{ outcome?: string; text: string; lastSeq: number; events: number }> {
+  opts: { cursor?: string; budgetMs?: number; onEvent?: (ev: SessionEvent) => void } = {},
+): Promise<{ outcome?: string; text: string; lastCursor?: string; events: number }> {
   const ctl = new AbortController()
   const budget = setTimeout(() => ctl.abort(), opts.budgetMs ?? 120_000)
   let text = ''
-  let lastSeq = opts.after ?? 0
+  let lastCursor = opts.cursor
   let events = 0
   let outcome: string | undefined
   try {
-    for await (const ev of zc.streamEvents(agentId, sessionId, { after: opts.after ?? 0, signal: ctl.signal })) {
+    for await (const ev of zc.streamEvents(agentId, sessionId, { cursor: opts.cursor, signal: ctl.signal })) {
       events += 1
-      lastSeq = ev.seq
+      lastCursor = ev.cursor ?? lastCursor
       text += assistantText(ev)
       opts.onEvent?.(ev)
       if (isRunFinished(ev)) {
@@ -118,7 +118,7 @@ async function runTurn(
     clearTimeout(budget)
     ctl.abort()
   }
-  return { ...(outcome ? { outcome } : {}), text, lastSeq, events }
+  return { ...(outcome ? { outcome } : {}), text, ...(lastCursor ? { lastCursor } : {}), events }
 }
 
 // ── the run ──────────────────────────────────────────────────────────────────
@@ -372,11 +372,11 @@ try {
     ])
     record('system.message (accepted)', r.events[0]?.accepted ? 'WORKS' : 'BROKEN', `accepted=${r.events[0]?.accepted}`, r)
 
-    const before = turn1.lastSeq
+    const before = turn1.lastCursor
     await zc.postEvents(agentId, session.session_id, [
       { type: 'user.message', content: 'What is my display name? Answer with the name only.' },
     ])
-    const turn2 = await runTurn(agentId, session.session_id, { after: before })
+    const turn2 = await runTurn(agentId, session.session_id, { cursor: before })
     const sawIt = turn2.text.includes('Zephyrine')
     record(
       'system.message reaches the model',

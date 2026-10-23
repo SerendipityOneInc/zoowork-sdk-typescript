@@ -161,7 +161,7 @@ for await (const ev of zc.streamEvents(agent.agent_id, session.session_id)) {
 Three things worth knowing before you write that loop:
 
 - **The stream is session-scoped and does not close when a turn ends.** The server closes it after an idle period. Break on `isRunFinished(ev)` yourself, or you block until that timeout.
-- **Save the opaque cursor.** After consuming an event, retain `ev.cursor` and resume with `{ cursor }`. Do not derive it from `seq` or mix it with `after`: `after` selects the deprecated event lane, which omits user-input events. The SDK sends the cursor in the query; do not rely on a raw `Last-Event-ID` header passing through the public gateway.
+- **Save the opaque cursor.** After consuming an event, retain `ev.cursor` and resume with `{ cursor }`. Do not derive it from `seq` or mix it with `after`: `after` selects the deprecated event lane, which numbers events differently and omits user-input events, so `after: ev.seq` silently skips events. Calls that pass `after` resolve to a `@deprecated` overload, which editors strike through. Listed events carry no cursor: continue a listing from the page's `nextCursor`, which `listAllEvents({ cursor })` also accepts. The SDK sends the cursor in the query; do not rely on a raw `Last-Event-ID` header passing through the public gateway.
 - **The default unified REST and SSE wire formats use snake_case.** Older event formats differ; the SDK normalizes both into `SessionEvent`, where you read `eventType`. Keep the cursor unchanged.
 
 For API sessions, `user.message` can carry `actor: { ref: 'customer-42' }`, including in
