@@ -3,7 +3,7 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.13.0 — 2026-10-23
 
 - Make the deprecated engine-only event lane visible in the types (#58). `listEvents`,
   `listEventsPage`, `listAllEvents` and `streamEvents` now have a cursor overload and a
