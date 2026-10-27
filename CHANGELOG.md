@@ -3,6 +3,13 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+- Require Node.js 22 or later (`engines.node` is now `>=22`). Node.js 20 reached end of life on
+  2026-04-30 and was not patched by the 2026-10-21 Node.js security release. The SDK does not use
+  any Node.js 22-only API, so Node.js 20 may still run it, but that line is no longer tested or
+  supported. CI now tests Node.js 22, 24 and 26.
+
 ## 0.13.0 — 2026-10-23
 
 - Make the deprecated engine-only event lane visible in the types (#58). `listEvents`,

@@ -15,9 +15,18 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  node:
+    name: test (${{ matrix.node }})
     runs-on: ubuntu-latest
+    # Every supported Node.js line. Keep this list, `engines` in package.json and the README in step.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +36,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -37,3 +46,12 @@ jobs:
 
       # The published artifact must still build, and must not carry tests or fixtures.
       - run: pnpm run build
+
+  # The required status check. Its name stays `test` when the Node.js matrix changes, so the
+  # branch ruleset never waits for a version that is no longer tested.
+  test:
+    needs: node
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.node.result }}" = success

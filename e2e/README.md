@@ -2,7 +2,7 @@
 
 This directory owns the SDK's standalone E2E checks. It is not a coding-agent skill or a hosted
 workflow. Run from this SDK checkout with Node 22.20+ and locked development dependencies;
-the published SDK still supports Node 20+. Normal `pnpm test` is offline and needs no key.
+the published SDK supports Node.js 22 or later. Normal `pnpm test` is offline and needs no key.
 
 ## One-command E2E on a development machine
 
