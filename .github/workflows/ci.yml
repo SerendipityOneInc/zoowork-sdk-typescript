@@ -15,6 +15,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   node:
     name: test (${{ matrix.node }})
