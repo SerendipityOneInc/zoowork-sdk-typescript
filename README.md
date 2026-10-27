@@ -2,7 +2,7 @@
 
 TypeScript SDK for the [ZooWork Managed Agents](https://zoowork.ai/docs/) API. Developer Preview.
 
-Zero runtime dependencies — it uses the platform `fetch`, which you can override for edge runtimes and tests. ESM only, Node 20+.
+Zero runtime dependencies — it uses the platform `fetch`, which you can override for edge runtimes and tests. ESM only. Requires Node.js 22 or later; use the latest security release of your Node.js line.
 
 ```bash
 npm install @zoowork-ai/sdk

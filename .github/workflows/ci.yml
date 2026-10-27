@@ -18,6 +18,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Every supported Node.js line. Keep this list, `engines` in package.json and the README in step.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +32,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
