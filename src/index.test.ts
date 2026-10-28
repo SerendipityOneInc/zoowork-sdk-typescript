@@ -186,6 +186,7 @@ test('the client built from the entry point exposes every documented method', ()
     'getAgentDatabase',
     'getAgentDatabaseRows',
     'getUsage',
+    'getBalance',
     'getRunOutput',
     'getApproval',
     'getCustomToolCall',

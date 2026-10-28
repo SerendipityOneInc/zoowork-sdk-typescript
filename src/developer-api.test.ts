@@ -6,6 +6,7 @@ const routes: [string, string, (c: ZooworkClient) => Promise<unknown>][] = [
   ['GET', '/agents/a/database/tables/a%20b/rows?limit=1&offset=0', c => c.getAgentDatabaseRows('a', 'a b', { limit: 1, offset: 0 })],
   ['POST', '/agents/a/files', c => c.writeWorkspaceFile('a', '/workspace/a.txt', 'text')],
   ['GET', '/usage?group_by=api_key&per_page=2&snapshot=opaque&cursor=x%2By', c => c.getUsage({ groupBy: 'api_key', perPage: 2, snapshot: 'opaque', cursor: 'x+y' })],
+  ['GET', '/balance', c => c.getBalance()],
   ['GET', '/agents/a/sessions/s/runs/r/output?cursor=pro1%3A7&limit=2', c => c.getRunOutput('a', 's', 'r', { cursor: 'pro1:7', limit: 2 })],
   ['GET', '/agents/a/approvals/ap%20id', c => c.getApproval('a', 'ap id')],
   ['GET', '/agents/a/custom_tool_calls/c%20id', c => c.getCustomToolCall('a', 'c id')],

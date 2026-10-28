@@ -68,6 +68,13 @@ export interface UsageResult extends ApiObject {
     groups?: ApiObject[];
     records?: ApiObject[];
 }
+/** The Organization's shared balance, as shown on the Platform Billing page. */
+export interface BalanceResult extends ApiObject {
+    object: 'balance';
+    /** Decimal USD string with two places, e.g. `"11.34"`, after current-period usage. */
+    available_amount: string;
+    currency: 'usd';
+}
 export interface RunOutputArtifact extends ApiObject {
     artifact_id: string | null;
     name: string;
@@ -182,6 +189,8 @@ export interface DeveloperApi {
         offset?: number;
     }): Promise<AgentDatabaseRows>;
     getUsage(opts?: UsageOptions): Promise<UsageResult>;
+    /** Read the Organization balance shared by every Project. Requires a Platform key. */
+    getBalance(): Promise<BalanceResult>;
     getRunOutput(agentId: string, sessionId: string, runId: string, opts?: CursorOptions): Promise<RunOutput>;
     getApproval(agentId: string, approvalId: string): Promise<ApprovalRecord>;
     getCustomToolCall(agentId: string, callId: string): Promise<CustomToolCallRecord>;
@@ -230,6 +239,7 @@ export function createDeveloperApi(json: Request, bytes: (path: string) => Promi
         getAgentDatabase: (id) => json(`${agent(id)}/database`),
         getAgentDatabaseRows: (id, table, opts = {}) => json(`${agent(id)}/database/tables/${segment(table)}/rows${query({ limit: opts.limit, offset: opts.offset })}`),
         getUsage: (opts = {}) => json(`/usage${query({ range: opts.range, timezone: opts.timezone, group_by: opts.groupBy, view: opts.view, session_id: opts.sessionId, api_key_id: opts.apiKeyId, root_session_id: opts.rootSessionId, attribution: opts.attribution, page: opts.page, per_page: opts.perPage, as_of: opts.asOf, snapshot: opts.snapshot, cursor: opts.cursor })}`),
+        getBalance: () => json('/balance'),
         getRunOutput: (id, sid, rid, opts = {}) => json(`${agent(id)}/sessions/${segment(sid)}/runs/${segment(rid)}/output${query({ cursor: opts.cursor, limit: opts.limit })}`),
         getApproval: (id, aid) => json(`${agent(id)}/approvals/${segment(aid)}`),
         getCustomToolCall: (id, cid) => json(`${agent(id)}/custom_tool_calls/${segment(cid)}`),
