@@ -5,6 +5,10 @@ day the behaviour was verified, not the day it was written.
 
 ## Unreleased
 
+- Add `getBalance()` for `GET /service/v1/balance`. It returns the Organization balance shared by
+  all Projects as a USD decimal string (`available_amount`), the same amount the Platform Billing
+  page shows. Any Platform key in the Organization can read it; Work service tokens receive
+  `service_api.not_found`.
 - Require Node.js 22 or later (`engines.node` is now `>=22`). Node.js 20 reached end of life on
   2026-04-30 and was not patched by the 2026-10-21 Node.js security release. The SDK does not use
   any Node.js 22-only API, so Node.js 20 may still run it, but that line is no longer tested or
