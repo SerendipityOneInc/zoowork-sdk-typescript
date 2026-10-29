@@ -98,10 +98,13 @@ export function prepare(directoryPath: string): string {
   // Compile into a clean candidate directory, never reuse stale dist from another build.
   offlineStep('Build clean candidate', () => command(ROOT, 'pnpm', ['exec', 'tsc', '-p', 'tsconfig.build.json', '--outDir', join(pack, 'dist')], 'build', true))
   for (const file of ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE']) copyFileSync(join(ROOT, file), join(pack, file))
+  // `pnpm build` copies the coding-assistant guide into dist; the candidate must match the release.
+  copyFileSync(join(ROOT, 'agent-guide/AGENTS.md'), join(pack, 'dist/AGENTS.md'))
   const packed = offlineStep('Pack and check published files', () => {
     const files = JSON.parse(command(pack, 'npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', directory], 'pack')) as { filename: string; files: { path: string }[] }[]
     check(files.length === 1 && /^[a-zA-Z0-9_.-]+\.tgz$/.test(files[0].filename), 'invalid_pack_output')
-    check(files[0].files.every(f => ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE'].includes(f.path)
+    check(files[0].files.some(f => f.path === 'dist/AGENTS.md'), 'missing_agent_guide')
+    check(files[0].files.every(f => ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE', 'dist/AGENTS.md'].includes(f.path)
       || (/^dist\/[A-Za-z0-9_/-]+(?:\.d)?\.js$/.test(f.path) || /^dist\/[A-Za-z0-9_/-]+\.d\.ts$/.test(f.path))
         && !f.path.includes('.test.')), 'unexpected_published_file')
     return files
