@@ -97,9 +97,10 @@ pnpm e2e:run --out-dir /absolute/private/new-candidate \
 
 The smoke checks the model catalog, agent readiness, one successful streamed turn, matching
 REST history and cleanup. It is not full API coverage or production compatibility evidence.
-`--model ID` selects a catalog model; otherwise the first entry is used. The run is bounded
-to 180 seconds plus a separate 60-second cleanup reserve. No schedules, uploads or environments
-are created. Requests are pinned to the supplied HTTPS origin and public prefix; redirects
+`--model ID` selects a catalog model; otherwise the platform default model (the selectable row
+whose `default_for` includes `model`) is used, or the first selectable entry if none is marked.
+The run is bounded to 180 seconds plus a separate 60-second cleanup reserve. No schedules,
+uploads or environments are created. Requests are pinned to the supplied HTTPS origin and public prefix; redirects
 and the SDK's default production endpoint are refused. Do not substitute broad example probes.
 
 To recheck the recorded live/cleanup result and the unchanged source, runner and test package:
@@ -170,8 +171,9 @@ The advanced `e2e:run` helper accepts the same `--confirm-production` opt-in.
 
 Each attempt still creates at most one Agent and one Session, performs one model turn,
 and retains an independent cleanup reserve. Model selection skips `selectable: false`
-rows and rejects an explicitly selected retiring model. The runner never retries a paid
-attempt automatically and never publishes.
+rows, prefers the platform default model when `--model` is absent, and rejects an explicitly
+selected retiring model. The runner never retries a paid attempt automatically and never
+publishes.
 
 Reports distinguish `environment`, `staging_smoke_passed` and `production_smoke_passed`.
 A production pass establishes only this bounded smoke; it does not establish cross-Project
@@ -197,6 +199,8 @@ node e2e/thinking.ts --out-dir /absolute/private/new-thinking-result \
 Supply the key over secure stdin or through `ZOOWORK_API_KEY`, never as a command argument.
 The parent output directory must already exist. Use `--model ID` to select an alias; it must
 report `low` and `high` and have a default other than `high`, so clearing is observable.
+Without `--model`, the platform default model is used when it meets these conditions;
+otherwise the first catalog row that does.
 
 To test the packed candidate instead, first run `e2e:prepare` and copy `thinking.ts` and
 `thinking-smoke.ts` into its `consumer/` directory (which already contains `guard.ts`). Run

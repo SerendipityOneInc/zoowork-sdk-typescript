@@ -5,6 +5,9 @@ day the behaviour was verified, not the day it was written.
 
 ## Unreleased
 
+- Live smoke and thinking tests now default to the platform default model (the catalog row whose
+  `default_for` includes `model`) instead of the first catalog row, which sorts alphabetically.
+  They fall back to the first eligible row when no default is marked. `--model` still overrides.
 - Add `getBalance()` for `GET /service/v1/balance`. It returns the Organization balance shared by
   all Projects as a USD decimal string (`available_amount`), the same amount the Platform Billing
   page shows. Any Platform key in the Organization can read it; Work service tokens receive

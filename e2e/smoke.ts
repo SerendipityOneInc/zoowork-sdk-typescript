@@ -59,7 +59,9 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
   try {
     stage('models')
     const models = await client.listModels()
-    const model = options.model ?? models.find(m => m.selectable !== false)?.model
+    // Without --model, use the platform default (`default_for` includes 'model'), not catalog order.
+    const selectable = models.filter(m => m.selectable !== false)
+    const model = options.model ?? (selectable.find(m => m.default_for?.includes('model')) ?? selectable[0])?.model
     check(model && models.some(m => m.model === model && m.selectable !== false), 'requested_model_unavailable')
     record.checks.push('model_catalog')
     stage('create_agent')

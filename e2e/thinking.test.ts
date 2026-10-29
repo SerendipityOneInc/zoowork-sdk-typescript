@@ -109,3 +109,14 @@ for (const phase of ['exercise', 'cleanup'] as const) test(`record write failure
   assert.equal(f.calls.includes('delete'), true)
   assert.equal(JSON.stringify(result).includes(sensitive), false)
 })
+test('without --model the platform default model is chosen when it qualifies', async () => {
+  const capable = { default: 'medium', levels: ['off', 'low', 'medium', 'high', 'max'] }
+  const pick = async (rows: unknown[]) => {
+    const f = setup()
+    f.client.listModels = async () => rows as Awaited<ReturnType<ZooworkClient['listModels']>>
+    return (await thinkingSmoke(f.client, { runId: 'synthetic-run', signal: new AbortController().signal,
+      save: () => {}, cleanupMode: () => {}, pollAttempts: 2, delay: async () => {} })).model
+  }
+  assert.equal(await pick([{ model: 'first', thinking: capable }, { model: 'platform-default', default_for: ['model'], thinking: capable }]), 'platform-default')
+  assert.equal(await pick([{ model: 'first', thinking: capable }, { model: 'platform-default', default_for: ['model'], thinking: { default: 'off', levels: ['off'] } }]), 'first')
+})
