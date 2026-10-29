@@ -8,6 +8,12 @@ day the behaviour was verified, not the day it was written.
 - Live smoke and thinking tests now default to the platform default model (the catalog row whose
   `default_for` includes `model`) instead of the first catalog row, which sorts alphabetically.
   They fall back to the first eligible row when no default is marked. `--model` still overrides.
+- Ship `dist/AGENTS.md`, a short guide for coding assistants working in a project that installs this
+  package. The public docs describe the newest release; the guide tells an assistant to check a
+  method against the installed `*.d.ts` and `CHANGELOG.md`, and to tell the user when the docs rely
+  on something the installed version lacks instead of upgrading or working around it silently. In
+  an eval of projects pinned to 0.10.2, such a guide took Codex from 0/9 to 8/9 on reporting the
+  gap and kept Claude Code at 9/9 (zoowork-sdk-skills#40).
 - Add `getBalance()` for `GET /service/v1/balance`. It returns the Organization balance shared by
   all Projects as a USD decimal string (`available_amount`), the same amount the Platform Billing
   page shows. Any Platform key in the Organization can read it; Work service tokens receive

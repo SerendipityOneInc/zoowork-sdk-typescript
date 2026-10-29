@@ -47,6 +47,17 @@ jobs:
       # The published artifact must still build, and must not carry tests or fixtures.
       - run: pnpm run build
 
+      # Coding assistants read dist/AGENTS.md and CHANGELOG.md from the installed package.
+      - run: |
+          npm pack --dry-run --json > pack.json
+          node -e "
+            const files = require('./pack.json')[0].files.map((f) => f.path)
+            for (const path of ['dist/AGENTS.md', 'CHANGELOG.md', 'dist/index.d.ts']) {
+              if (!files.includes(path)) { console.error('package is missing ' + path); process.exit(1) }
+            }
+            if (files.some((f) => f.endsWith('.test.js'))) { console.error('package ships tests'); process.exit(1) }
+          "
+
   # The required status check. Its name stays `test` when the Node.js matrix changes, so the
   # branch ruleset never waits for a version that is no longer tested.
   test:
