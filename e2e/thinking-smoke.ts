@@ -99,11 +99,13 @@ export async function thinkingSmoke(client: ZooworkClient, options: Options): Pr
   async function exercise(): Promise<void> {
     options.signal.throwIfAborted()
     const models = await client.listModels()
-    const model = models.find(row => row.selectable !== false && (!options.model || row.model === options.model)
+    const candidates = models.filter(row => row.selectable !== false && (!options.model || row.model === options.model)
       && row.thinking && Array.isArray(row.thinking.levels)
       && (['off', 'low', 'medium', 'high', 'max'] as string[]).includes(row.thinking.default)
       && row.thinking.levels.includes(row.thinking.default) && ['low', 'high'].every(level => row.thinking!.levels.includes(level as ThinkingLevel))
       && row.thinking.default !== 'high')
+    // Prefer the platform default model when it qualifies, not catalog order.
+    const model = candidates.find(row => row.default_for?.includes('model')) ?? candidates[0]
     check(model?.thinking, 'thinking_test_model_or_capability_unavailable')
     record.model = model.model; record.default_level = model.thinking.default
     passed('thinking_catalog')

@@ -164,6 +164,17 @@ test('retiring models are skipped by default and rejected when explicitly select
   assert.equal(result.failure?.kind, 'requested_model_unavailable')
   assert.equal(g.calls.includes('create'), false)
 })
+test('without --model the platform default model is chosen over catalog order', async () => {
+  const models = [{ model: 'alphabetically-first' }, { model: 'platform-default', default_for: ['imageModel', 'model'] }]
+  const f = setup({ listModels: async () => models })
+  const create = f.client.createAgent
+  f.client.createAgent = async (input, key) => { assert.equal(input.resource.model?.primary, 'platform-default'); return create(input, key) }
+  assert.equal((await smoke(sdk, f.client, f.options)).passed, true)
+  const retired = [{ model: 'platform-default', selectable: false, default_for: ['model'] }, { model: 'synthetic-model' }]
+  const g = setup({ listModels: async () => retired })
+  g.client.createAgent = async (input, key) => { assert.equal(input.resource.model?.primary, 'synthetic-model'); return create(input, key) }
+  assert.equal((await smoke(sdk, g.client, g.options)).passed, true)
+})
 test('guarded fetch pins origin/prefix and refuses redirects even if caller asks to follow', async () => {
   let called = 0
   const transport: typeof fetch = async (_input, init) => { called++; assert.equal(init?.redirect, 'error'); return new Response('{}') }
