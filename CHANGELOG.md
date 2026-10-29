@@ -3,7 +3,7 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.14.0 — 2026-10-29
 
 - Live smoke and thinking tests now default to the platform default model (the catalog row whose
   `default_for` includes `model`) instead of the first catalog row, which sorts alphabetically.

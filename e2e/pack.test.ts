@@ -16,6 +16,7 @@ test('npm publish dry-run builds a clean package without E2E code, reports or cr
     copyFileSync(join(root, name), join(checkout, name))
   }
   cpSync(join(root, 'src'), join(checkout, 'src'), { recursive: true })
+  cpSync(join(root, 'agent-guide'), join(checkout, 'agent-guide'), { recursive: true })
   symlinkSync(join(root, 'node_modules'), join(checkout, 'node_modules'), 'junction')
   mkdirSync(join(checkout, 'dist'))
   writeFileSync(join(checkout, 'dist/stale.test.js'), '// stale generated test must not be published\n')
@@ -34,7 +35,9 @@ test('npm publish dry-run builds a clean package without E2E code, reports or cr
   assert.equal(packed[0].version, JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version)
   const paths = packed[0].files.map(file => file.path)
   assert.ok(paths.includes('dist/index.js') && paths.includes('dist/index.d.ts'))
-  assert.ok(paths.every(path => ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE'].includes(path)
+  // The coding-assistant guide ships next to the declarations it points at.
+  assert.ok(paths.includes('dist/AGENTS.md'), paths.join('\n'))
+  assert.ok(paths.every(path => ['package.json', 'README.md', 'CHANGELOG.md', 'LICENSE', 'dist/AGENTS.md'].includes(path)
     || /^dist\/[A-Za-z0-9_/-]+(?:\.js|\.d\.ts)$/.test(path)), paths.join('\n'))
   assert.equal(existsSync(join(checkout, 'dist/stale.test.js')), false)
   assert.equal(existsSync(join(checkout, 'e2e')), false)
