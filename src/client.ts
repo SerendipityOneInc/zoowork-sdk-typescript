@@ -451,22 +451,35 @@ export interface AgentResource {
  *
  *  - `desired_state` is the one that gates the API. `running` is the precondition for
  *    createSession/postEvents; anything else is `409 agent_not_running`.
- *  - `actual_state` is a best-effort CHANNEL-health projection, not API readiness. When
- *    route-status is unsupported, GET can report `active` with zero channel counts and a
- *    `status_message` saying health was not verified; a transient unknown remains
- *    `activating`. `listAgents` does not make the same foreground health query, so list and
- *    GET can briefly differ. Never gate on this field, and never poll it for `running` —
- *    that is not one of its values.
+ *  - `actual_state` is derived from the desired state and the active config, not observed
+ *    readiness. An enabled Agent with a rendered config reports `active`; a stopped one
+ *    reports `stopped`, and one being deleted reports `deleting`. Channel health is not part
+ *    of it, so an API-only Agent does not wait in `activating`, and it is not an
+ *    execution-readiness probe either. Gate on `desired_state`, and never poll this field
+ *    for `running` — that is not one of its values.
  *
- * The channel fallback behavior is source-reviewed, not deployment-verified here.
+ * Source-reviewed against Engine; deployment availability is unverified.
  */
 export interface AgentStatus {
+  /**
+   * The effective state: the Computer's state when the Computer is not `running`, otherwise
+   * the Agent's own switch ({@link AgentStatus.agent_desired_state}).
+   */
   desired_state?: 'running' | 'stopped' | 'deleted' | string
+  /** The Agent's own start/stop switch. Absent on deployments that do not report it. */
+  agent_desired_state?: 'running' | 'stopped' | 'deleted' | string
+  /** The state of the Computer the Agent runs on. Absent on deployments that do not report it. */
+  computer_desired_state?: 'running' | 'stopped' | 'deleted' | string
   actual_state?: 'activating' | 'active' | 'degraded' | 'error' | 'stopped' | 'deleting' | string
   /** Authoritative config version on the READ path (GET/PUT). */
   config_version?: number
   render_state?: string
   status_message?: string | null
+  /**
+   * Legacy placeholders kept for compatibility, not observed channel counts: `expected` and
+   * `connected` are `0` and `degraded_since` is `null`. Use {@link ZooworkClient.listChannels}
+   * for an Agent's channel bindings.
+   */
   channels?: { expected?: number; connected?: number; degraded_since?: string | null }
   [k: string]: unknown
 }
@@ -820,6 +833,28 @@ export interface SessionHistoryEntry {
   created_at?: string
 }
 
+/**
+ * The Session's queue-mode selection, present on `getSession` reads. This SDK has no method
+ * that changes it. Source-reviewed against Engine; deployment availability is unverified.
+ */
+export interface SessionQueue {
+  /** The mode chosen for this Session, or `null` when it follows `default_mode`. */
+  selected_mode: 'steer' | 'followup' | 'collect' | 'interrupt' | string | null
+  /** The mode of the config version the Session runs on (`steer` when the config sets none). */
+  default_mode: 'steer' | 'followup' | 'collect' | 'interrupt' | string
+  /** `selected_mode` when set, otherwise `default_mode`. */
+  effective_mode: 'steer' | 'followup' | 'collect' | 'interrupt' | string
+  /** Increments each time the selected mode changes. */
+  selection_version: number
+  /** Whether the Session accepts a queue-mode change; archived and read-only Sessions do not. */
+  writable: boolean
+  /** Why `writable` is false; `null` when it is true. */
+  unavailable_reason: 'session_archived' | 'vault_profile_restricted' | 'session_read_only' | string | null
+  /** When a change takes effect: `next_turn_config_load`. */
+  effective_boundary: 'next_turn_config_load' | string
+  [k: string]: unknown
+}
+
 export interface SessionRecord {
   session_id: string
   /** `api:{session_id}` for a session you created; `agent:{agent_id}:cron:{schedule_id}:…` for a scheduled fire. */
@@ -853,6 +888,20 @@ export interface SessionRecord {
   pinned_config_version?: number | null
   runtime_mode?: 'active' | 'preview' | 'authoring' | 'evaluation' | string
   config_version?: number
+  /**
+   * The config version this Session takes its Skills from, when one was recorded at creation.
+   * Absent otherwise.
+   */
+  skill_config_version?: number
+  /**
+   * Isolation mode, recorded when the Session is created and never changed. `shared` means the
+   * Session uses the Agent's one `/workspace`, Agent Memory and Artifacts; `createSession` in this
+   * SDK always records `shared`. A Session created with Vault credentials can record `session`.
+   * Absent on Sessions created before the mode was recorded.
+   */
+  isolation?: 'shared' | 'session' | string
+  /** Queue-mode state; present on `getSession`, not on list rows or the `createSession` receipt. */
+  queue?: SessionQueue
   updated_at?: string
   /** Activity sort key used by filtered cursor listing. */
   last_activity_at?: string
@@ -1521,9 +1570,8 @@ export interface ZooworkClient extends DeveloperApi {
    *
    * READ THIS BEFORE WRITING YOUR OWN LOOP. `desired_state` is the only readiness signal.
    * Polling `status.actual_state` for `'running'` is the documented way to hang forever:
-   * `actual_state` reports CHAT-CHANNEL health, `running` is not one of its values, and an
-   * API-only agent parks at `activating` for the rest of its life. Every hand-rolled readiness
-   * loop we have seen gets this wrong.
+   * `running` is not one of its values (an enabled Agent reports `active`). Every hand-rolled
+   * readiness loop we have seen gets this wrong.
    *
    * Defaults: 30s budget, 500ms between polls — start is sub-second on staging, so the budget
    * is for a bad day, not the normal one. On timeout it throws a {@link ZooworkError} with

@@ -18,6 +18,7 @@ const routes: [string, string, (c: ZooworkClient) => Promise<unknown>][] = [
   ['POST', '/agents/a/webhooks/w/delete', c => c.deleteAgentWebhook('a', 'w')],
   ['GET', '/agents/a/webhooks/events/e', c => c.getAgentWebhookEvent('a', 'e')],
   ['GET', '/agents/a/webhooks/w/deliveries?status=dead&event_type=run.finished&session_id=s', c => c.listAgentWebhookDeliveries('a', 'w', { status: 'dead', eventType: 'run.finished', sessionId: 's' })],
+  ['GET', '/agents/a/webhooks/w/deliveries?event_type=webhook.test&receipt_id=r%2F1', c => c.listAgentWebhookDeliveries('a', 'w', { eventType: 'webhook.test', receiptId: 'r/1' })],
   ['GET', '/agents/a/webhooks/w/deliveries/d', c => c.getAgentWebhookDelivery('a', 'w', 'd')],
 ]
 for (const key of ['zct_synthetic_key', 'zwp_live_synthetic_key']) {
