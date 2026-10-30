@@ -32,12 +32,16 @@ const agentId = need('AGENT_ID')
 const run = process.env.RUN_ID ?? `vault-example-${Date.now()}`
 const user = 'example-user-a' // your application's own user ID; ZooWork never interprets it
 
+// What this run created, so `finally` removes exactly that, whatever step failed.
+const created: { vaultId?: string; session?: { id: string; revision: number } } = {}
+
 try {
   // 1. A Vault for this user, recorded in your own user → Vault mapping.
   const vault = await zc.createVault(
     { scope: 'project', project_id: need('PROJECT_ID'), name: `${run}-${user}`, metadata: { user } },
     { idempotencyKey: `${run}:vault` },
   )
+  created.vaultId = vault.id
   const credential = await zc.createVaultCredential(vault.id, {
     name: 'mcp',
     purpose: 'mcp',
@@ -53,6 +57,7 @@ try {
     external_user_ref: user,
   }, `${run}:session`)
   const revision = session.vault_binding?.revision ?? 1
+  created.session = { id: session.session_id, revision }
   console.log(`session ${session.session_id}, binding revision ${revision}, profile ${session.vault_binding?.profile}`)
 
   // 3. The user leaves: revoke their Sessions through the durable ledger and wait for the result.
@@ -75,12 +80,6 @@ try {
   } catch (error) {
     console.log(`after revoke: ${vaultSessionErrorCode(error) ?? (error as ZooworkError).type}`)
   }
-
-  // 4. Clean up. Delete needs the current revision; a retry that answers 404 already succeeded.
-  const fresh = await zc.getVault(vault.id)
-  await zc.archiveVault(vault.id, { idempotencyKey: `${run}:archive`, revision: fresh.revision })
-  const archived = await zc.getVault(vault.id)
-  await zc.deleteVault(vault.id, { idempotencyKey: `${run}:delete`, revision: archived.revision })
   if (current.status !== 'completed') process.exitCode = 1
 } catch (error) {
   if (isVaultBetaUnavailable(error)) {
@@ -89,4 +88,29 @@ try {
     console.error(error)
   }
   process.exitCode = 1
+} finally {
+  // 4. Clean up what this run created, each step on its own so one failure does not skip the rest.
+  // Revoking an already revoked binding with the revision that revoked it is a no-op.
+  const step = async (name: string, action: () => Promise<unknown>): Promise<void> => {
+    try {
+      await action()
+    } catch (error) {
+      // A 404 on a retried delete means it is already gone.
+      if (!(error instanceof ZooworkError && error.status === 404)) {
+        console.error(`cleanup ${name} failed:`, error)
+        process.exitCode = 1
+      }
+    }
+  }
+  const { vaultId, session } = created
+  if (session) {
+    await step('revoke', () =>
+      zc.revokeSessionVaultBinding(agentId, session.id, { idempotencyKey: `${run}:revoke`, revision: session.revision }))
+    await step('session', () => zc.deleteSession(agentId, session.id))
+  }
+  if (vaultId) {
+    // Delete needs the current revision.
+    await step('vault', async () =>
+      zc.deleteVault(vaultId, { idempotencyKey: `${run}:delete`, revision: (await zc.getVault(vaultId)).revision }))
+  }
 }

@@ -433,10 +433,12 @@ Rules:
 - Read `credential.health` through `vaultCredentialHealthState(credential)`. Only `ok` is healthy.
   Show a re-authorize prompt on `reauthorization_required` and a rotate prompt on `expired`
   (`updateVaultCredential`). A state the SDK does not know reads as `unknown`.
-- A Session's Vault errors arrive under two spellings while the service migrates: the Engine code
-  (`vault_binding_revoked`) today, `vault.binding_revoked` later. `vaultSessionErrorCode(err)`
-  accepts both and returns the dotted one (`vault.binding_revoked`, `vault.binding_expired`,
-  `vault.profile_restricted`).
+- A Session's Vault errors carry two spellings while the service migrates. Session routes answer
+  Engine's code in `error.type` (`vault_binding_revoked`), which is what `err.type` holds; a later
+  release adds the dotted code at the top level (`"code": "vault.binding_revoked"`) and keeps
+  `error.type` unchanged. Match with `vaultSessionErrorCode(err)`: it reads the top-level `vault.*`
+  code when present, accepts either spelling otherwise, and returns the dotted one
+  (`vault.binding_revoked`, `vault.binding_expired`, `vault.profile_restricted`).
 
 When a user leaves, either archive or delete that user's dedicated Vault or credential (every
 Session using it is refused at its next call), or revoke that user's Sessions. ZooWork does not
@@ -448,10 +450,12 @@ const ledger = await zc.createVaultOffboarding(
   { idempotencyKey: 'offboard-user-a' },
 )
 let current = ledger
-while (current.status === 'in_progress') {
+const deadline = Date.now() + 10 * 60_000
+while (current.status === 'in_progress' && Date.now() < deadline) {
   await new Promise((r) => setTimeout(r, 30_000))
   current = await zc.getVaultOffboarding(ledger.id)
 }
+// Still `in_progress` at the deadline: the service keeps retrying; read the ledger again later.
 // `completed`: every Session revoked. `incomplete`: check each Session's `state`;
 // `not_found` is NOT a revocation.
 ```

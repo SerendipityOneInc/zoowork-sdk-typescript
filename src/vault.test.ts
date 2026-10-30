@@ -207,8 +207,28 @@ test('the Vault fields are only accepted together with isolation and an Idempote
     void c.createSession('a', { isolation: 'session', vault_ids: ['v'], external_user_ref: null }, 'k')
     // @ts-expect-error credential_bindings without vault_ids
     void c.createSession('a', { credential_bindings: [{ server_name: 's', credential_id: 'c' }] }, 'k')
+    // A value (not a literal) escapes excess-property checks; the key is still required.
+    const vaultInput = { isolation: 'session' as const, vault_ids: ['v'] as [string] }
+    // @ts-expect-error Vault fields in a variable without an idempotency key
+    void c.createSession('a', vaultInput)
+    void c.createSession('a', vaultInput, 'k')
     // isolation alone is an ordinary Session field.
     void c.createSession('a', { isolation: 'shared' })
+    const plain = { metadata: { k: 'v' }, isolation: 'shared' as const }
+    void c.createSession('a', plain)
+  }
+  expect(typeof typeOnly).toBe('function')
+})
+
+test('a credential rotation is either headers or an access token, never both (types)', () => {
+  const c = harness().client
+  const typeOnly = (): void => {
+    // @ts-expect-error both rotation shapes at once
+    void c.updateVaultCredential('v', 'c', { auth: { headers: { 'X-Key': 'k' }, access_token: 't' } }, W)
+    // @ts-expect-error header rotation with an access-token field
+    void c.updateVaultCredential('v', 'c', { auth: { headers: { 'X-Key': 'k' }, expires_at: null } }, W)
+    void c.updateVaultCredential('v', 'c', { auth: { headers: { 'X-Key': 'k' } } }, W)
+    void c.updateVaultCredential('v', 'c', { auth: { access_token: 't', expires_at: null, refresh_owner: 'external' } }, W)
   }
   expect(typeof typeOnly).toBe('function')
 })
@@ -255,6 +275,9 @@ test('with Vault off, every Vault route rejects with VaultBetaUnavailableError c
     expect(err.message).toContain('Vault beta is not enabled')
     expect(err.bodySnippet).toBe(JSON.stringify(envelope('service_api.not_found', 'Not found')))
     expect(isVaultBetaUnavailable(err)).toBe(true)
+    // The original error, with its stack, stays reachable.
+    expect(err.cause).toBeInstanceOf(ZooworkError)
+    expect((err.cause as ZooworkError).message).toBe('Not found')
   }
 })
 
@@ -286,7 +309,10 @@ test('revoke 404 service_api.not_found stays a plain ZooworkError: it can also m
   expect(err.type).toBe('service_api.not_found')
   expect(err.message).toContain('Agent or Session was not found')
   expect(err.message).toContain('Vault beta is not enabled')
+  expect(err.retryable).toBe(false)
   expect(isVaultBetaUnavailable(err)).toBe(false)
+  expect(err.cause).toBeInstanceOf(ZooworkError)
+  expect((err.cause as ZooworkError).message).toBe('Not found')
 })
 
 test('vaultSessionErrorCode recognizes both the Engine and the vault.* spelling', () => {
@@ -319,6 +345,32 @@ test('a revoked binding surfaces through postEvents under either spelling', asyn
     expect(err.type).toBe(verbatim)
     expect(vaultSessionErrorCode(err)).toBe('vault.binding_revoked')
   }
+})
+
+test('the mapped Session-route envelope (ecap-workspace #4176): type keeps the Engine code, the helper the dotted one', async () => {
+  const answers: [number, unknown, string, string][] = [
+    [409, { code: 'vault.binding_revoked', detail: 'revoked', error: { type: 'vault_binding_revoked', message: 'revoked' } }, 'vault_binding_revoked', 'vault.binding_revoked'],
+    [409, { code: 'vault.binding_expired', detail: 'expired', error: { type: 'vault_binding_expired', message: 'expired' } }, 'vault_binding_expired', 'vault.binding_expired'],
+    [403, { code: 'vault.profile_restricted', detail: 'restricted', error: { type: 'vault_profile_restricted', message: 'restricted' } }, 'vault_profile_restricted', 'vault.profile_restricted'],
+  ]
+  for (const [status, body, verbatim, dotted] of answers) {
+    const { client } = harness({ status, body })
+    const err = await rejection(client.postEvents('agt_1', 'ses_1', [{ type: 'user.message', content: 'hi' }]))
+    expect(err.status).toBe(status)
+    // ZooworkError reads error.type first, so the Engine code stays in `type`.
+    expect(err.type).toBe(verbatim)
+    expect(vaultSessionErrorCode(err)).toBe(dotted)
+  }
+})
+
+test('vaultSessionErrorCode prefers a top-level vault.* code over error.type', async () => {
+  const { client } = harness({ status: 409, body: { code: 'vault.binding_expired', detail: 'x', error: { type: 'binding_expired_v2', message: 'x' } } })
+  const err = await rejection(client.postEvents('agt_1', 'ses_1', [{ type: 'user.message', content: 'hi' }]))
+  expect(err.type).toBe('binding_expired_v2')
+  expect(vaultSessionErrorCode(err)).toBe('vault.binding_expired')
+  // A top-level code outside the vault.* family does not override error.type.
+  const other = await rejection(harness({ status: 409, body: { code: 'session.conflict', error: { type: 'vault_binding_revoked' } } }).client.getSession('a', 's'))
+  expect(vaultSessionErrorCode(other)).toBe('vault.binding_revoked')
 })
 
 test('vaultCredentialHealthState: known states pass, anything else is unknown, no health is null', () => {

@@ -154,8 +154,9 @@ export interface VaultCredentialCreateInput {
  * refresh material). An omitted `refresh_owner` keeps the stored one.
  */
 export type VaultCredentialAuthRotation =
-  | { headers: Record<string, string> }
+  | { headers: Record<string, string>; access_token?: never; expires_at?: never; refresh_owner?: never; refresh?: never }
   | {
+      headers?: never
       access_token: string
       expires_at?: string | null
       refresh_owner?: 'external' | 'engine'
@@ -436,13 +437,14 @@ type Request = <T>(
 /** How a Vault call's failure reaches the caller; supplied by the client (see `vaultFailure`). */
 export type VaultFailure = (error: unknown, route: 'management' | 'revoke') => unknown
 
-const segment = encodeURIComponent
-
-function query(params: Record<string, string | number | undefined>): string {
-  const result = new URLSearchParams()
-  for (const [key, value] of Object.entries(params)) if (value !== undefined) result.set(key, String(value))
-  return result.size ? `?${result}` : ''
+/** The client's own path and query builders, so both families encode the same way. */
+export interface VaultPaths {
+  query: (params: Record<string, string | number | undefined>) => string
+  /** `/agents/{agentId}/sessions`, the agent ID encoded. */
+  sessions: (agentId: string) => string
 }
+
+const segment = encodeURIComponent
 
 /**
  * Exactly the two documented headers, read field by field. Nothing else on `opts` reaches the wire,
@@ -456,7 +458,7 @@ function writeHeaders(opts: Partial<VaultRevisionWriteOptions> | undefined): Rec
 }
 
 /** Uses the client's authentication and error transport. Never retries. */
-export function createVaultApi(json: Request, failure: VaultFailure): VaultApi {
+export function createVaultApi(json: Request, failure: VaultFailure, { query, sessions }: VaultPaths): VaultApi {
   const call = async <T>(
     route: 'management' | 'revoke',
     path: string,
@@ -497,7 +499,7 @@ export function createVaultApi(json: Request, failure: VaultFailure): VaultApi {
     },
     validateVaultCredential: (id, cid) => call('management', `${credential(id, cid)}/validate`, { method: 'POST' }),
     revokeSessionVaultBinding: (agentId, sessionId, opts) =>
-      call('revoke', `/agents/${segment(agentId)}/sessions/${segment(sessionId)}/vault-binding/revoke`, { method: 'POST', opts }),
+      call('revoke', `${sessions(agentId)}/${segment(sessionId)}/vault-binding/revoke`, { method: 'POST', opts }),
     createVaultOffboarding: (input, opts) =>
       call('management', '/vault-offboardings', { method: 'POST', body: input, opts: { idempotencyKey: opts?.idempotencyKey } }),
     getVaultOffboarding: (id) => call('management', `/vault-offboardings/${segment(id)}`),
@@ -508,10 +510,14 @@ export function createVaultApi(json: Request, failure: VaultFailure): VaultApi {
  * @beta Session errors caused by a Vault binding, under both spellings the service uses.
  *
  * TRANSITION: on Session sub-routes (post events, change configuration, …) the service currently
- * passes these through with the bare Engine code (`vault_binding_revoked`); a later release maps
- * them to the dotted `vault.*` code (`vault.binding_revoked`), which Session creation already uses.
- * `ZooworkError.type` keeps whichever the server sent. Match through {@link vaultSessionErrorCode}
- * rather than on either spelling, and both keep working.
+ * passes Engine's body through: `{ "error": { "type": "vault_binding_revoked", … } }`. A later
+ * release maps it and answers both codes: `{ "code": "vault.binding_revoked", "detail": …,
+ * "error": { "type": "vault_binding_revoked", … } }`, the dotted code at the top level and Engine's
+ * code kept in `error.type` (and `vault_profile_restricted` always as 403). `ZooworkError.type`
+ * reads `error.type` first, so on these routes it stays the bare Engine code in both phases.
+ * Session creation answers the dotted code alone. Match through {@link vaultSessionErrorCode},
+ * which reads the top-level dotted code when the body carries one and accepts either spelling
+ * otherwise, rather than on `type`.
  */
 export const VAULT_SESSION_ERROR_CODES = {
   vault_binding_revoked: 'vault.binding_revoked',
@@ -534,12 +540,26 @@ const DOTTED_SESSION_CODES = new Set<string>(Object.values(VAULT_SESSION_ERROR_C
  *   credentials (model, `config_version`, `idle_compaction`).
  */
 export function vaultSessionErrorCode(error: unknown): VaultSessionErrorCode | undefined {
-  const type = (error as Partial<Pick<ZooworkError, 'type'>> | null | undefined)?.type
-  if (typeof type !== 'string') return undefined
-  if (Object.hasOwn(VAULT_SESSION_ERROR_CODES, type)) {
-    return VAULT_SESSION_ERROR_CODES[type as keyof typeof VAULT_SESSION_ERROR_CODES]
+  const fields = error as Partial<Pick<ZooworkError, 'type' | 'bodySnippet'>> | null | undefined
+  const code = topLevelCode(fields?.bodySnippet)
+  const candidate = code?.startsWith('vault.') ? code : fields?.type
+  if (typeof candidate !== 'string') return undefined
+  if (Object.hasOwn(VAULT_SESSION_ERROR_CODES, candidate)) {
+    return VAULT_SESSION_ERROR_CODES[candidate as keyof typeof VAULT_SESSION_ERROR_CODES]
   }
-  return DOTTED_SESSION_CODES.has(type) ? (type as VaultSessionErrorCode) : undefined
+  return DOTTED_SESSION_CODES.has(candidate) ? (candidate as VaultSessionErrorCode) : undefined
+}
+
+/** The top-level `code` of a JSON error body, when the body is intact and has one. */
+function topLevelCode(body: string | undefined): string | undefined {
+  if (body === undefined) return undefined
+  try {
+    const parsed: unknown = JSON.parse(body)
+    const code = (parsed as { code?: unknown } | null)?.code
+    return typeof code === 'string' ? code : undefined
+  } catch {
+    return undefined
+  }
 }
 
 const KNOWN_HEALTH_STATES = new Set<string>(['ok', 'degraded', 'expired', 'reauthorization_required'])

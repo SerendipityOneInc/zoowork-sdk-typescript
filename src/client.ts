@@ -178,21 +178,37 @@ const VAULT_SESSION_FIELDS_UNAVAILABLE = 'vault.session_fields_unavailable'
  */
 export class VaultBetaUnavailableError extends ZooworkError {
   constructor(cause: ZooworkError) {
-    super(
-      cause.status,
-      `${cause.message} (Vault beta is not enabled for this account or environment, or this ` +
-        'credential cannot use Vault; Vault needs a Platform API key)',
-      cause.type,
-      {
-        contentType: cause.contentType,
-        bodySnippet: cause.bodySnippet,
-        cfRay: cause.cfRay,
-        requestId: cause.requestId,
-        retryable: cause.retryable,
-      },
-    )
+    super(...hinted(cause, VAULT_BETA_HINT))
     this.name = 'VaultBetaUnavailableError'
+    this.cause = cause
   }
+}
+
+const VAULT_BETA_HINT =
+  'Vault beta is not enabled for this account or environment, or this credential cannot use Vault; ' +
+  'Vault needs a Platform API key'
+
+/** The constructor arguments of a copy of `error` whose message ends with `(hint)`; every response field is kept. */
+function hinted(error: ZooworkError, hint: string): ConstructorParameters<typeof ZooworkError> {
+  return [
+    error.status,
+    `${error.message} (${hint})`,
+    error.type,
+    {
+      contentType: error.contentType,
+      bodySnippet: error.bodySnippet,
+      cfRay: error.cfRay,
+      requestId: error.requestId,
+      retryable: error.retryable,
+    },
+  ]
+}
+
+/** A {@link ZooworkError} like `error`, with `hint` appended to the message and `error` as its `cause`. */
+function withHint(error: ZooworkError, hint: string): ZooworkError {
+  const copy = new ZooworkError(...hinted(error, hint))
+  copy.cause = error
+  return copy
 }
 
 /**
@@ -217,18 +233,9 @@ export function isVaultBetaUnavailable(error: unknown): boolean {
 function vaultFailure(error: unknown, route: 'management' | 'revoke'): unknown {
   if (!(error instanceof ZooworkError) || error.status !== 404 || error.type !== 'service_api.not_found') return error
   if (route === 'management') return new VaultBetaUnavailableError(error)
-  return new ZooworkError(
-    error.status,
-    `${error.message} (the Agent or Session was not found for this key, or Vault beta is not enabled ` +
-      'for this account or environment)',
-    error.type,
-    {
-      contentType: error.contentType,
-      bodySnippet: error.bodySnippet,
-      cfRay: error.cfRay,
-      requestId: error.requestId,
-      retryable: error.retryable,
-    },
+  return withHint(
+    error,
+    'the Agent or Session was not found for this key, or Vault beta is not enabled for this account or environment',
   )
 }
 
@@ -1614,6 +1621,12 @@ export interface SessionCreateInput {
   isolation?: SessionIsolation
 }
 
+/**
+ * The Vault fields (all but `isolation`) ruled out, so a value that carries them, not only an object
+ * literal, cannot take the overload whose idempotency key is optional.
+ */
+type NoVaultFields = { [K in Exclude<keyof SessionVaultFields, 'isolation'>]?: never }
+
 export interface ZooworkClient extends DeveloperApi, VaultApi {
   listModels(): Promise<ModelInfo[]>
 
@@ -1938,7 +1951,7 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * fields may change before general availability.
    */
   createSession(agentId: string, input: SessionCreateInput & SessionVaultFields, idempotencyKey: string): Promise<SessionRecord>
-  createSession(agentId: string, input: SessionCreateInput, idempotencyKey?: string): Promise<SessionRecord>
+  createSession(agentId: string, input: SessionCreateInput & NoVaultFields, idempotencyKey?: string): Promise<SessionRecord>
   getSession(agentId: string, sessionId: string, opts?: { history?: boolean; limit?: number }): Promise<SessionRecord>
   /** Legacy newest-first numeric page lane: 50 per page, `page` is 1-based. */
   listSessions(agentId: string, opts?: { page?: number }): Promise<SessionRecord[]>
@@ -2460,7 +2473,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
 
   const client: ZooworkClient = {
     ...createDeveloperApi(json, bytes, artifactSelectors),
-    ...createVaultApi(json, vaultFailure),
+    ...createVaultApi(json, vaultFailure, { query, sessions }),
     listModels: async () => {
       const data = await json<ModelInfo[] | { models?: ModelInfo[] }>('/models')
       return Array.isArray(data) ? data : (data.models ?? [])
