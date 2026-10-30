@@ -132,6 +132,8 @@ export interface WebhookDeliveryOptions extends CursorOptions {
     status?: 'pending' | 'in_flight' | 'succeeded' | 'dead' | 'cancelled';
     eventType?: string;
     eventId?: string;
+    /** Sent as `receipt_id`. Pass the `receipt_id` from {@link WebhookTestReceipt} to find that test's delivery. */
+    receiptId?: string;
     sessionId?: string;
     runId?: string;
     scheduleId?: string;
@@ -253,7 +255,7 @@ export function createDeveloperApi(json: Request, bytes: (path: string) => Promi
         rotateAgentWebhookSecret: (id, wid, input, key) => json(`${endpoint(id, wid)}/rotate-secret`, post(input, key)),
         testAgentWebhook: (id, wid, key) => json(`${endpoint(id, wid)}/test`, post({}, key)),
         getAgentWebhookEvent: (id, eid) => json(`${webhooks(id)}/events/${segment(eid)}`),
-        listAgentWebhookDeliveries: (id, wid, opts = {}) => json(`${endpoint(id, wid)}/deliveries${query({ cursor: opts.cursor, limit: opts.limit, status: opts.status, event_type: opts.eventType, event_id: opts.eventId, session_id: opts.sessionId, run_id: opts.runId, schedule_id: opts.scheduleId })}`),
+        listAgentWebhookDeliveries: (id, wid, opts = {}) => json(`${endpoint(id, wid)}/deliveries${query({ cursor: opts.cursor, limit: opts.limit, status: opts.status, event_type: opts.eventType, event_id: opts.eventId, receipt_id: opts.receiptId, session_id: opts.sessionId, run_id: opts.runId, schedule_id: opts.scheduleId })}`),
         getAgentWebhookDelivery: (id, wid, did) => json(`${endpoint(id, wid)}/deliveries/${segment(did)}`),
         redeliverAgentWebhookDelivery: (id, wid, did, key) => json(`${endpoint(id, wid)}/deliveries/${segment(did)}/redeliver`, post({}, key)),
         redeliverAgentWebhookDeliveries: (id, wid, input, key) => json(`${endpoint(id, wid)}/deliveries/redeliver`, post(input, key)),

@@ -47,6 +47,7 @@ export {
   type SessionListPageOptions,
   type SessionListPage,
   type SessionHistoryEntry,
+  type SessionQueue,
   type SessionEvent,
   type SessionEventPage,
   type EventCursorPosition,

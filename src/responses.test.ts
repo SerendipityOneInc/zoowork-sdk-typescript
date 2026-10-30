@@ -253,11 +253,12 @@ test('getAgent answers the OTHER projection: config_version moves under status a
   }
 })
 
-test('getAgent parks actual_state at activating while desired_state already says running', async () => {
+test('a recorded getAgent shows actual_state activating while desired_state already says running', async () => {
   const { result } = await replay('get-agent-locked', (c) => c.getAgent(AGENT))
-  // The readiness trap this SDK exists to prevent, as data: an API-only agent is fully usable
-  // (`desired_state: running`) while `actual_state` — chat-channel health — never leaves
-  // `activating`, and `channels.expected` is 0 because there are no channels to connect.
+  // The readiness trap this SDK exists to prevent, as data: this older recording shows an
+  // API-only agent fully usable (`desired_state: running`) while `actual_state`, then derived
+  // from channel health, said `activating`. Current Engine reports `active` there instead;
+  // either way `actual_state` is never `running`.
   declared<string | undefined>(result.status?.desired_state, 'string')
   expect(result.status?.desired_state).toBe('running')
   expect(result.status?.actual_state).toBe('activating')
@@ -1142,7 +1143,8 @@ const AGENT_STATUS_KEYS = [
   'status_message',
   'channels',
 ] as const satisfies readonly DeclaredKeys<AgentStatus>[]
-const _agentStatusCovered: Covered<AgentStatus, (typeof AGENT_STATUS_KEYS)[number]> = undefined
+// agent_desired_state / computer_desired_state are source-reviewed; see contract-sync.test.ts.
+const _agentStatusCovered: Covered<AgentStatus, (typeof AGENT_STATUS_KEYS)[number] | 'agent_desired_state' | 'computer_desired_state'> = undefined
 
 test('AgentStatus declares nothing the wire does not carry', () => {
   expectDeclarationCoverage(AGENT_STATUS_KEYS, ['render'], [body('get-agent').status, body('get-agent-unlocked').status])
@@ -1177,7 +1179,7 @@ const SESSION_RECORD_KEYS = [
   'last_activity_at',
   'list_cursor',
 ] as const satisfies readonly DeclaredKeys<SessionRecord>[]
-const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number] | 'pending_approval_ids' | 'pending_approval_ids_complete' | 'pending_custom_tool_call_ids' | 'pending_custom_tool_call_ids_complete' | 'idle_compaction' | 'pinned_config_version'> = undefined
+const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number] | 'pending_approval_ids' | 'pending_approval_ids_complete' | 'pending_custom_tool_call_ids' | 'pending_custom_tool_call_ids_complete' | 'idle_compaction' | 'pinned_config_version' | 'skill_config_version' | 'isolation' | 'queue'> = undefined
 
 const SOURCE_REVIEWED_SESSION_CURSOR_ROW = {
   session_id: 'synthetic-session',

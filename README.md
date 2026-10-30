@@ -93,13 +93,13 @@ separately.
 An explicit option always beats the environment variable.
 
 > **Wait on `status.desired_state`, never on `status.actual_state`.**
-> `actual_state` reports chat-channel connectivity. An API-only agent has no channels,
-> but its projection depends on the channel-status capability: a GET can report `active`
-> with zero channel counts and a `status_message` saying health was not verified when that
-> capability is unsupported, while a transient health lookup failure remains `activating`.
-> List and GET can therefore briefly disagree. None of these values is readiness, and
-> `running` is not an `actual_state` value. Use `await zc.waitUntilRunning(agentId)`; it
-> correctly polls `desired_state`.
+> `actual_state` is derived from the desired state and the active config: an enabled agent
+> with a rendered config reports `active`, including an API-only agent with no channels.
+> Channel health is not part of it, and the `status.channels` counts are legacy placeholders
+> (always `0`). `actual_state` is not readiness, and `running` is not one of its values.
+> Use `await zc.waitUntilRunning(agentId)`; it correctly polls `desired_state`.
+> `status.agent_desired_state` and `status.computer_desired_state`, when present, show the
+> agent's own switch and its Computer's state, which `desired_state` combines.
 
 ## Listing agents and pagination
 
@@ -205,9 +205,11 @@ before the file appears at its path. A relative path resolves against `/workspac
 content through `exec` about 72 KB per call, so it suits files up to a few megabytes, and it
 needs an agent-scope sandbox.
 
-- **Schedules outlive their agent.** `stopAgent` and `deleteAgent` leave them running; list and
-  delete them yourself. Also available: `getSchedule`, `updateSchedule`, `triggerSchedule`,
-  `listScheduleRuns`.
+- **Schedules outlive their agent.** `stopAgent` and `deleteAgent` leave the definitions in
+  place. While the agent is stopped or deleted, each fire is skipped without starting a turn,
+  with reason `runtime_stopped` (the `reason` of a `schedule.skipped` webhook event). List and
+  delete schedules you no longer need yourself. Also available: `getSchedule`, `updateSchedule`,
+  `triggerSchedule`, `listScheduleRuns`.
 - **`updateSchedule` must omit `sessionTarget`.** It is immutable, and echoing it back from a
   `getSchedule` result — the obvious thing to do — is a 400. The types refuse it for you.
 - **An interval uses `{ kind: 'every', everyMs: 60_000 }`.** Optional `anchorMs` aligns it.
@@ -472,7 +474,9 @@ verbatim. `getApproval` and `getCustomToolCall` read terminal as well as pending
 Agent webhook methods include get/update/delete, `rotateAgentWebhookSecret`, `testAgentWebhook`,
 `getAgentWebhookEvent`, delivery list/detail and single/batch redelivery. Pass a stable idempotency
 key to create, rotation, test and redelivery. A 202 receipt confirms queuing; query delivery
-records to learn the result. SDK writes do not retry automatically.
+records to learn the result. For a test, pass its `receipt_id` as
+`listAgentWebhookDeliveries(agentId, webhookId, { receiptId })` to get only that test's delivery.
+SDK writes do not retry automatically.
 
 `createSession` accepts `runtime_mode: 'active'` to pin the current active configuration at
 creation. Omit it to resolve active configuration on later turns. `idle_compaction` preserves

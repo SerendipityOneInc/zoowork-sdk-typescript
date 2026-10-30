@@ -10,6 +10,7 @@ import {
   type AddChannelInput, type AgentChannelCapabilities, type McpServerDeclaration,
   type CustomToolDeclaration, type CustomToolResultEvent, type McpToolPermission,
   type SessionListPage, type SessionRecord, type SkillRecord, type SkillVersionRecord,
+  type AgentRecord, type SessionQueue,
 } from './index.js'
 
 const BASE = 'https://sdk-contract.test/service/v1'
@@ -116,6 +117,35 @@ test('SessionRecord can represent no latest run and the pending approval count',
   expect(result).toEqual(row)
   expectTypeOf(result.run_status).toEqualTypeOf<string | null | undefined>()
   expectTypeOf(result.pending_approvals).toEqualTypeOf<number | undefined>()
+})
+
+test('AgentStatus carries the Agent and Computer desired states beside the combined one', async () => {
+  const agent: AgentRecord = {
+    agent_id: 'agent-test',
+    status: {
+      desired_state: 'stopped', agent_desired_state: 'running', computer_desired_state: 'stopped',
+      actual_state: 'stopped', channels: { expected: 0, connected: 0, degraded_since: null },
+    },
+  }
+  const { client } = harness(agent)
+  const result = await client.getAgent('agent-test')
+  expect(result).toEqual(agent)
+  expectTypeOf(result.status!.agent_desired_state).toEqualTypeOf<'running' | 'stopped' | 'deleted' | string | undefined>()
+  expectTypeOf(result.status!.computer_desired_state).toEqualTypeOf<'running' | 'stopped' | 'deleted' | string | undefined>()
+})
+
+test('getSession preserves queue, isolation and skill_config_version unchanged', async () => {
+  const queue: SessionQueue = {
+    selected_mode: null, default_mode: 'steer', effective_mode: 'steer', selection_version: 0,
+    writable: false, unavailable_reason: 'session_archived', effective_boundary: 'next_turn_config_load',
+  }
+  const row: SessionRecord = { session_id: 'session-test', isolation: 'shared', skill_config_version: 3, queue }
+  const { client } = harness(row)
+  const result = await client.getSession('a', 'session-test')
+  expect(result).toEqual(row)
+  expectTypeOf(result.queue).toEqualTypeOf<SessionQueue | undefined>()
+  expectTypeOf(result.skill_config_version).toEqualTypeOf<number | undefined>()
+  expectTypeOf(queue.selected_mode).toEqualTypeOf<'steer' | 'followup' | 'collect' | 'interrupt' | string | null>()
 })
 
 test('approval fields and a 202 pending receipt remain distinct from completed execution', async () => {

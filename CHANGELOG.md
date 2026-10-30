@@ -3,6 +3,26 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+Additive types, one new optional request filter and documentation corrections. Source-reviewed
+against Engine; deployment availability is unverified.
+
+- Correct the `AgentStatus` documentation. `actual_state` no longer reflects channel health: an
+  enabled Agent with a rendered config reports `active`, so an API-only Agent no longer stays
+  `activating`. The `channels` counts are legacy placeholders (`0`, `0`, `null`). Keep gating on
+  `desired_state`; `waitUntilRunning` already does.
+- Add optional `AgentStatus.agent_desired_state` (the Agent's own switch) and
+  `AgentStatus.computer_desired_state` (its Computer's state). `desired_state` remains the
+  combined value.
+- Add optional `SessionRecord.skill_config_version`, `SessionRecord.isolation` (`shared` for a
+  Session created by `createSession`) and `SessionRecord.queue`, a read-only queue-mode
+  projection on `getSession`. New exported type: `SessionQueue`. No new `createSession` inputs.
+- `listAgentWebhookDeliveries` accepts `receiptId`, sent as `receipt_id`. Pass the `receipt_id`
+  of a `testAgentWebhook` receipt to find that test's delivery.
+- README: schedule definitions remain after `stopAgent` and `deleteAgent`, but fires are skipped
+  while the Agent is stopped or deleted, with `schedule.skipped` reason `runtime_stopped`.
+
 ## 0.14.0 — 2026-10-29
 
 - Live smoke and thinking tests now default to the platform default model (the catalog row whose
