@@ -225,3 +225,11 @@ headers or credentials. Recover incomplete cleanup before starting a fresh attem
 package or runner changes. Tests under `e2e/thinking.test.ts` are synthetic, offline runner
 regressions and do not prove live availability. Changes confined to `e2e/` do not require an SDK
 version bump or registry publication; a runtime/API change follows the normal release process.
+
+## Vault (beta) skeleton
+
+`vault-smoke.ts` is a skeleton for the beta Vault live check and is not wired into any command;
+`pnpm test:e2e` does not run it. It needs Vault enabled for the test organization, a project key,
+an Agent whose MCP server is a fixture that records the injected identity, and two fixture tokens.
+Without them each step reports `not_covered`, never a pass. Wire it into `runner.ts` with the same
+guards as the standard smoke before running it.

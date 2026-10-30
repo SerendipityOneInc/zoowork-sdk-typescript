@@ -1179,7 +1179,9 @@ const SESSION_RECORD_KEYS = [
   'last_activity_at',
   'list_cursor',
 ] as const satisfies readonly DeclaredKeys<SessionRecord>[]
-const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number] | 'pending_approval_ids' | 'pending_approval_ids_complete' | 'pending_custom_tool_call_ids' | 'pending_custom_tool_call_ids_complete' | 'idle_compaction' | 'pinned_config_version' | 'skill_config_version' | 'isolation' | 'queue'> = undefined
+const _sessionRecordCovered: Covered<SessionRecord, (typeof SESSION_RECORD_KEYS)[number] | 'pending_approval_ids' | 'pending_approval_ids_complete' | 'pending_custom_tool_call_ids' | 'pending_custom_tool_call_ids_complete' | 'idle_compaction' | 'pinned_config_version' | 'skill_config_version' | 'isolation' | 'queue'
+  // Vault beta receipt fields: no recorded fixture yet; pinned in vault.test.ts with synthetic contract input.
+  | 'project_id' | 'vault_ids' | 'vault_binding'> = undefined
 
 const SOURCE_REVIEWED_SESSION_CURSOR_ROW = {
   session_id: 'synthetic-session',

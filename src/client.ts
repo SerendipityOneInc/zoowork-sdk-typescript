@@ -11,6 +11,13 @@
 import { createDeveloperApi, type DeveloperApi } from './developer-api.js'
 import { parseSSE, isObj } from './sse.js'
 import { normalizeEvent, type SessionEvent } from './events.js'
+import {
+  createVaultApi,
+  type SessionIsolation,
+  type SessionVaultFields,
+  type VaultApi,
+  type VaultBinding,
+} from './vault.js'
 
 /**
  * The production API base URL — the default. You should not need to set this:
@@ -155,6 +162,74 @@ export class ZooworkError extends Error {
     if (extra?.requestId) this.requestId = extra.requestId
     this.retryable = extra?.retryable ?? RETRYABLE_STATUSES.has(status)
   }
+}
+
+/** The server code of a `createSession` carrying Vault fields where Vault is not available. */
+const VAULT_SESSION_FIELDS_UNAVAILABLE = 'vault.session_fields_unavailable'
+
+/**
+ * @beta Vault is a beta feature that is not enabled for this account or environment, or the
+ * credential cannot use it (Vault needs a Platform API key). Thrown by the Vault methods for
+ * 404 `service_api.not_found`, and by `createSession` for 400 `vault.session_fields_unavailable`.
+ *
+ * It IS a {@link ZooworkError}: `status`, `type` (the server's code, verbatim), `bodySnippet` and
+ * the other fields are those of the response; only the message adds the hint. Ask ZooWork to
+ * enable Vault for your account, or point the client at an environment where it is enabled.
+ */
+export class VaultBetaUnavailableError extends ZooworkError {
+  constructor(cause: ZooworkError) {
+    super(
+      cause.status,
+      `${cause.message} (Vault beta is not enabled for this account or environment, or this ` +
+        'credential cannot use Vault; Vault needs a Platform API key)',
+      cause.type,
+      {
+        contentType: cause.contentType,
+        bodySnippet: cause.bodySnippet,
+        cfRay: cause.cfRay,
+        requestId: cause.requestId,
+        retryable: cause.retryable,
+      },
+    )
+    this.name = 'VaultBetaUnavailableError'
+  }
+}
+
+/**
+ * @beta `true` when a failure means the Vault beta is not available to this client: a
+ * {@link VaultBetaUnavailableError}, or any error whose code is `vault.session_fields_unavailable`.
+ * It does not cover `revokeSessionVaultBinding`, whose 404 can also mean an unknown Agent or Session.
+ */
+export function isVaultBetaUnavailable(error: unknown): boolean {
+  return (
+    error instanceof VaultBetaUnavailableError ||
+    (error instanceof ZooworkError && error.type === VAULT_SESSION_FIELDS_UNAVAILABLE)
+  )
+}
+
+/**
+ * How a Vault call's failure reaches the caller. On the Vault routes the service answers exactly
+ * what a missing path answers (404 `service_api.not_found`) while Vault is off; with Vault on, a
+ * missing Vault, credential or ledger is `vault.not_found` instead, so the 404 is unambiguous.
+ * The revoke route is the exception: an Agent or Session the key cannot see is the same 404, so
+ * that error keeps its class and only gains the hint.
+ */
+function vaultFailure(error: unknown, route: 'management' | 'revoke'): unknown {
+  if (!(error instanceof ZooworkError) || error.status !== 404 || error.type !== 'service_api.not_found') return error
+  if (route === 'management') return new VaultBetaUnavailableError(error)
+  return new ZooworkError(
+    error.status,
+    `${error.message} (the Agent or Session was not found for this key, or Vault beta is not enabled ` +
+      'for this account or environment)',
+    error.type,
+    {
+      contentType: error.contentType,
+      bodySnippet: error.bodySnippet,
+      cfRay: error.cfRay,
+      requestId: error.requestId,
+      retryable: error.retryable,
+    },
+  )
 }
 
 /** The response facts worth keeping on every transport-level ZooworkError, whatever the body. */
@@ -895,11 +970,20 @@ export interface SessionRecord {
   skill_config_version?: number
   /**
    * Isolation mode, recorded when the Session is created and never changed. `shared` means the
-   * Session uses the Agent's one `/workspace`, Agent Memory and Artifacts; `createSession` in this
-   * SDK always records `shared`. A Session created with Vault credentials can record `session`.
-   * Absent on Sessions created before the mode was recorded.
+   * Session uses the Agent's one `/workspace`, Agent Memory and Artifacts. A Session created
+   * without `isolation` records `shared`; a Session created with Vault credentials records the
+   * `isolation` it asked for. Absent on Sessions created before the mode was recorded.
    */
   isolation?: 'shared' | 'session' | string
+  /** @beta Present on a `createSession` receipt with Vault fields: the Agent's project, `null` for the Default Project. */
+  project_id?: string | null
+  /** @beta Present on a `createSession` receipt with Vault fields. */
+  vault_ids?: string[]
+  /**
+   * @beta Present on a `createSession` receipt with Vault fields. Store `vault_binding.revision` with
+   * the Session: `revokeSessionVaultBinding` and `createVaultOffboarding` send it back.
+   */
+  vault_binding?: VaultBinding
   /** Queue-mode state; present on `getSession`, not on list rows or the `createSession` receipt. */
   queue?: SessionQueue
   updated_at?: string
@@ -1517,7 +1601,20 @@ export interface WakeResult {
 
 export type { SessionEvent } from './events.js'
 
-export interface ZooworkClient extends DeveloperApi {
+/** The input of {@link ZooworkClient.createSession}, without the beta Vault fields ({@link SessionVaultFields}). */
+export interface SessionCreateInput {
+  initial_events?: OutboundEvent[]
+  metadata?: Record<string, unknown>
+  runtime_mode?: 'active'
+  idle_compaction?: boolean | null
+  /**
+   * Isolation mode, fixed for the Session's life. Omitted: `shared`. `session` without Vault fields
+   * is 400 `isolation_unavailable` until the deployment enables Session isolation.
+   */
+  isolation?: SessionIsolation
+}
+
+export interface ZooworkClient extends DeveloperApi, VaultApi {
   listModels(): Promise<ModelInfo[]>
 
   // ── agents ──
@@ -1830,11 +1927,18 @@ export interface ZooworkClient extends DeveloperApi {
   // metadata replace) returns 405 `{"detail":"Method Not Allowed"}` through the gateway,
   // staging-verified 2026-08-07: the gateway's catch-all registers GET/POST/PUT/DELETE only, so
   // PATCH is not proxied at all. Session metadata is therefore write-once, at createSession.
-  createSession(
-    agentId: string,
-    input: { initial_events?: OutboundEvent[]; metadata?: Record<string, unknown>; runtime_mode?: 'active'; idle_compaction?: boolean | null },
-    idempotencyKey?: string,
-  ): Promise<SessionRecord>
+  /**
+   * @beta With Vault fields (`vault_ids`, `isolation` and the optional others): a Session whose Vault
+   * MCP servers use the named Vaults' credentials. `idempotencyKey` is required; reuse it to retry a
+   * timeout. Omit every Vault field you do not use: one that is present, even `null` or `[]`, makes
+   * this a Vault request. Store the receipt's `vault_binding.revision`.
+   *
+   * Beta: needs Vault enabled for your ZooWork account or environment. Until then this rejects with
+   * a {@link VaultBetaUnavailableError} (400 `vault.session_fields_unavailable`). Behaviour and
+   * fields may change before general availability.
+   */
+  createSession(agentId: string, input: SessionCreateInput & SessionVaultFields, idempotencyKey: string): Promise<SessionRecord>
+  createSession(agentId: string, input: SessionCreateInput, idempotencyKey?: string): Promise<SessionRecord>
   getSession(agentId: string, sessionId: string, opts?: { history?: boolean; limit?: number }): Promise<SessionRecord>
   /** Legacy newest-first numeric page lane: 50 per page, `page` is 1-based. */
   listSessions(agentId: string, opts?: { page?: number }): Promise<SessionRecord[]>
@@ -2356,6 +2460,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
 
   const client: ZooworkClient = {
     ...createDeveloperApi(json, bytes, artifactSelectors),
+    ...createVaultApi(json, vaultFailure),
     listModels: async () => {
       const data = await json<ModelInfo[] | { models?: ModelInfo[] }>('/models')
       return Array.isArray(data) ? data : (data.models ?? [])
@@ -2616,12 +2721,19 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       await json(`/skills/${encodeURIComponent(skillId)}`, { method: 'DELETE' })
     },
 
-    createSession: (agentId, input, idempotencyKey) =>
-      json(sessions(agentId), {
-        method: 'POST',
-        body: JSON.stringify(input),
-        ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
-      }),
+    createSession: async (agentId: string, input: SessionCreateInput, idempotencyKey?: string): Promise<SessionRecord> => {
+      try {
+        return await json<SessionRecord>(sessions(agentId), {
+          method: 'POST',
+          body: JSON.stringify(input),
+          ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
+        })
+      } catch (error) {
+        throw error instanceof ZooworkError && error.type === VAULT_SESSION_FIELDS_UNAVAILABLE
+          ? new VaultBetaUnavailableError(error)
+          : error
+      }
+    },
     getSession: (agentId, sessionId, opts = {}) => {
       const q = new URLSearchParams()
       if (opts.history) q.set('history', 'true')
