@@ -122,6 +122,42 @@ import type {
   WebhookTestData,
   WebhookWaitingOnRef,
   KnownWebhookEvent,
+  SessionCreateInput,
+  SessionCredentialSelection,
+  SessionIsolation,
+  SessionVaultBindingOptions,
+  SessionVaultFields,
+  VaultApi,
+  VaultBinding,
+  VaultBindingCredential,
+  VaultCreateInput,
+  VaultCredentialAuth,
+  VaultCredentialAuthRotation,
+  VaultCredentialCreateInput,
+  VaultCredentialHealth,
+  VaultCredentialHealthState,
+  VaultCredentialListOptions,
+  VaultCredentialPage,
+  VaultCredentialRecord,
+  VaultCredentialUpdateInput,
+  VaultCredentialValidation,
+  VaultListOptions,
+  VaultManagedRefreshInput,
+  VaultOffboarding,
+  VaultOffboardingAttempt,
+  VaultOffboardingInput,
+  VaultOffboardingSession,
+  VaultOffboardingSessionInput,
+  VaultOffboardingSessionState,
+  VaultPage,
+  VaultPurgeState,
+  VaultRecord,
+  VaultResourceStatus,
+  VaultRevisionWriteOptions,
+  VaultScope,
+  VaultSessionErrorCode,
+  VaultUpdateInput,
+  VaultWriteOptions,
   ZooworkAuth,
   ZooworkClient,
   ZooworkConfig,
@@ -132,6 +168,8 @@ const PUBLIC_VALUES = [
   'DEFAULT_BASE_URL',
   'PUBLIC_INPUT_EVENT_TYPES',
   'SESSION_EVENT_TYPES',
+  'VAULT_SESSION_ERROR_CODES',
+  'VaultBetaUnavailableError',
   'WEBHOOK_DEFAULT_MAX_BODY_BYTES',
   'WEBHOOK_EVENT_TYPES',
   'WEBHOOK_ID_HEADER',
@@ -147,6 +185,7 @@ const PUBLIC_VALUES = [
   'customToolUse',
   'isKnownWebhookEventType',
   'isRunFinished',
+  'isVaultBetaUnavailable',
   'knownWebhookEvent',
   'messageText',
   'normalizeEvent',
@@ -156,6 +195,8 @@ const PUBLIC_VALUES = [
   'thinkingText',
   'toolCall',
   'unwrapWebhook',
+  'vaultCredentialHealthState',
+  'vaultSessionErrorCode',
   'verifyWebhookSignature',
 ]
 
@@ -164,7 +205,7 @@ test('the entry point exports exactly the documented value surface', () => {
 })
 
 test('every exported value is the kind of thing it claims to be', () => {
-  for (const name of ['createZooworkClient', 'normalizeEvent', 'isRunFinished', 'runOutcome', 'messageText', 'assistantText', 'thinkingText', 'customToolUse', 'toolCall', 'parseSSE', 'verifyWebhookSignature', 'unwrapWebhook', 'signWebhook', 'isKnownWebhookEventType', 'knownWebhookEvent']) {
+  for (const name of ['createZooworkClient', 'normalizeEvent', 'isRunFinished', 'runOutcome', 'messageText', 'assistantText', 'thinkingText', 'customToolUse', 'toolCall', 'parseSSE', 'verifyWebhookSignature', 'unwrapWebhook', 'signWebhook', 'isKnownWebhookEventType', 'knownWebhookEvent', 'isVaultBetaUnavailable', 'vaultSessionErrorCode', 'vaultCredentialHealthState']) {
     expect(typeof (sdk as unknown as Record<string, unknown>)[name]).toBe('function')
   }
   expect(typeof sdk.DEFAULT_BASE_URL).toBe('string')
@@ -174,6 +215,9 @@ test('every exported value is the kind of thing it claims to be', () => {
   // A class, not a factory: callers `instanceof` it.
   expect(new sdk.ZooworkError(404, 'x', 'not_found')).toBeInstanceOf(Error)
   expect(new sdk.ZooworkWebhookError('signature_mismatch', 'x')).toBeInstanceOf(Error)
+  // The beta error is a ZooworkError, so existing `instanceof ZooworkError` handling keeps working.
+  expect(new sdk.VaultBetaUnavailableError(new sdk.ZooworkError(404, 'x', 'service_api.not_found'))).toBeInstanceOf(sdk.ZooworkError)
+  expect(typeof sdk.VAULT_SESSION_ERROR_CODES).toBe('object')
 })
 
 test('the client built from the entry point exposes every documented method', () => {
@@ -269,6 +313,22 @@ test('the client built from the entry point exposes every documented method', ()
     'archiveEnvironment',
     'createEnvironmentVersion',
     'getEnvironmentVersion',
+    'createVault',
+    'listVaults',
+    'getVault',
+    'updateVault',
+    'archiveVault',
+    'deleteVault',
+    'createVaultCredential',
+    'listVaultCredentials',
+    'getVaultCredential',
+    'updateVaultCredential',
+    'archiveVaultCredential',
+    'deleteVaultCredential',
+    'validateVaultCredential',
+    'revokeSessionVaultBinding',
+    'createVaultOffboarding',
+    'getVaultOffboarding',
   ]
   expect(Object.keys(client).sort()).toEqual([...methods].sort())
 })
@@ -391,6 +451,42 @@ type PublicTypes = [
   WebhookTestData,
   WebhookWaitingOnRef,
   KnownWebhookEvent,
+  SessionCreateInput,
+  SessionCredentialSelection,
+  SessionIsolation,
+  SessionVaultBindingOptions,
+  SessionVaultFields,
+  VaultApi,
+  VaultBinding,
+  VaultBindingCredential,
+  VaultCreateInput,
+  VaultCredentialAuth,
+  VaultCredentialAuthRotation,
+  VaultCredentialCreateInput,
+  VaultCredentialHealth,
+  VaultCredentialHealthState,
+  VaultCredentialListOptions,
+  VaultCredentialPage,
+  VaultCredentialRecord,
+  VaultCredentialUpdateInput,
+  VaultCredentialValidation,
+  VaultListOptions,
+  VaultManagedRefreshInput,
+  VaultOffboarding,
+  VaultOffboardingAttempt,
+  VaultOffboardingInput,
+  VaultOffboardingSession,
+  VaultOffboardingSessionInput,
+  VaultOffboardingSessionState,
+  VaultPage,
+  VaultPurgeState,
+  VaultRecord,
+  VaultResourceStatus,
+  VaultRevisionWriteOptions,
+  VaultScope,
+  VaultSessionErrorCode,
+  VaultUpdateInput,
+  VaultWriteOptions,
   ZooworkAuth,
   ZooworkClient,
   ZooworkConfig,

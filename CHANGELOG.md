@@ -5,8 +5,9 @@ day the behaviour was verified, not the day it was written.
 
 ## Unreleased
 
-Additive types, one new optional request filter and documentation corrections. Source-reviewed
-against Engine; deployment availability is unverified.
+Additive types, one new optional request filter, the beta Vault surface and documentation
+corrections. Source-reviewed against Engine and the claw-interface Vault routes; deployment
+availability is unverified.
 
 - Correct the `AgentStatus` documentation. `actual_state` no longer reflects channel health: an
   enabled Agent with a rendered config reports `active`, so an API-only Agent no longer stays
@@ -15,13 +16,31 @@ against Engine; deployment availability is unverified.
 - Add optional `AgentStatus.agent_desired_state` (the Agent's own switch) and
   `AgentStatus.computer_desired_state` (its Computer's state). `desired_state` remains the
   combined value.
-- Add optional `SessionRecord.skill_config_version`, `SessionRecord.isolation` (`shared` for a
-  Session created by `createSession`) and `SessionRecord.queue`, a read-only queue-mode
-  projection on `getSession`. New exported type: `SessionQueue`. No new `createSession` inputs.
+- Add optional `SessionRecord.skill_config_version`, `SessionRecord.isolation` (`shared` unless
+  the Session was created with another `isolation`) and `SessionRecord.queue`, a read-only
+  queue-mode projection on `getSession`. New exported type: `SessionQueue`.
 - `listAgentWebhookDeliveries` accepts `receiptId`, sent as `receipt_id`. Pass the `receipt_id`
   of a `testAgentWebhook` receipt to find that test's delivery.
 - README: schedule definitions remain after `stopAgent` and `deleteAgent`, but fires are skipped
   while the Agent is stopped or deleted, with `schedule.skipped` reason `runtime_stopped`.
+- **Beta: Vault.** Needs Vault enabled for the account or environment; until then calls fail with
+  `VaultBetaUnavailableError` (404 `service_api.not_found`, or 400
+  `vault.session_fields_unavailable` on `createSession`), with the server code kept in `type`.
+  Behaviour and fields may change before general availability. Unit-tested offline against the
+  claw-interface Vault routes; not yet run against a deployment.
+  - Vault and credential management: `createVault`, `listVaults`, `getVault`, `updateVault`,
+    `archiveVault`, `deleteVault`, `createVaultCredential`, `listVaultCredentials`,
+    `getVaultCredential`, `updateVaultCredential`, `archiveVaultCredential`,
+    `deleteVaultCredential`, `validateVaultCredential`. Writes take `{ idempotencyKey }`, plus
+    `revision` (sent as `If-Match`) where the resource has one; validate takes neither.
+  - `createSession` accepts `isolation` and the Vault fields `vault_ids`, `credential_bindings`,
+    `external_user_ref` and `vault_binding_options`. With Vault fields, `isolation` and the
+    idempotency key are required by type. `SessionRecord` gains `project_id`, `vault_ids` and
+    `vault_binding`. New type: `SessionCreateInput`.
+  - `revokeSessionVaultBinding`, `createVaultOffboarding` and `getVaultOffboarding`.
+  - Helpers: `isVaultBetaUnavailable`, `vaultSessionErrorCode` (accepts both
+    `vault_binding_revoked` and `vault.binding_revoked` spellings), `vaultCredentialHealthState`
+    (an unknown state reads as `unknown`), and `VAULT_SESSION_ERROR_CODES`.
 
 ## 0.14.0 — 2026-10-29
 

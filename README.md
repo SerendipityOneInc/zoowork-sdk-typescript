@@ -387,6 +387,84 @@ library for any language works with the same `whsec_` secret and the same raw bo
 fixed vectors in [`src/__vectors__/webhook-vectors.json`](src/__vectors__/webhook-vectors.json)
 are copied verbatim from Engine and are byte-compatible with all of them.
 
+## Vault (beta)
+
+> **Beta.** Vault needs to be enabled for your ZooWork account or environment. Until it is, the
+> Vault methods fail with 404 `service_api.not_found`, and `createSession` with Vault fields fails
+> with 400 `vault.session_fields_unavailable`. The SDK throws a `VaultBetaUnavailableError` for
+> both (check with `isVaultBetaUnavailable(err)`); `err.type` keeps the server code. Behaviour and
+> fields may change before general availability.
+
+A Vault stores credentials for an Agent's MCP servers. A Session created with `vault_ids` uses
+them; responses never return a secret. Vault needs a Platform API key. A project key manages its
+project's Vaults. Use the Default Project key for org Vaults: a project key cannot read or manage
+them (403 `vault.management_forbidden`).
+
+```ts
+const vault = await zc.createVault(
+  { scope: 'project', project_id: 'proj_…', name: 'user-a', metadata: { user: 'a' } },
+  { idempotencyKey: 'vault-user-a' },
+)
+await zc.createVaultCredential(vault.id, {
+  name: 'github', purpose: 'mcp', provider_account_ref: 'gh-user-a',
+  auth: { type: 'static_bearer', mcp_server_url: 'https://mcp.example/github', access_token: token },
+}, { idempotencyKey: 'cred-user-a-github' })
+
+const session = await zc.createSession(agentId, {
+  isolation: 'session',          // required with vault_ids; use `session` for a multi-user Agent
+  vault_ids: [vault.id],
+  external_user_ref: 'user-a',   // a label for your records, not an authorization
+  initial_events: [{ type: 'user.message', content: 'List my open issues' }],
+}, 'session-user-a-1')           // Idempotency-Key, required with Vault fields
+saveBinding(session.session_id, session.vault_binding!.revision) // keep it for revoke/offboarding
+```
+
+Rules:
+
+- One logical operation, one `idempotencyKey`. Retry a timeout or 503 `vault.unavailable` with the
+  same key. A key reused for another request (another Vault, another body) is 409
+  `vault.idempotency_conflict`.
+- Update, archive, delete and revoke take `revision` (sent as `If-Match`). A stale one is 412
+  `vault.revision_conflict`: read the resource again. `validateVaultCredential` takes neither key
+  nor revision.
+- A retried delete that answers 404 `vault.not_found` already succeeded.
+- With Vault fields, `createSession` needs `isolation`. Omit the Vault fields you do not use; one
+  that is present, even `null` or `[]`, makes the request a Vault request.
+- Read `credential.health` through `vaultCredentialHealthState(credential)`. Only `ok` is healthy.
+  Show a re-authorize prompt on `reauthorization_required` and a rotate prompt on `expired`
+  (`updateVaultCredential`). A state the SDK does not know reads as `unknown`.
+- A Session's Vault errors carry two spellings while the service migrates. Session routes answer
+  Engine's code in `error.type` (`vault_binding_revoked`), which is what `err.type` holds; a later
+  release adds the dotted code at the top level (`"code": "vault.binding_revoked"`) and keeps
+  `error.type` unchanged. Match with `vaultSessionErrorCode(err)`: it reads the top-level `vault.*`
+  code when present, accepts either spelling otherwise, and returns the dotted one
+  (`vault.binding_revoked`, `vault.binding_expired`, `vault.profile_restricted`).
+
+When a user leaves, either archive or delete that user's dedicated Vault or credential (every
+Session using it is refused at its next call), or revoke that user's Sessions. ZooWork does not
+model end users, so your application keeps the user → Session mapping:
+
+```ts
+const ledger = await zc.createVaultOffboarding(
+  { sessions: [{ agent_id: agentId, session_id, revision }], external_user_ref: 'user-a' },
+  { idempotencyKey: 'offboard-user-a' },
+)
+let current = ledger
+const deadline = Date.now() + 10 * 60_000
+while (current.status === 'in_progress' && Date.now() < deadline) {
+  await new Promise((r) => setTimeout(r, 30_000))
+  current = await zc.getVaultOffboarding(ledger.id)
+}
+// Still `in_progress` at the deadline: the service keeps retrying; read the ledger again later.
+// `completed`: every Session revoked. `incomplete`: check each Session's `state`;
+// `not_found` is NOT a revocation.
+```
+
+`revokeSessionVaultBinding(agentId, sessionId, { idempotencyKey, revision })` revokes one Session
+directly. Its 404 `service_api.not_found` can mean an unknown Agent or Session as well as Vault
+not being enabled, so it is not reported as `VaultBetaUnavailableError`. See
+[`examples/vault.ts`](examples/vault.ts).
+
 ## Two helpers
 
 ```ts
@@ -405,6 +483,7 @@ Runnable examples in [`examples/`](examples):
 
 - [`live-smoke.ts`](examples/live-smoke.ts) — drive one agent through one turn and verify the REST and SSE reads agree.
 - [`capability-probe.ts`](examples/capability-probe.ts) — create a throwaway agent, walk the whole lifecycle, and print a verdict per capability.
+- [`vault.ts`](examples/vault.ts) — **beta**: a Vault per user, a credentialed Session, then offboarding.
 
 ## Testing and publishing (maintainers)
 
