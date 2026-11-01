@@ -532,7 +532,9 @@ const DOTTED_SESSION_CODES = new Set<string>(Object.values(VAULT_SESSION_ERROR_C
 
 /**
  * @beta The Vault binding error behind a failed Session call, normalized to the dotted spelling, or
- * `undefined` for any other failure. Accepts both the bare Engine code and the `vault.*` code.
+ * `undefined` for any other failure. Reads the top-level `vault.*` `code` of the error body when it
+ * has one ({@link ZooworkError.code}, taken from the whole body, never from the truncated
+ * `bodySnippet`), otherwise `type`, and accepts both the bare Engine code and the `vault.*` code.
  *
  * - `vault.binding_revoked` (409): the binding was revoked; the Session can no longer run.
  * - `vault.binding_expired` (409): the binding expired.
@@ -540,26 +542,14 @@ const DOTTED_SESSION_CODES = new Set<string>(Object.values(VAULT_SESSION_ERROR_C
  *   credentials (model, `config_version`, `idle_compaction`).
  */
 export function vaultSessionErrorCode(error: unknown): VaultSessionErrorCode | undefined {
-  const fields = error as Partial<Pick<ZooworkError, 'type' | 'bodySnippet'>> | null | undefined
-  const code = topLevelCode(fields?.bodySnippet)
-  const candidate = code?.startsWith('vault.') ? code : fields?.type
+  const fields = error as Partial<Pick<ZooworkError, 'type' | 'code'>> | null | undefined
+  const code = fields?.code
+  const candidate = typeof code === 'string' && code.startsWith('vault.') ? code : fields?.type
   if (typeof candidate !== 'string') return undefined
   if (Object.hasOwn(VAULT_SESSION_ERROR_CODES, candidate)) {
     return VAULT_SESSION_ERROR_CODES[candidate as keyof typeof VAULT_SESSION_ERROR_CODES]
   }
   return DOTTED_SESSION_CODES.has(candidate) ? (candidate as VaultSessionErrorCode) : undefined
-}
-
-/** The top-level `code` of a JSON error body, when the body is intact and has one. */
-function topLevelCode(body: string | undefined): string | undefined {
-  if (body === undefined) return undefined
-  try {
-    const parsed: unknown = JSON.parse(body)
-    const code = (parsed as { code?: unknown } | null)?.code
-    return typeof code === 'string' ? code : undefined
-  } catch {
-    return undefined
-  }
 }
 
 const KNOWN_HEALTH_STATES = new Set<string>(['ok', 'degraded', 'expired', 'reauthorization_required'])

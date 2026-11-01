@@ -38,6 +38,11 @@ availability is unverified.
     idempotency key are required by type. `SessionRecord` gains `project_id`, `vault_ids` and
     `vault_binding`. New type: `SessionCreateInput`.
   - `revokeSessionVaultBinding`, `createVaultOffboarding` and `getVaultOffboarding`.
+  - `ZooworkError.code`: the top-level string `code` of the error body, read from the whole body.
+    `vaultSessionErrorCode` uses it, so an envelope longer than the 600-character `bodySnippet`
+    still yields the dotted code; `isVaultBetaUnavailable` and `createSession` accept
+    `vault.session_fields_unavailable` in either `code` or `type`. A non-string top-level `code`
+    no longer lands in `type`.
   - Helpers: `isVaultBetaUnavailable`, `vaultSessionErrorCode` (accepts both
     `vault_binding_revoked` and `vault.binding_revoked` spellings), `vaultCredentialHealthState`
     (an unknown state reads as `unknown`), and `VAULT_SESSION_ERROR_CODES`.

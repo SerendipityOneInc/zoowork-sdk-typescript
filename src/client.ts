@@ -121,6 +121,13 @@ export class ZooworkError extends Error {
    */
   type?: string
   /**
+   * @beta The top-level `code` of the JSON error body, when it has a string one; read from the WHOLE
+   * body, so it survives an envelope longer than {@link ZooworkError.bodySnippet}. Unlike `type`, it
+   * never falls back to `error.type`: a mapped envelope (`{ code, detail, error: { type, message } }`)
+   * carries the dotted code here (`vault.binding_revoked`) and Engine's bare one in `type`.
+   */
+  code?: string
+  /**
    * `Content-Type` of the error response. The field that tells an edge error page apart from an
    * API answer: both envelopes above are `application/json`, while a gateway 502/504 arrives as
    * `text/html` — the edge replaces the origin's body wholesale, so no JSON survives to parse
@@ -150,12 +157,13 @@ export class ZooworkError extends Error {
     status: number,
     message: string,
     type?: string,
-    extra?: { contentType?: string; bodySnippet?: string; cfRay?: string; requestId?: string; retryable?: boolean },
+    extra?: { contentType?: string; bodySnippet?: string; cfRay?: string; requestId?: string; retryable?: boolean; code?: string },
   ) {
     super(message)
     this.name = 'ZooworkError'
     this.status = status
     if (type) this.type = type
+    if (extra?.code) this.code = extra.code
     if (extra?.contentType) this.contentType = extra.contentType
     if (extra?.bodySnippet) this.bodySnippet = extra.bodySnippet
     if (extra?.cfRay) this.cfRay = extra.cfRay
@@ -166,6 +174,12 @@ export class ZooworkError extends Error {
 
 /** The server code of a `createSession` carrying Vault fields where Vault is not available. */
 const VAULT_SESSION_FIELDS_UNAVAILABLE = 'vault.session_fields_unavailable'
+
+/** Whether `code` is the error's top-level `code` or its `type`: a mapped envelope may carry the
+ * dotted code at the top level beside a different nested `error.type`. */
+function hasCode(error: ZooworkError, code: string): boolean {
+  return error.code === code || error.type === code
+}
 
 /**
  * @beta Vault is a beta feature that is not enabled for this account or environment, or the
@@ -200,6 +214,7 @@ function hinted(error: ZooworkError, hint: string): ConstructorParameters<typeof
       cfRay: error.cfRay,
       requestId: error.requestId,
       retryable: error.retryable,
+      code: error.code,
     },
   ]
 }
@@ -213,13 +228,14 @@ function withHint(error: ZooworkError, hint: string): ZooworkError {
 
 /**
  * @beta `true` when a failure means the Vault beta is not available to this client: a
- * {@link VaultBetaUnavailableError}, or any error whose code is `vault.session_fields_unavailable`.
- * It does not cover `revokeSessionVaultBinding`, whose 404 can also mean an unknown Agent or Session.
+ * {@link VaultBetaUnavailableError}, or any {@link ZooworkError} whose top-level `code` or `type` is
+ * `vault.session_fields_unavailable`. It does not cover `revokeSessionVaultBinding`, whose 404 can
+ * also mean an unknown Agent or Session.
  */
 export function isVaultBetaUnavailable(error: unknown): boolean {
   return (
     error instanceof VaultBetaUnavailableError ||
-    (error instanceof ZooworkError && error.type === VAULT_SESSION_FIELDS_UNAVAILABLE)
+    (error instanceof ZooworkError && hasCode(error, VAULT_SESSION_FIELDS_UNAVAILABLE))
   )
 }
 
@@ -264,17 +280,20 @@ function httpError(res: Response, text: string): ZooworkError {
   let msg: string | undefined
   let type: string | undefined
   let requestId: string | undefined
+  let code: string | undefined
   try {
     const j = JSON.parse(text) as {
       error?: { type?: string; message?: string; request_id?: string }
       message?: string
-      code?: string
+      code?: unknown
       detail?: unknown
       request_id?: string
     }
+    // From the whole body, not `bodySnippet`: a long envelope is cut mid-JSON there.
+    code = typeof j?.code === 'string' ? j.code : undefined
     const detail = typeof j?.detail === 'string' ? j.detail : undefined
     msg = j?.error?.message || j?.message || detail || undefined
-    type = j?.error?.type ?? j?.code
+    type = j?.error?.type ?? code
     requestId = j?.error?.request_id ?? j?.request_id
   } catch {
     /* non-JSON error body — usually the edge speaking, not the API */
@@ -285,7 +304,7 @@ function httpError(res: Response, text: string): ZooworkError {
       (forensics.contentType ? ` (${forensics.contentType})` : '') +
       (forensics.cfRay ? ` [cf-ray ${forensics.cfRay}]` : '')
   }
-  return new ZooworkError(res.status, msg, type, { ...forensics, requestId })
+  return new ZooworkError(res.status, msg, type, { ...forensics, requestId, code })
 }
 
 export interface Ownership {
@@ -2742,7 +2761,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
           ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
         })
       } catch (error) {
-        throw error instanceof ZooworkError && error.type === VAULT_SESSION_FIELDS_UNAVAILABLE
+        throw error instanceof ZooworkError && hasCode(error, VAULT_SESSION_FIELDS_UNAVAILABLE)
           ? new VaultBetaUnavailableError(error)
           : error
       }
