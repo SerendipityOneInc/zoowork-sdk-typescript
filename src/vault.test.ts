@@ -405,10 +405,53 @@ test('ZooworkError.code is the string top-level code only, and short envelopes k
   const flat = await rejection(harness({ status: 404, body: envelope('vault.not_found') }).client.getVault('v'))
   expect(flat.code).toBe('vault.not_found')
   expect(flat.type).toBe('vault.not_found')
-  // A non-string code is ignored rather than stored.
+  // A non-string code is not stored in `code`; error.type still wins for `type`.
   const numeric = await rejection(harness({ status: 409, body: { code: 42, error: { type: 'vault_binding_revoked' } } }).client.getSession('a', 's'))
   expect(numeric.code).toBeUndefined()
+  expect(numeric.type).toBe('vault_binding_revoked')
   expect(vaultSessionErrorCode(numeric)).toBe('vault.binding_revoked')
+})
+
+test('type keeps a code verbatim as a string and skips an empty or non-scalar error.type', async () => {
+  const err = (body: unknown) => rejection(harness({ status: 409, body }).client.getSession('a', 's'))
+  // A numeric top-level code with no error.type: kept in `type` as its string form, not in `code`.
+  const numeric = await err({ code: 42, detail: 'x' })
+  expect(numeric.type).toBe('42')
+  expect(numeric.code).toBeUndefined()
+  // An empty error.type does not hide a string top-level code.
+  const empty = await err({ code: 'vault.not_found', error: { type: '' } })
+  expect(empty.type).toBe('vault.not_found')
+  expect(empty.code).toBe('vault.not_found')
+  // A numeric error.type is kept as a string; `type` is always a string.
+  const nestedNumber = await err({ error: { type: 409 } })
+  expect(nestedNumber.type).toBe('409')
+  // An object is no code at all: neither error.type nor the top-level code.
+  const object = await err({ code: { k: 1 }, error: { type: { k: 1 } } })
+  expect(object.type).toBeUndefined()
+  expect(object.code).toBeUndefined()
+  // An empty top-level code is not stored.
+  expect((await err({ code: '' })).code).toBeUndefined()
+})
+
+test('an unknown top-level vault.* code falls through to a known type', async () => {
+  const { client } = harness({ status: 409, body: { code: 'vault.binding_revoked_by_offboarding', detail: 'x', error: { type: 'vault_binding_revoked', message: 'x' } } })
+  const err = await rejection(client.postEvents('agt_1', 'ses_1', [{ type: 'user.message', content: 'hi' }]))
+  expect(err.code).toBe('vault.binding_revoked_by_offboarding')
+  expect(vaultSessionErrorCode(err)).toBe('vault.binding_revoked')
+})
+
+test('an error without code falls back to the top-level code in bodySnippet', () => {
+  // A test double, or an error built by an older copy of this SDK, carries the body but no `code`.
+  const legacy = new ZooworkError(409, 'x', 'vault_binding_expired', { bodySnippet: '{"code":"vault.binding_revoked"}' })
+  expect(vaultSessionErrorCode(legacy)).toBe('vault.binding_revoked')
+  // A plain object shaped like one works the same way.
+  expect(vaultSessionErrorCode({ type: 'x', bodySnippet: '{"code":"vault.profile_restricted"}' })).toBe('vault.profile_restricted')
+  // `code`, when present, wins over the snippet.
+  const both = new ZooworkError(409, 'x', undefined, { code: 'vault.binding_expired', bodySnippet: '{"code":"vault.binding_revoked"}' })
+  expect(vaultSessionErrorCode(both)).toBe('vault.binding_expired')
+  // A snippet that does not parse falls through to `type`.
+  const cut = new ZooworkError(409, 'x', 'vault_binding_expired', { bodySnippet: '{"code":"vault.binding_rev' })
+  expect(vaultSessionErrorCode(cut)).toBe('vault.binding_expired')
 })
 
 test('a non-JSON error body leaves code unset and vaultSessionErrorCode undefined', async () => {
@@ -450,6 +493,22 @@ test('the hinted copies keep code', async () => {
   )
   expect(revoke).not.toBeInstanceOf(VaultBetaUnavailableError)
   expect(revoke.code).toBe('service_api.not_found')
+})
+
+test('a mapped 404 with service_api.not_found only in the top-level code is still the Vault-off answer', async () => {
+  const body = { code: 'service_api.not_found', detail: 'Not found', error: { type: 'not_found', message: 'Not found' } }
+  const beta = await rejection(harness({ status: 404, body }).client.getVault('v'))
+  expect(beta).toBeInstanceOf(VaultBetaUnavailableError)
+  expect(beta.type).toBe('not_found')
+  expect(beta.code).toBe('service_api.not_found')
+  expect(beta.message).toContain('Vault beta is not enabled')
+  expect(isVaultBetaUnavailable(beta)).toBe(true)
+  const revoke = await rejection(harness({ status: 404, body }).client.revokeSessionVaultBinding('a', 's', { idempotencyKey: 'k', revision: 1 }))
+  expect(revoke).toBeInstanceOf(ZooworkError)
+  expect(revoke).not.toBeInstanceOf(VaultBetaUnavailableError)
+  expect(revoke.message).toContain('Agent or Session was not found')
+  expect(revoke.code).toBe('service_api.not_found')
+  expect(revoke.cause).toBeInstanceOf(ZooworkError)
 })
 
 test('vaultCredentialHealthState: known states pass, anything else is unknown, no health is null', () => {

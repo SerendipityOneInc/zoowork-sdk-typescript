@@ -118,13 +118,23 @@ export class ZooworkError extends Error {
    * `{ code, detail }` with a DOTTED one (`service_api.not_found`). Both land here, so a caller
    * always gets something — but do not assume one spelling covers both, and prefer `status` when
    * you only need the class of failure.
+   *
+   * A third, MAPPED envelope carries both: `{ code, detail, error: { type, message } }`, e.g. the
+   * Vault Session errors (`code: "vault.binding_revoked"`, `error.type: "vault_binding_revoked"`).
+   * `type` reads `error.type` first and falls back to the top-level `code`, so there it holds the
+   * bare code; the dotted one is in {@link ZooworkError.code}. When the two differ, look in `code`
+   * for the dotted code. A numeric code is kept as its string form.
    */
   type?: string
   /**
    * @beta The top-level `code` of the JSON error body, when it has a string one; read from the WHOLE
    * body, so it survives an envelope longer than {@link ZooworkError.bodySnippet}. Unlike `type`, it
    * never falls back to `error.type`: a mapped envelope (`{ code, detail, error: { type, message } }`)
-   * carries the dotted code here (`vault.binding_revoked`) and Engine's bare one in `type`.
+   * carries the dotted code here (`vault.binding_revoked`) and Engine's bare one in `type`. Only a
+   * non-empty string is kept here; a numeric code reaches `type` alone, as its string form.
+   *
+   * This is the ZooWork server's code, not a Node.js system error code (`ECONNRESET`, `ETIMEDOUT`),
+   * and not `ZooworkWebhookError.code`, which names a signature failure.
    */
   code?: string
   /**
@@ -247,12 +257,20 @@ export function isVaultBetaUnavailable(error: unknown): boolean {
  * that error keeps its class and only gains the hint.
  */
 function vaultFailure(error: unknown, route: 'management' | 'revoke'): unknown {
-  if (!(error instanceof ZooworkError) || error.status !== 404 || error.type !== 'service_api.not_found') return error
+  if (!(error instanceof ZooworkError) || error.status !== 404 || !hasCode(error, 'service_api.not_found')) return error
   if (route === 'management') return new VaultBetaUnavailableError(error)
   return withHint(
     error,
     'the Agent or Session was not found for this key, or Vault beta is not enabled for this account or environment',
   )
+}
+
+/** A JSON code value kept verbatim as a string: a non-empty string as is, a number or boolean as
+ * its string form; anything else (empty, object, array, null) is no code. */
+function verbatimCode(value: unknown): string | undefined {
+  if (typeof value === 'string') return value || undefined
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return undefined
 }
 
 /** The response facts worth keeping on every transport-level ZooworkError, whatever the body. */
@@ -283,17 +301,17 @@ function httpError(res: Response, text: string): ZooworkError {
   let code: string | undefined
   try {
     const j = JSON.parse(text) as {
-      error?: { type?: string; message?: string; request_id?: string }
+      error?: { type?: unknown; message?: string; request_id?: string }
       message?: string
       code?: unknown
       detail?: unknown
       request_id?: string
     }
     // From the whole body, not `bodySnippet`: a long envelope is cut mid-JSON there.
-    code = typeof j?.code === 'string' ? j.code : undefined
+    code = typeof j?.code === 'string' && j.code ? j.code : undefined
     const detail = typeof j?.detail === 'string' ? j.detail : undefined
     msg = j?.error?.message || j?.message || detail || undefined
-    type = j?.error?.type ?? code
+    type = verbatimCode(j?.error?.type) ?? verbatimCode(j?.code)
     requestId = j?.error?.request_id ?? j?.request_id
   } catch {
     /* non-JSON error body — usually the edge speaking, not the API */

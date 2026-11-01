@@ -440,8 +440,9 @@ Rules:
   code when present, accepts either spelling otherwise, and returns the dotted one
   (`vault.binding_revoked`, `vault.binding_expired`, `vault.profile_restricted`).
 - `err.code` (beta) is the body's top-level `code`, read from the whole body; `bodySnippet` keeps
-  only the first 600 characters, so do not parse codes back out of it. `isVaultBetaUnavailable(err)`
-  matches `vault.session_fields_unavailable` in either `err.code` or `err.type`.
+  only the first 600 characters, so do not parse codes back out of it. It is the server's code, not
+  a Node.js system error code. `isVaultBetaUnavailable(err)` matches
+  `vault.session_fields_unavailable` in either `err.code` or `err.type`.
 
 When a user leaves, either archive or delete that user's dedicated Vault or credential (every
 Session using it is refused at its next call), or revoke that user's Sessions. ZooWork does not
