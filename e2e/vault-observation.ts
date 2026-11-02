@@ -7,12 +7,15 @@ export interface FixtureObservation {
   accounts: Record<string, { complete: boolean; requests: {
     method: string; tool?: string; outcome: string; credentialHeaders: Record<string, string>
   }[] }>
+  unauthorized: unknown[]; unauthorizedComplete: boolean; droppedUnattributed: number
   drafts: Record<string, { title: string; body: string }[]>
   droppedForBudget: number
   pendingErrors: number
 }
 export function assertObservation(value: FixtureObservation, runId: string, accounts: FixtureAccount[]): void {
   check(value.runId === runId && value.droppedForBudget === 0 && value.pendingErrors === 0, 'fixture_not_exclusive_or_incomplete')
+  check(value.unauthorizedComplete === true && value.droppedUnattributed === 0
+    && Array.isArray(value.unauthorized), 'fixture_unauthorized_evidence_missing')
   for (const account of accounts) {
     check(value.accounts[account.id]?.complete === true && Array.isArray(value.accounts[account.id]?.requests)
       && Array.isArray(value.drafts[account.id]), 'fixture_account_evidence_missing')

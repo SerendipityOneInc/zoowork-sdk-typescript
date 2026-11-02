@@ -13,7 +13,7 @@ const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', a
   } }
 const fail = (kind: string) => new Error(kind)
 type Fault = 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
-  | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
+  | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
 function setup(fault?: Fault) {
   const calls: string[] = []
   let cleanupDiscoveryFinished = false
@@ -21,6 +21,7 @@ function setup(fault?: Fault) {
   const sessions = new Map<string, sdk.SessionRecord>()
   const revoked = new Set<string>()
   const observation: FixtureObservation = { runId: fixture.runId, pendingErrors: 0, droppedForBudget: 0,
+    unauthorized: [], unauthorizedComplete: true, droppedUnattributed: 0,
     accounts: { a: { complete: true, requests: [] }, b: { complete: true, requests: [] } }, drafts: { a: [], b: [] } }
   const tokens = { a: 'TokenA'.repeat(8), b: 'TokenB'.repeat(8) }
   const client = {
@@ -46,6 +47,7 @@ function setup(fault?: Fault) {
     listSessionPage: async () => ({ sessions: [...sessions.values()], next_cursor: null }),
     getSession: async (_agent: string, id: string) => { if (fault === 'session_route_missing_cleanup' && cleanupDiscoveryFinished) throw new sdk.ZooworkError(404, '', 'service_api.not_found'); if (!sessions.has(id)) throw new sdk.ZooworkError(404, '', 'not_found'); return sessions.get(id) },
     postEvents: async (_agent: string, id: string, events: sdk.OutboundEvent[]) => {
+      if (revoked.has(id) && fault === 'revoked_unauthorized_provider') observation.unauthorized.push({ method: 'tools/call' })
       if (revoked.has(id) && fault !== 'revoke_accepted') throw new sdk.ZooworkError(409, '', 'vault_binding_revoked')
       if (revoked.has(id)) return { events: [{ accepted: true }] }
       const value = sessions.get(id)!
@@ -98,7 +100,7 @@ test('full public compatibility path proves identity, scope, revoke, offboarding
   assert.deepEqual(calls, ['cleanup', 'delete:ses_0', 'delete:ses_1', 'delete:ses_2', 'delete:vlt_0', 'delete:vlt_1'])
 })
 for (const fault of ['cross_binding', 'cross_identity', 'wrong_fingerprint', 'truncated_fixture', 'foreign_read',
-  'secret_id', 'same_scope', 'revoke_accepted', 'missing_audit', 'secret_echo', 'stale_answer', 'save_failure'] as Fault[]) {
+  'revoked_unauthorized_provider', 'secret_id', 'same_scope', 'revoke_accepted', 'missing_audit', 'secret_echo', 'stale_answer', 'save_failure'] as Fault[]) {
   test(`${fault} cannot produce a passing acceptance`, async () => {
     const result = await setup(fault).run(); assert.equal(result.passed, false)
     assert.ok(result.failure)

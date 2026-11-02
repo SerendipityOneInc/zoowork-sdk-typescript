@@ -111,7 +111,9 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
     catch (error) { refused = error instanceof sdk.ZooworkError && error.status === 409
       && sdk.vaultSessionErrorCode(error) === 'vault.binding_revoked' }
     check(refused, 'revoked_drive_not_refused')
-    check(JSON.stringify((await observe()).accounts) === JSON.stringify(before.accounts), 'revoked_drive_reached_provider')
+    const after = await observe()
+    check(JSON.stringify(after.accounts) === JSON.stringify(before.accounts)
+      && JSON.stringify(after.unauthorized) === JSON.stringify(before.unauthorized), 'revoked_drive_reached_provider')
   }
   try {
     // Only this run's already-provisioned canary Agent may receive sessions. No mutable Agent configuration is changed.
