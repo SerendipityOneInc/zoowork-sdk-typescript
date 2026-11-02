@@ -13,7 +13,7 @@ const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', a
   } }
 const fail = (kind: string) => new Error(kind)
 type Fault = 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
-  | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
+  | 'beta_unavailable' | 'recover_create' | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
 function setup(fault?: Fault) {
   const calls: string[] = []
   let cleanupDiscoveryFinished = false
@@ -26,7 +26,7 @@ function setup(fault?: Fault) {
   const tokens = { a: 'TokenA'.repeat(8), b: 'TokenB'.repeat(8) }
   const client = {
     getAgent: async () => ({ declared: { name: `sdk-vault-${fixture.runId}`, labels: { sdk_vault_e2e: fixture.runId } }, ownership: { project_id: fixture.projectId, org_id: 'org_main' } }),
-    listVaults: async () => { if (calls.includes('cleanup')) cleanupDiscoveryFinished = true; return { data: [...vaults.values()], has_more: false, next_cursor: null } },
+    listVaults: async () => { if (fault === 'beta_unavailable') throw new sdk.VaultBetaUnavailableError(new sdk.ZooworkError(404, '', 'service_api.not_found')); if (calls.includes('cleanup')) cleanupDiscoveryFinished = true; return { data: [...vaults.values()], has_more: false, next_cursor: null } },
     createVault: async (input: sdk.VaultCreateInput) => {
       const id = fault === 'secret_id' ? tokens.a : `vlt_${vaults.size}`
       const value = { ...input, id, revision: 1, project_id: fixture.projectId } as sdk.VaultRecord
@@ -42,7 +42,7 @@ function setup(fault?: Fault) {
         vault_binding: { status: 'unrevoked', revision: 1, credential_bindings: [{ vault_id: vid,
           credential_id: fault === 'cross_binding' ? 'other' : `cred_${vid}` }] },
       } as unknown as sdk.SessionRecord
-      sessions.set(id, value); return value
+      sessions.set(id, value); if (fault === 'recover_create') throw fail('lost response'); return value
     },
     listSessionPage: async () => ({ sessions: [...sessions.values()], next_cursor: null }),
     getSession: async (_agent: string, id: string) => { if (fault === 'session_route_missing_cleanup' && cleanupDiscoveryFinished) throw new sdk.ZooworkError(404, '', 'service_api.not_found'); if (!sessions.has(id)) throw new sdk.ZooworkError(404, '', 'not_found'); return sessions.get(id) },
@@ -135,3 +135,13 @@ for (const fault of ['beta_disabled_cleanup', 'session_route_missing_cleanup'] a
     const result = await setup(fault).run(); assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
   })
 }
+
+test('disabled beta before setup creates nothing and cannot pass', async () => {
+  const result = await setup('beta_unavailable').run(); assert.equal(result.passed, false)
+  assert.deepEqual(result.resources.intended_vaults, []); assert.ok(result.failure)
+})
+test('discovery recovers a committed create whose response was lost before journaling', async () => {
+  const { run, calls } = setup('recover_create'); const result = await run()
+  assert.equal(result.passed, false); assert.equal(result.cleanup.complete, true)
+  assert.ok(calls.includes('delete:ses_0')); assert.equal(result.resources.uncertain, false)
+})
