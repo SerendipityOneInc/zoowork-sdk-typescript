@@ -13,9 +13,10 @@ const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', a
   } }
 const fail = (kind: string) => new Error(kind)
 type Fault = 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
-  | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
+  | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
 function setup(fault?: Fault) {
   const calls: string[] = []
+  let cleanupDiscoveryFinished = false
   const vaults = new Map<string, sdk.VaultRecord>()
   const sessions = new Map<string, sdk.SessionRecord>()
   const revoked = new Set<string>()
@@ -24,13 +25,13 @@ function setup(fault?: Fault) {
   const tokens = { a: 'TokenA'.repeat(8), b: 'TokenB'.repeat(8) }
   const client = {
     getAgent: async () => ({ declared: { name: `sdk-vault-${fixture.runId}`, labels: { sdk_vault_e2e: fixture.runId } }, ownership: { project_id: fixture.projectId, org_id: 'org_main' } }),
-    listVaults: async () => ({ data: [...vaults.values()], has_more: false, next_cursor: null }),
+    listVaults: async () => { if (calls.includes('cleanup')) cleanupDiscoveryFinished = true; return { data: [...vaults.values()], has_more: false, next_cursor: null } },
     createVault: async (input: sdk.VaultCreateInput) => {
       const id = `vlt_${vaults.size}`
       const value = { ...input, id, revision: 1, project_id: fixture.projectId } as sdk.VaultRecord
       vaults.set(id, value); return value
     },
-    getVault: async (id: string) => { if (!vaults.has(id)) throw new sdk.ZooworkError(404, '', 'vault.not_found'); return vaults.get(id) },
+    getVault: async (id: string) => { if (fault === 'beta_disabled_cleanup' && cleanupDiscoveryFinished) throw new sdk.VaultBetaUnavailableError(new sdk.ZooworkError(404, '', 'service_api.not_found')); if (!vaults.has(id)) throw new sdk.ZooworkError(404, '', 'vault.not_found'); return vaults.get(id) },
     createVaultCredential: async (id: string) => ({ id: `cred_${id}`, ...(fault === 'secret_echo' ? { token: tokens.a } : {}) }),
     createSession: async (_agent: string, input: NonNullable<Parameters<sdk.ZooworkClient['createSession']>[1]>) => {
       if (fault === 'lost_create') throw fail('connection-lost')
@@ -43,7 +44,7 @@ function setup(fault?: Fault) {
       sessions.set(id, value); return value
     },
     listSessionPage: async () => ({ sessions: [...sessions.values()], next_cursor: null }),
-    getSession: async (_agent: string, id: string) => { if (!sessions.has(id)) throw new sdk.ZooworkError(404, '', 'session.not_found'); return sessions.get(id) },
+    getSession: async (_agent: string, id: string) => { if (fault === 'session_route_missing_cleanup' && cleanupDiscoveryFinished) throw new sdk.ZooworkError(404, '', 'service_api.not_found'); if (!sessions.has(id)) throw new sdk.ZooworkError(404, '', 'not_found'); return sessions.get(id) },
     postEvents: async (_agent: string, id: string, events: sdk.OutboundEvent[]) => {
       if (revoked.has(id) && fault !== 'revoke_accepted') throw new sdk.ZooworkError(409, '', 'vault_binding_revoked')
       if (revoked.has(id)) return { events: [{ accepted: true }] }
@@ -126,3 +127,9 @@ test('fixture config rejects shared identities, foreign MCP origin and incomplet
 test('successful delete responses without deletion cannot pass cleanup', async () => {
   const result = await setup('delete_noop').run(); assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
 })
+
+for (const fault of ['beta_disabled_cleanup', 'session_route_missing_cleanup'] as Fault[]) {
+  test(`${fault} after discovery cannot pretend cleanup completed`, async () => {
+    const result = await setup(fault).run(); assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
+  })
+}

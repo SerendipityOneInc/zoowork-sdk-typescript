@@ -56,6 +56,13 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
     }
     check(false, 'foreign_scope_read_succeeded')
   }
+  const gone = (error: unknown, resource: 'vault' | 'session') => error instanceof sdk.ZooworkError
+    && error.status === 404 && !sdk.isVaultBetaUnavailable(error)
+    && (resource === 'vault' ? error.type === 'vault.not_found' : ['not_found', 'session_not_found'].includes(error.type ?? ''))
+  const confirmGone = async (action: () => Promise<unknown>, resource: 'vault' | 'session') => {
+    try { await action() } catch (error) { check(gone(error, resource), 'cleanup_not_found_ambiguous'); return }
+    check(false, 'cleanup_resource_still_visible')
+  }
   async function session(user: User, suffix: string): Promise<SDK.SessionRecord> {
     record.resources.uncertain = true; record.resources.intended_sessions.push(suffix); save()
     const value = await client.createSession(f.agentId, { isolation: 'session', vault_ids: [own[user].vault!.id],
@@ -219,18 +226,29 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
           const value = await client.getSession(f.agentId, id); scan(value)
           check(value.metadata?.sdk_vault_e2e === f.runId, 'cleanup_session_ownership_changed')
           await client.deleteSession(f.agentId, id)
-          await expect404(() => client.getSession(f.agentId, id))
+          await confirmGone(() => client.getSession(f.agentId, id), 'session')
         } catch (error) {
-          if (!(error instanceof sdk.ZooworkError && error.status === 404)) throw error
+          if (!gone(error, 'session')) throw error
         }
+      })
+      await clean(async () => {
+        // A generic Engine `not_found` alone cannot prove deletion if a route disappeared.
+        let cursor: string | undefined
+        for (let page = 0; page < 10; page++) {
+          const values = await client.listSessionPage(f.agentId, { cursor, limit: 100 }); scan(values)
+          check(!values.sessions.some(value => record.resources.sessions.includes(value.session_id)), 'cleanup_session_still_listed')
+          if (!values.next_cursor) return
+          check(values.next_cursor !== cursor, 'cleanup_cursor_missing'); cursor = values.next_cursor
+        }
+        check(false, 'cleanup_session_verification_incomplete')
       })
       for (const id of record.resources.vaults) await clean(async () => {
         try {
           const value = await client.getVault(id); scan(value)
           check(value.metadata.sdk_vault_e2e === f.runId && value.project_id === f.projectId, 'cleanup_vault_ownership_changed')
           await client.deleteVault(id, { idempotencyKey: key(`cleanup-${id}`), revision: value.revision })
-          await expect404(() => client.getVault(id))
-        } catch (error) { if (!(error instanceof sdk.ZooworkError && error.status === 404)) throw error }
+          await confirmGone(() => client.getVault(id), 'vault')
+        } catch (error) { if (!gone(error, 'vault')) throw error }
       })
     }
     record.cleanup.complete = !record.resources.uncertain && record.cleanup.failures.length === 0
