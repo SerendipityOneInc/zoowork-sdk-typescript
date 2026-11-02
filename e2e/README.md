@@ -226,14 +226,110 @@ package or runner changes. Tests under `e2e/thinking.test.ts` are synthetic, off
 regressions and do not prove live availability. Changes confined to `e2e/` do not require an SDK
 version bump or registry publication; a runtime/API change follows the normal release process.
 
-## Vault (beta) skeleton
+## Vault public API compatibility acceptance (beta)
 
-`vault-smoke.ts` is a skeleton for the beta Vault live check and is not wired into any command;
-`pnpm test:e2e` does not run it. It needs Vault enabled for the test organization, a project key,
-an Agent whose MCP server is a fixture that records the injected identity, and two fixture tokens.
-Without them each step reports `not_covered`, never a pass. A step passes only on an assertion it
-made: today that is each Session's binding naming its own user's Vault and credential; what the MCP
-fixture received stays `not_covered` until a fixture-side check exists. Cleanup revokes and deletes
-each Session and deletes each Vault it created, one by one. `vault-smoke.test.ts` covers this
-control flow offline. Wire it into `runner.ts` with the same guards as the standard smoke before
-running it.
+`pnpm test:e2e:vault` is a separate, staging-only acceptance command. It uses the built SDK
+and public gateway, plus the Engine fixture's public observation HTTP protocol. It never
+imports Engine/ECAP internals. The ordinary `pnpm test:e2e` does not invoke it. Offline CI
+runs its synthetic regression cases and type checks; those are not live acceptance evidence.
+No SDK release or version bump is needed to run a checkout's E2E command.
+
+Prepare an exclusive fixture run and dedicated canary Agent through the approved staging
+provisioning workflow before running this command. Do not borrow another smoke's active
+fixture or reset a shared fixture. The SDK command only reads `/v1/observations`; it does
+not provision/reset the fixture, change Agent configuration, deploy, or enable Vault.
+
+Prerequisites:
+
+1. Vault is enabled for three isolated test Project keys: the main Project, another Project
+   in the same organization, and a Project in another organization. Each key can read a
+   dedicated Agent in its own Project. Agent ownership returned by the API verifies the
+   supplied keys' relative scope; three different key strings alone are insufficient.
+2. The main Agent has `declared.name = sdk-vault-<runId>` and label
+   `declared.labels.sdk_vault_e2e = <runId>`. Its MCP configuration already points at the
+   dedicated fixture's `mcpServerUrl`. Use a model capable of calling `whoami` and
+   `create_draft`. The command checks the exact Agent name, label and Project before writes.
+3. The fixture is an exclusive fresh run with two accounts. Neither account has previous
+   requests or drafts. Obtain the run's generated markers and bearer HMAC fingerprints from
+   approved provisioning output; do not derive or substitute your own fingerprint. The
+   control token is separate from the two account bearer tokens.
+4. Record the deployed facade and Engine commits from deployment evidence. The runner
+   labels these as **declared**, not independently verified deployment revisions.
+
+Create a non-secret fixture JSON with these fields (placeholder values are not runnable):
+
+```json
+{
+  "runId": "<32 lowercase hex>",
+  "projectId": "proj_...",
+  "agentId": "agt_...",
+  "foreignProjectAgentId": "agt_...",
+  "foreignOrgAgentId": "agt_...",
+  "origin": "https://dedicated-fixture-host/",
+  "mcpServerUrl": "https://dedicated-fixture-host/mcp",
+  "facadeCommit": "<40 lowercase hex>",
+  "engineCommit": "<40 lowercase hex>",
+  "accounts": {
+    "a": {"id": "account-a", "marker": "<generated marker>", "fingerprint": "hmac:<16 lowercase hex>"},
+    "b": {"id": "account-b", "marker": "<generated marker>", "fingerprint": "hmac:<16 lowercase hex>"}
+  }
+}
+```
+
+Build and run from the SDK checkout. The output directory must be new and outside Git;
+its parent must already exist. Feed one JSON object through secure stdin from your secret
+manager with fields `apiKey`, `foreignProjectKey`, `foreignOrgKey`, `fixtureControlToken`,
+and `tokens: {a, b}`. Never put secrets in arguments, fixture JSON, shell history or logs.
+Maintainer authorization for these temporary writes and three model turns is required;
+`--confirm-staging` records that choice but finding a key does not authorize a run.
+
+```sh
+pnpm build
+pnpm test:e2e:vault --base-url https://your-staging-host/service/v1 \
+  --fixture /private/prepared-fixture.json --out-dir /private/new-vault-result \
+  --confirm-staging
+```
+
+The command creates two Project Vaults, two credentials, three isolated Sessions, and a
+retained offboarding audit record. Application users A/B are synthetic identities mapped
+to their own Vaults by this application code. **Engine does not authorize end users**;
+`external_user_ref` is attribution, not an access-control boundary. The runner proves:
+
+- Each Session binds only its mapped Vault/credential. Both model replies and fixture drafts
+  contain only that account's private marker, which is never supplied in the user prompt.
+  Fixture observations independently require the actual bearer fingerprint on successful
+  `whoami`/`create_draft` calls, with no activity in the other account.
+- Keys verified as another Project/same organization and another organization cannot read
+  the main Vault or Session (404; a disabled beta is not accepted as tenant isolation).
+- Revoking A returns a revoked binding; subsequent drive returns the normalized
+  `vault.binding_revoked` 409 with no new provider calls.
+- A's two-session offboarding is idempotent, completes with per-session revoked attempt
+  logs and audit attribution, and rejects both Sessions' later drives. B still completes
+  a fresh model/tool turn after A's offboarding.
+
+The ten-minute main budget is 800 API requests, plus at most 60 fixture reads. Each request
+has a 30-second deadline. Cleanup has an independent 90-second/100-request reserve. API
+requests stay on the supplied HTTPS public prefix; fixture reads stay on its supplied HTTPS
+origin, reject redirects and cap response bodies. Cancellation still enters cleanup.
+
+`vault-result.json` is a private, atomically written resource journal and verdict with SDK
+version/dist hash, runner hash and declared deployment commits. It contains safe check/error
+categories and resource IDs, never raw responses, prompts, markers, tokens or model replies.
+Unavailable/malformed evidence fails closed; exit 0 requires all assertions and cleanup.
+Offboarding records are intentionally retained because the public API has no audit-delete
+operation. Externally provisioned Agent/fixture cleanup belongs to their provisioning owner.
+
+Cleanup discovers only exact run metadata in bounded pages, verifies ownership before
+Session/Vault deletion and confirms 404 afterward. An ambiguous create that cannot be
+recovered stays `uncertain`; one failed delete does not skip remaining resources. A killed
+process, disk failure or outage can interrupt this process. Recover recorded IDs and exact
+`metadata.sdk_vault_e2e` / `metadata.case` / `metadata.user` matches with the original key;
+never delete by a loose prefix or broaden to other users. Resolve incomplete cleanup before
+starting a fresh fixture/run. Soft deletion does not purge historical records.
+
+This command is not the complete Vault rollout gate. It does not test OAuth refresh,
+credential rotation/archive, SSE equivalence, server logs/traces, deployed revision
+attestation, every authorization route, or production. Secret echo assertions cover only
+the public/fixture responses this runner reads. Run this acceptance separately for each
+SDK against fresh fixtures and keep the actual live records; passing offline CI or merging
+this implementation cannot establish staging acceptance.
