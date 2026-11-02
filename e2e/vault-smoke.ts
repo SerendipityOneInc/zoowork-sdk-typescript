@@ -17,7 +17,7 @@ interface Options {
   fixture: VaultFixture; tokens: { a: string; b: string }
   foreignProject: Client; foreignOrg: Client; observe: () => Promise<FixtureObservation>
   signal: AbortSignal; cleanupMode: () => void; save: (record: VaultAcceptanceRecord) => void
-  delay?: () => Promise<void>; attempts?: number
+  delay?: () => Promise<void>; attempts?: number; secretValues?: string[]
 }
 const USERS = ['a', 'b'] as const
 type User = typeof USERS[number]
@@ -42,7 +42,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
   const key = (name: string) => `${f.runId}:${name}`
   const scan = (value: unknown) => {
     const text = JSON.stringify(value)
-    check(![options.tokens.a, options.tokens.b].some(secret => text.includes(secret)), 'secret_in_public_response')
+    check(![options.tokens.a, options.tokens.b, ...(options.secretValues ?? [])].some(secret => text.includes(secret)), 'secret_in_public_response')
   }
   const observe = async () => {
     const value = await options.observe()
@@ -68,7 +68,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
     const value = await client.createSession(f.agentId, { isolation: 'session', vault_ids: [own[user].vault!.id],
       external_user_ref: key(user), metadata: { sdk_vault_e2e: f.runId, user, case: suffix },
     }, key(suffix))
-    record.resources.sessions.push(value.session_id); save(); scan(value)
+    scan(value); record.resources.sessions.push(value.session_id); save()
     const binding = value.vault_binding
     check(value.isolation === 'session' && binding?.status === 'unrevoked'
       && value.vault_ids?.length === 1 && value.vault_ids[0] === own[user].vault!.id
@@ -138,7 +138,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       const vault = await client.createVault({ scope: 'project', project_id: f.projectId,
         name: `sdk-vault-${f.runId}-${user}`, metadata: { sdk_vault_e2e: f.runId, user },
       }, { idempotencyKey: key(`vault-${user}`) })
-      own[user].vault = vault; record.resources.vaults.push(vault.id); save(); scan(vault)
+      scan(vault); own[user].vault = vault; record.resources.vaults.push(vault.id); save()
       check(vault.scope === 'project' && vault.project_id === f.projectId, 'vault_wrong_project')
       const credential = await client.createVaultCredential(vault.id, { name: 'fixture', purpose: 'mcp',
         provider_account_ref: f.accounts[user].id,
@@ -168,7 +168,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       revision: value.session_id === own.a.session!.session_id ? revoked.revision : value.vault_binding!.revision,
     })) }
     let ledger = await client.createVaultOffboarding(input, { idempotencyKey: key('offboard-a') })
-    record.resources.retained_offboardings.push(ledger.id); save(); scan(ledger)
+    scan(ledger); record.resources.retained_offboardings.push(ledger.id); save()
     const replay = await client.createVaultOffboarding(input, { idempotencyKey: key('offboard-a') })
     scan(replay); check(replay.id === ledger.id, 'offboarding_not_idempotent')
     for (let attempt = 0; attempt < attempts && ledger.status === 'in_progress'; attempt++) {

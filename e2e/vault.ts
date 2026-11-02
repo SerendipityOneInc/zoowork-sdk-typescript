@@ -66,7 +66,7 @@ async function main(): Promise<void> {
       + hash(readFileSync(new URL(name, import.meta.url)))).join('\0')) }
   let observations = 0
   const result = await vaultAcceptance(sdk, clients[0]!, { fixture, tokens: secrets.tokens,
-    foreignProject: clients[1]!, foreignOrg: clients[2]!, signal,
+    foreignProject: clients[1]!, foreignOrg: clients[2]!, signal, secretValues: [...keys, secrets.fixtureControlToken],
     observe: async () => {
       check(++observations <= 60, 'fixture_request_budget_exceeded')
       const response = await fetch(new URL('/v1/observations', fixture.origin), { redirect: 'error',

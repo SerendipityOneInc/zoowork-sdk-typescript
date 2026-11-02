@@ -13,7 +13,7 @@ const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', a
   } }
 const fail = (kind: string) => new Error(kind)
 type Fault = 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
-  | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
+  | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
 function setup(fault?: Fault) {
   const calls: string[] = []
   let cleanupDiscoveryFinished = false
@@ -27,7 +27,7 @@ function setup(fault?: Fault) {
     getAgent: async () => ({ declared: { name: `sdk-vault-${fixture.runId}`, labels: { sdk_vault_e2e: fixture.runId } }, ownership: { project_id: fixture.projectId, org_id: 'org_main' } }),
     listVaults: async () => { if (calls.includes('cleanup')) cleanupDiscoveryFinished = true; return { data: [...vaults.values()], has_more: false, next_cursor: null } },
     createVault: async (input: sdk.VaultCreateInput) => {
-      const id = `vlt_${vaults.size}`
+      const id = fault === 'secret_id' ? tokens.a : `vlt_${vaults.size}`
       const value = { ...input, id, revision: 1, project_id: fixture.projectId } as sdk.VaultRecord
       vaults.set(id, value); return value
     },
@@ -98,7 +98,7 @@ test('full public compatibility path proves identity, scope, revoke, offboarding
   assert.deepEqual(calls, ['cleanup', 'delete:ses_0', 'delete:ses_1', 'delete:ses_2', 'delete:vlt_0', 'delete:vlt_1'])
 })
 for (const fault of ['cross_binding', 'cross_identity', 'wrong_fingerprint', 'truncated_fixture', 'foreign_read',
-  'same_scope', 'revoke_accepted', 'missing_audit', 'secret_echo', 'stale_answer', 'save_failure'] as Fault[]) {
+  'secret_id', 'same_scope', 'revoke_accepted', 'missing_audit', 'secret_echo', 'stale_answer', 'save_failure'] as Fault[]) {
   test(`${fault} cannot produce a passing acceptance`, async () => {
     const result = await setup(fault).run(); assert.equal(result.passed, false)
     assert.ok(result.failure)
