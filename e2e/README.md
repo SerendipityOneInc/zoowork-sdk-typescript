@@ -319,8 +319,11 @@ Unavailable/malformed evidence fails closed; exit 0 requires all assertions and 
 Offboarding records are intentionally retained because the public API has no audit-delete
 operation. Externally provisioned Agent/fixture cleanup belongs to their provisioning owner.
 
-Cleanup discovers only exact run metadata in bounded pages, verifies ownership before
-Session/Vault deletion and confirms 404 afterward. An ambiguous create that cannot be
+Cleanup discovers candidates in bounded pages, then admits only this run’s explicitly intended
+user/case tuples (and matching Session attribution when returned). It rechecks those fields before
+Session/Vault deletion and confirms 404 afterward. Same-marker resources with different tuples
+are ignored and counted separately. Multiple IDs for one exact tuple leave recovery ambiguous;
+they are never adopted as a batch deletion target. An ambiguous create that cannot be
 recovered stays `uncertain`; one failed delete does not skip remaining resources. A killed
 process, disk failure or outage can interrupt this process. Recover recorded IDs and exact
 `metadata.sdk_vault_e2e` / `metadata.case` / `metadata.user` matches with the original key;

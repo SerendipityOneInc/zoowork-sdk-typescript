@@ -13,7 +13,7 @@ const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', a
   } }
 const fail = (kind: string) => new Error(kind)
 type Fault = 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
-  | 'beta_unavailable' | 'recover_create' | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
+  | 'unrelated_resources' | 'ambiguous_session' | 'ambiguous_vault' | 'ownership_changed' | 'beta_unavailable' | 'recover_create' | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
 function setup(fault?: Fault) {
   const calls: string[] = []
   let cleanupDiscoveryFinished = false
@@ -30,9 +30,9 @@ function setup(fault?: Fault) {
     createVault: async (input: sdk.VaultCreateInput) => {
       const id = fault === 'secret_id' ? tokens.a : `vlt_${vaults.size}`
       const value = { ...input, id, revision: 1, project_id: fixture.projectId } as sdk.VaultRecord
-      vaults.set(id, value); return value
+      vaults.set(id, value); if (fault === 'ambiguous_vault') throw fail('lost response'); return value
     },
-    getVault: async (id: string) => { if (fault === 'beta_disabled_cleanup' && cleanupDiscoveryFinished) throw new sdk.VaultBetaUnavailableError(new sdk.ZooworkError(404, '', 'service_api.not_found')); if (!vaults.has(id)) throw new sdk.ZooworkError(404, '', 'vault.not_found'); return vaults.get(id) },
+    getVault: async (id: string) => { if (fault === 'ownership_changed' && cleanupDiscoveryFinished && vaults.has(id)) vaults.get(id)!.name = 'other'; if (fault === 'beta_disabled_cleanup' && cleanupDiscoveryFinished) throw new sdk.VaultBetaUnavailableError(new sdk.ZooworkError(404, '', 'service_api.not_found')); if (!vaults.has(id)) throw new sdk.ZooworkError(404, '', 'vault.not_found'); return vaults.get(id) },
     createVaultCredential: async (id: string) => ({ id: `cred_${id}`, ...(fault === 'secret_echo' ? { token: tokens.a } : {}) }),
     createSession: async (_agent: string, input: NonNullable<Parameters<sdk.ZooworkClient['createSession']>[1]>) => {
       if (fault === 'lost_create') throw fail('connection-lost')
@@ -42,10 +42,10 @@ function setup(fault?: Fault) {
         vault_binding: { status: 'unrevoked', revision: 1, credential_bindings: [{ vault_id: vid,
           credential_id: fault === 'cross_binding' ? 'other' : `cred_${vid}` }] },
       } as unknown as sdk.SessionRecord
-      sessions.set(id, value); if (fault === 'recover_create') throw fail('lost response'); return value
+      sessions.set(id, value); if (fault === 'recover_create' || fault === 'ambiguous_session') throw fail('lost response'); return value
     },
     listSessionPage: async () => ({ sessions: [...sessions.values()], next_cursor: null }),
-    getSession: async (_agent: string, id: string) => { if (fault === 'session_route_missing_cleanup' && cleanupDiscoveryFinished) throw new sdk.ZooworkError(404, '', 'service_api.not_found'); if (!sessions.has(id)) throw new sdk.ZooworkError(404, '', 'not_found'); return sessions.get(id) },
+    getSession: async (_agent: string, id: string) => { if (fault === 'ownership_changed' && cleanupDiscoveryFinished && sessions.has(id)) sessions.get(id)!.metadata!.user = 'other'; if (fault === 'session_route_missing_cleanup' && cleanupDiscoveryFinished) throw new sdk.ZooworkError(404, '', 'service_api.not_found'); if (!sessions.has(id)) throw new sdk.ZooworkError(404, '', 'not_found'); return sessions.get(id) },
     postEvents: async (_agent: string, id: string, events: sdk.OutboundEvent[]) => {
       if (revoked.has(id) && fault === 'revoked_unauthorized_provider') observation.unauthorized.push({ method: 'tools/call' })
       if (revoked.has(id) && fault !== 'revoke_accepted') throw new sdk.ZooworkError(409, '', 'vault_binding_revoked')
@@ -83,7 +83,25 @@ function setup(fault?: Fault) {
     getSession: async () => { throw new sdk.ZooworkError(404, '', 'service_api.agent_not_found') },
   } as unknown as sdk.ZooworkClient
   const run = () => vaultAcceptance(sdk, client, { fixture, tokens, foreignProject: foreign, foreignOrg: foreign,
-    signal: new AbortController().signal, attempts: 2, delay: async () => {}, cleanupMode: () => { calls.push('cleanup') },
+    signal: new AbortController().signal, attempts: 2, delay: async () => {}, cleanupMode: () => {
+      calls.push('cleanup')
+      if (fault === 'unrelated_resources') {
+        const value = structuredClone(sessions.values().next().value!)
+        sessions.set('ses_other_case', { ...value, session_id: 'ses_other_case', metadata: { ...value.metadata, case: 'not-intended' } })
+        sessions.set('ses_wrong_user', { ...value, session_id: 'ses_wrong_user', metadata: { ...value.metadata, user: 'b' } })
+        sessions.set('ses_wrong_ref', { ...value, session_id: 'ses_wrong_ref', external_user_ref: 'other' })
+        const vault = structuredClone(vaults.values().next().value!)
+        vaults.set('vlt_other', { ...vault, id: 'vlt_other', metadata: { ...vault.metadata, user: 'other' } })
+      }
+      if (fault === 'ambiguous_session') {
+        const value = structuredClone(sessions.values().next().value!)
+        sessions.set('ses_duplicate', { ...value, session_id: 'ses_duplicate' })
+      }
+      if (fault === 'ambiguous_vault') {
+        const value = structuredClone(vaults.values().next().value!)
+        vaults.set('vlt_duplicate', { ...value, id: 'vlt_duplicate' })
+      }
+    },
     save: () => { if (fault === 'save_failure') throw fail('disk') },
     observe: async () => structuredClone({ ...observation, droppedForBudget: fault === 'truncated_fixture' ? 1 : 0 }),
   })
@@ -144,4 +162,24 @@ test('discovery recovers a committed create whose response was lost before journ
   const { run, calls } = setup('recover_create'); const result = await run()
   assert.equal(result.passed, false); assert.equal(result.cleanup.complete, true)
   assert.ok(calls.includes('delete:ses_0')); assert.equal(result.resources.uncertain, false)
+})
+
+test('same run marker with a different intended tuple is ignored, not adopted or deleted', async () => {
+  const { run, calls } = setup('unrelated_resources'); const result = await run()
+  assert.equal(result.passed, true, JSON.stringify(result))
+  assert.deepEqual(result.resources.ignored, { sessions: 3, vaults: 1 })
+  for (const id of ['ses_other_case', 'ses_wrong_user', 'ses_wrong_ref', 'vlt_other']) assert.ok(!calls.includes(`delete:${id}`))
+})
+for (const fault of ['ambiguous_session', 'ambiguous_vault'] as Fault[]) {
+  test(`${fault} never adopts duplicate matches after a lost create response`, async () => {
+    const { run, calls } = setup(fault); const result = await run()
+    assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
+    assert.ok(result.cleanup.failures.some(error => error.kind === 'cleanup_recovery_ambiguous'))
+    assert.ok(!calls.some(call => call.includes('duplicate')))
+    assert.deepEqual(fault === 'ambiguous_session' ? result.resources.sessions : result.resources.vaults, [])
+  })
+}
+test('changed intended metadata after discovery is rechecked before deletion', async () => {
+  const { run, calls } = setup('ownership_changed'); const result = await run()
+  assert.equal(result.cleanup.complete, false); assert.ok(!calls.some(call => call.startsWith('delete:')))
 })

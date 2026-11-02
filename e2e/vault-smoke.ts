@@ -10,7 +10,7 @@ export interface VaultFixture {
 }
 export interface VaultAcceptanceRecord {
   run_id: string; passed: boolean; checks: string[]; failure?: ReturnType<typeof safeFailure>
-  resources: { vaults: string[]; sessions: string[]; retained_offboardings: string[]; intended_vaults: string[]; intended_sessions: string[]; uncertain: boolean }
+  resources: { vaults: string[]; sessions: string[]; retained_offboardings: string[]; intended_vaults: string[]; intended_sessions: string[]; uncertain: boolean; ignored: { sessions: number; vaults: number } }
   cleanup: { complete: boolean; failures: ReturnType<typeof safeFailure>[] }
 }
 interface Options {
@@ -26,7 +26,7 @@ type User = typeof USERS[number]
 export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: Options): Promise<VaultAcceptanceRecord> {
   const f = options.fixture
   const record: VaultAcceptanceRecord = { run_id: f.runId, passed: false, checks: [],
-    resources: { vaults: [], sessions: [], retained_offboardings: [], intended_vaults: [], intended_sessions: [], uncertain: false }, cleanup: { complete: false, failures: [] } }
+    resources: { vaults: [], sessions: [], retained_offboardings: [], intended_vaults: [], intended_sessions: [], uncertain: false, ignored: { sessions: 0, vaults: 0 } }, cleanup: { complete: false, failures: [] } }
   const own: Record<User, { vault?: SDK.VaultRecord; credential?: string; session?: SDK.SessionRecord }> = { a: {}, b: {} }
   const delay = options.delay ?? (() => new Promise(resolve => setTimeout(resolve, 1000)))
   const attempts = options.attempts ?? 120
@@ -55,6 +55,23 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       return
     }
     check(false, 'foreign_scope_read_succeeded')
+  }
+  const intendedSession = (value: SDK.SessionRecord) => {
+    const { user, case: scenario, sdk_vault_e2e: run } = value.metadata ?? {}
+    return run === f.runId && (user === 'a' || user === 'b') && typeof scenario === 'string'
+      && record.resources.intended_sessions.includes(scenario)
+      && (scenario === `session-${user}` || (user === 'a' && scenario === 'session-a-second'))
+      && (value.external_user_ref == null || value.external_user_ref === key(user))
+  }
+  const intendedVault = (value: SDK.VaultRecord) => value.metadata.sdk_vault_e2e === f.runId
+    && (value.metadata.user === 'a' || value.metadata.user === 'b')
+    && record.resources.intended_vaults.includes(value.metadata.user) && value.scope === 'project'
+    && value.project_id === f.projectId && value.name === `sdk-vault-${f.runId}-${value.metadata.user}`
+  // Discover fully before adopting IDs: duplicate exact tuples are ambiguous, not bulk-delete authority.
+  const unique = (rows: Map<string, Set<string>>, target: string[]) => {
+    check([...rows.values()].every(ids => ids.size === 1), 'cleanup_recovery_ambiguous')
+    for (const ids of rows.values()) for (const id of ids) if (!target.includes(id)) target.push(id)
+    return new Set(rows.keys())
   }
   const gone = (error: unknown, resource: 'vault' | 'session') => error instanceof sdk.ZooworkError
     && error.status === 404 && !sdk.isVaultBetaUnavailable(error)
@@ -195,26 +212,32 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       // Recover ambiguous create responses by exact run metadata, never by a loose name prefix.
       await clean(async () => {
         let sessionCursor: string | undefined
-        const foundSessions = new Set<string>()
+        const sessionMatches = new Map<string, Set<string>>()
         for (let page = 0; page < 10; page++) {
           const values = await client.listSessionPage(f.agentId, { cursor: sessionCursor, limit: 100 }); scan(values)
           for (const value of values.sessions) if (value.metadata?.sdk_vault_e2e === f.runId) {
-            foundSessions.add(String(value.metadata.case))
-            if (!record.resources.sessions.includes(value.session_id)) record.resources.sessions.push(value.session_id)
+            if (!intendedSession(value)) { record.resources.ignored.sessions++; continue }
+            const scenario = String(value.metadata.case)
+            const ids = sessionMatches.get(scenario) ?? new Set<string>()
+            ids.add(value.session_id); sessionMatches.set(scenario, ids)
           }
           if (!values.next_cursor) break
           check(values.next_cursor !== sessionCursor && page < 9, 'cleanup_session_discovery_incomplete')
           sessionCursor = values.next_cursor
         }
-        const foundVaults = new Set<string>()
+        const foundSessions = unique(sessionMatches, record.resources.sessions)
+        const vaultMatches = new Map<string, Set<string>>()
         let cursor: string | undefined
         for (let page = 0; page < 10; page++) {
           const values = await client.listVaults({ cursor, limit: 100 }); scan(values)
           for (const value of values.data) if (value.metadata.sdk_vault_e2e === f.runId && value.project_id === f.projectId) {
-            foundVaults.add(String(value.metadata.user))
-            if (!record.resources.vaults.includes(value.id)) record.resources.vaults.push(value.id)
+            if (!intendedVault(value)) { record.resources.ignored.vaults++; continue }
+            const user = String(value.metadata.user)
+            const ids = vaultMatches.get(user) ?? new Set<string>()
+            ids.add(value.id); vaultMatches.set(user, ids)
           }
           if (!values.has_more) {
+            const foundVaults = unique(vaultMatches, record.resources.vaults)
             record.resources.uncertain = !record.resources.intended_vaults.every(value => foundVaults.has(value))
               || !record.resources.intended_sessions.every(value => foundSessions.has(value))
             check(!record.resources.uncertain, 'unsettled_create_requires_recovery'); return
@@ -226,7 +249,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       for (const id of record.resources.sessions) await clean(async () => {
         try {
           const value = await client.getSession(f.agentId, id); scan(value)
-          check(value.metadata?.sdk_vault_e2e === f.runId, 'cleanup_session_ownership_changed')
+          check(intendedSession(value), 'cleanup_session_ownership_changed')
           await client.deleteSession(f.agentId, id)
           await confirmGone(() => client.getSession(f.agentId, id), 'session')
         } catch (error) {
@@ -247,7 +270,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       for (const id of record.resources.vaults) await clean(async () => {
         try {
           const value = await client.getVault(id); scan(value)
-          check(value.metadata.sdk_vault_e2e === f.runId && value.project_id === f.projectId, 'cleanup_vault_ownership_changed')
+          check(intendedVault(value), 'cleanup_vault_ownership_changed')
           await client.deleteVault(id, { idempotencyKey: key(`cleanup-${id}`), revision: value.revision })
           await confirmGone(() => client.getVault(id), 'vault')
         } catch (error) { if (!gone(error, 'vault')) throw error }
