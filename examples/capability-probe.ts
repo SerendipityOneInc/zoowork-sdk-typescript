@@ -193,12 +193,12 @@ try {
       `desired=${desired} after ${ms}ms; warnings=${JSON.stringify(warnings)}`,
       { ms, desired, actual, warnings },
     )
-    // actual_state tracks CHANNEL routes, not API readiness. An API-only agent has
-    // no channels, so it never leaves `activating` — polling it would hang forever.
+    // actual_state is derived from desired_state (active / stopped / deleting). It is
+    // not an API readiness signal and says nothing about channels; gate on desired_state.
     record(
-      'actual_state as a readiness gate',
+      'actual_state follows desired_state',
       actual === 'active' ? 'WORKS' : 'DIFFERS',
-      `actual=${actual} while desired=running — ${actual === 'active' ? 'usable' : 'NOT a readiness signal for API-only agents; gate on desired_state'}`,
+      `actual=${actual} while desired=running — ${actual === 'active' ? 'as expected' : 'unexpected; gate on desired_state, not actual_state'}`,
       { actual },
     )
   })
@@ -324,9 +324,9 @@ try {
   const turn1 = await runTurn(agentId, session.session_id)
   console.log(`turn 1: ${turn1.outcome}, ${turn1.events} events, reply=${JSON.stringify(turn1.text.trim().slice(0, 80))}`)
   record(
-    'sessions work while actual_state=activating',
+    'sessions work once desired_state=running',
     turn1.outcome === 'succeeded' ? 'WORKS' : 'BROKEN',
-    `a full turn completed (${turn1.outcome}) on an agent that never reports actual_state=active — confirms desired_state is the only gate that matters`,
+    `a full turn completed (${turn1.outcome}) after gating only on desired_state — no other readiness wait is needed`,
     { outcome: turn1.outcome, events: turn1.events },
   )
 
