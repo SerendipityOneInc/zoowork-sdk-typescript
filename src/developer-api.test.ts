@@ -85,7 +85,7 @@ test.each([{ code: 'service_api.not_found', detail: 'hidden' }, { error: { type:
 
 test('typed confirmation and active session options preserve true, false and omission', async () => {
   const resources: AgentResource[] = [true, false, undefined].map(requireConfirmation => ({
-    name: 'test', skills: [{ name: 'catalog-skill' }], mcp: [{ name: 'tools', url: 'https://tools.example/mcp', tools: { operation: { permission: 'always_ask', ...(requireConfirmation === undefined ? {} : { requireConfirmation }) } } }],
+    name: 'test', skills: [{ skill_id: 'skl_catalog' }], mcp: [{ name: 'tools', url: 'https://tools.example/mcp', tools: { operation: { permission: 'always_ask', ...(requireConfirmation === undefined ? {} : { requireConfirmation }) } } }],
   }))
   const bodies: Record<string, unknown>[] = []
   const c = createZooworkClient({ apiKey: 'zct_synthetic', fetch: async (_, init) => {

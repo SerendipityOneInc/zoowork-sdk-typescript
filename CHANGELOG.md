@@ -9,6 +9,10 @@ Additive types, one new optional request filter, the beta Vault surface and docu
 corrections. Source-reviewed against Engine and the claw-interface Vault routes; deployment
 availability is unverified.
 
+- `AgentResource.skills` entries now require `skill_id`. The service already rejected `name`-only
+  entries with `400 invalid_request`, so this only moves that failure to compile time. Document
+  that create-time entries stay on the version resolved at creation and that an entry with `name`
+  makes the list the Agent's exact Skill set.
 - Correct the `AgentStatus` documentation. `actual_state` no longer reflects channel health: an
   enabled Agent with a rendered config reports `active`, so an API-only Agent no longer stays
   `activating`. The `channels` counts are legacy placeholders (`0`, `0`, `null`). Keep gating on
