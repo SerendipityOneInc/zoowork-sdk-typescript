@@ -262,7 +262,9 @@ Approval response fields are source-reviewed, not end-to-end verified: read `req
 `allowed_decisions` and optional timeout/resolution fields defensively. `signaled: true` means
 the resolution was accepted; a returned `status: 'pending'` is not completed execution.
 
-Platform uses its managed Environment. Root Environment administration and Channel binding return `404 service_api.not_found` for Project keys. An exported method does not expand a key's permissions.
+Platform uses its managed Environment. Root Environment administration returns `404 service_api.not_found` for Project keys. An exported method does not expand a key's permissions.
+
+Channels connect WeChat, WeCom, Feishu, Slack or DingTalk to an Agent. Each Agent has one connection per platform: omit `account` or pass `'default'`. Use `startChannelSetup` + `waitForChannelSetup` for the QR platforms (`feishu`, `wecom`, `weixin`) and `addChannel` with app credentials for the others.
 
 ## Artifacts and the system prompt
 
