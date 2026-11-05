@@ -528,7 +528,15 @@ export interface AgentResource {
    */
   model?: { primary: string; input?: string[]; max_tokens?: number; thinking?: ThinkingLevel | null }
   persona?: { docs: { name: string; content: string; seed_policy?: string }[] }
-  skills?: (({ skill_id: string; name?: string } | { name: string; skill_id?: string }) & { version?: number | 'latest' })[]
+  /**
+   * Skills attached at creation. Each entry needs `skill_id` (a `name`-only entry is rejected
+   * with 400) and stays on the version resolved at creation, including `'latest'`; assign a Skill
+   * later with no `versionPin` to keep it on the newest version. `[]` turns off automatic global
+   * Skills. An entry with `name` makes the list the Agent's exact Skill set: global Skills are not
+   * attached even with `include_global_skills: true`, and later assignment calls return
+   * `409 source_owned_skills`.
+   */
+  skills?: { skill_id: string; name?: string; version?: number | 'latest' }[]
   /**
    * Defaults to true. False disables automatic global Skills without removing explicitly
    * listed Skills. An explicit empty `skills` array also opts out.

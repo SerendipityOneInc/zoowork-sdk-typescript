@@ -79,7 +79,7 @@ await zc.updateAgent(tuned.agent_id, { model: { thinking: null } } satisfies Age
 
 Agent resources also accept `userTimezone`, a named IANA timezone used for prompt and message
 time context, and `include_global_skills: false` to disable automatic global Skills while keeping
-explicitly listed Skills. An explicit `skills: []` also opts out. Schedule timezones are configured
+explicitly listed Skills. `skills: []` also opts out. Schedule timezones are configured
 separately.
 
 ## Configuration
@@ -175,7 +175,7 @@ to use the owner; IM sessions reject it. See the field's SDK comment for input c
 
 ## Agent Skills
 
-New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, `resource.skills` accepts a catalog name or `skill_id`; `include_global_skills: false` or an explicit empty list opts out of automatic Skills. Root Skill uploads are unavailable to Project keys. Keep source changes in your application; use persona documents for standing instructions and Session messages for text task data.
+New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, each `resource.skills` entry needs a `skill_id` and stays on the version resolved at creation, including `'latest'`; to keep a Skill on the newest version, assign it after creation with no `versionPin`. `include_global_skills: false` or an empty list opts out of automatic global Skills. An entry with `name` makes the list the Agent's exact Skill set, drops global Skills, and makes later assignment calls return `409 source_owned_skills`. Root Skill uploads are unavailable to Project keys. Keep source changes in your application; use persona documents for standing instructions and Session messages for text task data.
 
 ## Schedules, wake and exec
 
