@@ -706,35 +706,25 @@ export interface AddChannelInput {
    */
   platform: AddChannelPlatform | (string & {})
   /**
-   * Names this binding. It is part of the record's identity, not a setting: `updateChannel`
-   * and `removeChannel` find a binding by `platform` + `account`, and nothing renames one
-   * afterwards — you would remove it and bind again.
-   *
-   * Four things to know before you pick a value, all staging-verified 2026-08-25:
-   *
-   * - **The name is unique per USER, across every agent** — one active row per
-   *   (owner, platform, account). Binding `feishu`/`default` on one agent takes that name away
-   *   from all your other agents.
-   * - **`'default'` is very likely taken already** if the same login ever bound this platform in
-   *   the app. That binding was not made through this API, so the server refuses to adopt it and
-   *   answers `409 channel.conflict`.
-   * - **Format is `^[a-z0-9][a-z0-9_-]{0,63}$`**, plus three reserved words (`__proto__`,
-   *   `prototype`, `constructor`). Anything else is `400`. Nothing is normalized for you, so a
-   *   display name with capitals, spaces or non-ASCII characters is rejected rather than fixed.
-   * - **This SDK cannot pre-check the name for you.** {@link ZooworkClient.listChannels} is scoped
-   *   to one agent while the constraint spans your whole account, so a name another agent holds is
-   *   invisible here. Track your own names.
-   *
-   * Use whatever naming scheme your system already has. With no scheme of your own, the agent id
-   * works as-is: it matches the pattern and is unique per agent by construction.
+   * The connection's account name. Omit it or pass `'default'`: each Agent has one connection per
+   * platform, and with a Platform API key any other name answers `400 channel.account_invalid`.
+   * Responses report the connection as `'default'`, and {@link ZooworkClient.updateChannel} /
+   * {@link ZooworkClient.removeChannel} address it by `platform` alone (staging-verified
+   * 2026-11-05).
    */
   account?: string
   display_name?: string
-  /** Server default: `'open'`. DingTalk accepts only `'open'`; `'pairing'` is rejected everywhere. */
+  /**
+   * Server default: `'open'`. DingTalk accepts `'open'` or `'allowlist'` with explicit
+   * {@link AddChannelInput.allow_from} IDs; `'pairing'` is rejected everywhere.
+   */
   dm_policy?: string
   /** Server default: `'open'`. */
   group_policy?: string
-  /** Retained for compatibility; the public gateway ignores this field. It is NOT an access allowlist. Use supported dm_policy settings. */
+  /**
+   * Sender IDs allowed to send direct messages when `dm_policy` is `'allowlist'`; ignored for other
+   * policies. DingTalk requires explicit IDs, so `'*'` is rejected there.
+   */
   allow_from?: string[]
   /**
    * Platform credentials for the direct (non-QR) path. Keys are platform-specific and
@@ -771,27 +761,11 @@ export interface ChannelSetupInput {
   /** Feishu only: `'feishu'` (default) or `'lark'` — the international brand of the same platform. */
   brand?: 'feishu' | 'lark'
   /**
-   * Names this binding. It is part of the record's identity, not a setting: `updateChannel`
-   * and `removeChannel` find a binding by `platform` + `account`, and nothing renames one
-   * afterwards — you would remove it and bind again.
-   *
-   * Four things to know before you pick a value, all staging-verified 2026-08-25:
-   *
-   * - **The name is unique per USER, across every agent** — one active row per
-   *   (owner, platform, account). Binding `feishu`/`default` on one agent takes that name away
-   *   from all your other agents.
-   * - **`'default'` is very likely taken already** if the same login ever bound this platform in
-   *   the app. That binding was not made through this API, so the server refuses to adopt it and
-   *   answers `409 channel.conflict`.
-   * - **Format is `^[a-z0-9][a-z0-9_-]{0,63}$`**, plus three reserved words (`__proto__`,
-   *   `prototype`, `constructor`). Anything else is `400`. Nothing is normalized for you, so a
-   *   display name with capitals, spaces or non-ASCII characters is rejected rather than fixed.
-   * - **This SDK cannot pre-check the name for you.** {@link ZooworkClient.listChannels} is scoped
-   *   to one agent while the constraint spans your whole account, so a name another agent holds is
-   *   invisible here. Track your own names.
-   *
-   * Use whatever naming scheme your system already has. With no scheme of your own, the agent id
-   * works as-is: it matches the pattern and is unique per agent by construction.
+   * The connection's account name. Omit it or pass `'default'`: each Agent has one connection per
+   * platform, and with a Platform API key any other name answers `400 channel.account_invalid`.
+   * Responses report the connection as `'default'`, and {@link ZooworkClient.updateChannel} /
+   * {@link ZooworkClient.removeChannel} address it by `platform` alone (staging-verified
+   * 2026-11-05).
    */
   account?: string
   /**
@@ -1821,11 +1795,11 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * `'lark'` an `open.larksuite.com` one — so it has to match the workspace the person will
    * approve it in.
    *
-   * Pick `account` before you show the QR. On Feishu, approving the scan registers a NEW app in
-   * that workspace, and only then does the binding get written — so a name clash surfaces as
-   * `409 channel.conflict` AFTER someone has scanned, with the freshly registered app left
-   * behind in their workspace. Retrying under the same name repeats both. See
-   * {@link AddChannelInput.account} for how names are scoped.
+   * An Agent that already has a Feishu or WeCom connection answers `409 channel.conflict` here,
+   * before any QR is issued; remove the connection first. WeChat instead replaces the Agent's
+   * connection when the new scan completes. On Feishu, approving the scan registers a NEW app in
+   * that workspace. The binding is written by the poll that observes the confirmation, so keep
+   * polling while the person scans.
    */
   startChannelSetup(agentId: string, platform: GuidedSetupPlatform, input?: ChannelSetupInput): Promise<ChannelSetupSession>
   /**
