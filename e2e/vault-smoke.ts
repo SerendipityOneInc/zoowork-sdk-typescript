@@ -110,7 +110,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       check(!JSON.stringify(history).includes(f.accounts[user === 'a' ? 'b' : 'a'].marker), 'other_user_marker_leaked')
       const answer = history.some(row => {
         const message = row.entry.message as { role?: string } | undefined
-        const text = JSON.stringify(message)
+        const text = sdk.messageText(message)
         return message?.role === 'assistant' && text.includes(title) && text.includes(f.accounts[user].marker)
       })
       if (value.run_status === 'succeeded' && answer) {

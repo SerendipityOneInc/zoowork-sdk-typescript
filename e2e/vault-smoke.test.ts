@@ -12,7 +12,7 @@ const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', a
     b: { id: 'b', marker: 'BMarkerRandom123456', fingerprint: 'hmac:' + 'b'.repeat(16) },
   } }
 const fail = (kind: string) => new Error(kind)
-type Fault = 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
+type Fault = 'tool_only_answer' | 'thinking_only_answer' | 'text_block_answer' | 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
   | 'unrelated_resources' | 'ambiguous_session' | 'ambiguous_vault' | 'ownership_changed' | 'beta_unavailable' | 'recover_create' | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
 function setup(fault?: Fault) {
   const calls: string[] = []
@@ -60,6 +60,17 @@ function setup(fault?: Fault) {
       observation.drafts[actual]!.push({ title, body: account.marker })
       value.run_status = 'succeeded'
       value.history = [{ seq: 1, entry_type: 'message', entry: { type: 'message', message: { role: 'assistant', content: `${fault === 'stale_answer' ? 'old' : title} ${account.marker}` } } }] as sdk.SessionRecord['history']
+      if (fault === 'tool_only_answer' || fault === 'thinking_only_answer' || fault === 'text_block_answer') {
+        const content = fault === 'tool_only_answer'
+          ? [{ type: 'toolCall', id: 'call_draft', name: 'create_draft', arguments: { title, body: account.marker } }]
+          : fault === 'thinking_only_answer'
+            ? [{ type: 'thinking', thinking: `${title} ${account.marker}` }]
+            : [{ type: 'text', text: title }, { type: 'text', text: ` ${account.marker}` }]
+        value.history = [
+          { seq: 1, entry_type: 'message', entry: { type: 'message', message: { role: 'assistant', content } } },
+          { seq: 2, entry_type: 'message', entry: { type: 'message', message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } } },
+        ] as sdk.SessionRecord['history']
+      }
       return { events: [{ accepted: true }] }
     },
     revokeSessionVaultBinding: async (_agent: string, id: string) => { revoked.add(id); return { status: 'revoked', revision: 2 } },
@@ -125,6 +136,21 @@ for (const fault of ['cross_binding', 'cross_identity', 'wrong_fingerprint', 'tr
     assert.ok(!JSON.stringify(result).includes('TokenA'))
   })
 }
+for (const fault of ['tool_only_answer', 'thinking_only_answer'] as const) {
+  test(`${fault} with successful provider calls cannot prove a visible reply`, async () => {
+    const result = await setup(fault).run()
+    assert.equal(result.passed, false)
+    assert.equal(result.failure?.kind, 'turn_or_fixture_not_covered')
+    assert.ok(!result.checks.includes('a_identity'))
+    assert.equal(result.cleanup.complete, true)
+  })
+}
+test('visible text blocks prove all three replies and preserve cleanup', async () => {
+  const result = await setup('text_block_answer').run()
+  assert.equal(result.passed, true, JSON.stringify(result))
+  for (const phase of ['a_identity', 'b_identity', 'b_survives_a_offboarding']) assert.ok(result.checks.includes(phase))
+  assert.equal(result.cleanup.complete, true)
+})
 test('one failed Vault cleanup does not prevent cleaning the other; reports only safe errors', async () => {
   const { run, calls } = setup('cleanup_failure'); const result = await run()
   assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
