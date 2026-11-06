@@ -46,6 +46,7 @@
     "test:watch": "vitest",
     "test:e2e": "node e2e/command.ts",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json",
+    "test:e2e:vault": "node e2e/vault.ts",
     "test:e2e:offline": "node --import tsx --test --test-reporter=spec e2e/*.test.ts",
     "e2e:prepare": "node e2e/runner.ts prepare",
     "e2e:run": "node e2e/runner.ts run",

@@ -1,74 +1,211 @@
-// Synthetic control-flow cases for the Vault smoke skeleton. No network; not recorded responses.
+// Offline orchestration/negative-control tests. These are not live deployment evidence.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import * as sdk from '../src/index.js'
-import { vaultSmoke } from './vault-smoke.ts'
-import type { VaultSmokeFixture } from './vault-smoke.ts'
+import { vaultAcceptance, type VaultFixture } from './vault-smoke.ts'
+import type { FixtureObservation } from './vault-observation.ts'
+import { fixtureConfig } from './vault.ts'
 
-const fixture: VaultSmokeFixture = {
-  projectId: 'proj_synthetic', agentId: 'agt_SYNTHETIC', mcpServerUrl: 'https://mcp.example.invalid', tokens: { a: 'ta', b: 'tb' },
-}
-
-/** A stub client. `crossBind` makes user b's Session bind user a's credential. */
-function setup(opts: { crossBind?: boolean; failVaultDelete?: string } = {}) {
+const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', agentId: 'agt_test', foreignProjectAgentId: 'agt_project', foreignOrgAgentId: 'agt_org',
+  mcpServerUrl: 'https://fixture.example.invalid/mcp', accounts: {
+    a: { id: 'a', marker: 'AMarkerRandom123456', fingerprint: 'hmac:' + 'a'.repeat(16) },
+    b: { id: 'b', marker: 'BMarkerRandom123456', fingerprint: 'hmac:' + 'b'.repeat(16) },
+  } }
+const fail = (kind: string) => new Error(kind)
+type Fault = 'tool_only_answer' | 'thinking_only_answer' | 'text_block_answer' | 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
+  | 'unrelated_resources' | 'ambiguous_session' | 'ambiguous_vault' | 'ownership_changed' | 'beta_unavailable' | 'recover_create' | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
+function setup(fault?: Fault) {
   const calls: string[] = []
-  let n = 0
-  const vaults: string[] = []
-  const credentials: string[] = []
+  let cleanupDiscoveryFinished = false
+  const vaults = new Map<string, sdk.VaultRecord>()
+  const sessions = new Map<string, sdk.SessionRecord>()
+  const revoked = new Set<string>()
+  const observation: FixtureObservation = { runId: fixture.runId, pendingErrors: 0, droppedForBudget: 0,
+    unauthorized: [], unauthorizedComplete: true, droppedUnattributed: 0,
+    accounts: { a: { complete: true, requests: [] }, b: { complete: true, requests: [] } }, drafts: { a: [], b: [] } }
+  const tokens = { a: 'TokenA'.repeat(8), b: 'TokenB'.repeat(8) }
   const client = {
-    listVaults: async () => ({ data: [], next_cursor: null, has_more: false }),
-    createVault: async () => { const id = `vlt_${++n}`; vaults.push(id); calls.push(`create_vault ${id}`); return { id, revision: 1 } },
-    createVaultCredential: async (vaultId: string) => { const id = `vcr_${vaultId}`; credentials.push(id); return { id } },
-    createSession: async (_agent: string, input: { vault_ids: string[] }) => {
-      const index = vaults.indexOf(input.vault_ids[0]!)
-      const bound = opts.crossBind && index === 1 ? 0 : index
-      const sessionId = `ses_${index}`
-      calls.push(`create_session ${sessionId}`)
-      return {
-        session_id: sessionId, vault_ids: input.vault_ids,
-        vault_binding: { status: 'unrevoked', revision: 1, credential_bindings: [{ server_name: 'fx', vault_id: vaults[bound], credential_id: credentials[bound] }] },
-      }
+    getAgent: async () => ({ declared: { name: `sdk-vault-${fixture.runId}`, labels: { sdk_vault_e2e: fixture.runId } }, ownership: { project_id: fixture.projectId, org_id: 'org_main' } }),
+    listVaults: async () => { if (fault === 'beta_unavailable') throw new sdk.VaultBetaUnavailableError(new sdk.ZooworkError(404, '', 'service_api.not_found')); if (calls.includes('cleanup')) cleanupDiscoveryFinished = true; return { data: [...vaults.values()], has_more: false, next_cursor: null } },
+    createVault: async (input: sdk.VaultCreateInput) => {
+      const id = fault === 'secret_id' ? tokens.a : `vlt_${vaults.size}`
+      const value = { ...input, id, revision: 1, project_id: fixture.projectId } as sdk.VaultRecord
+      vaults.set(id, value); if (fault === 'ambiguous_vault') throw fail('lost response'); return value
     },
-    revokeSessionVaultBinding: async (_a: string, sessionId: string) => { calls.push(`revoke ${sessionId}`); return {} },
-    deleteSession: async (_a: string, sessionId: string) => { calls.push(`delete_session ${sessionId}`) },
-    getVault: async (id: string) => ({ id, revision: 2 }),
+    getVault: async (id: string) => { if (fault === 'ownership_changed' && cleanupDiscoveryFinished && vaults.has(id)) vaults.get(id)!.name = 'other'; if (fault === 'beta_disabled_cleanup' && cleanupDiscoveryFinished) throw new sdk.VaultBetaUnavailableError(new sdk.ZooworkError(404, '', 'service_api.not_found')); if (!vaults.has(id)) throw new sdk.ZooworkError(404, '', 'vault.not_found'); return vaults.get(id) },
+    createVaultCredential: async (id: string) => ({ id: `cred_${id}`, ...(fault === 'secret_echo' ? { token: tokens.a } : {}) }),
+    createSession: async (_agent: string, input: NonNullable<Parameters<sdk.ZooworkClient['createSession']>[1]>) => {
+      if (fault === 'lost_create') throw fail('connection-lost')
+      const id = `ses_${sessions.size}`
+      const vid = input.vault_ids![0]!
+      const value = { session_id: id, metadata: input.metadata, isolation: 'session', vault_ids: [vid],
+        vault_binding: { status: 'unrevoked', revision: 1, credential_bindings: [{ vault_id: vid,
+          credential_id: fault === 'cross_binding' ? 'other' : `cred_${vid}` }] },
+      } as unknown as sdk.SessionRecord
+      sessions.set(id, value); if (fault === 'recover_create' || fault === 'ambiguous_session') throw fail('lost response'); return value
+    },
+    listSessionPage: async () => ({ sessions: [...sessions.values()], next_cursor: null }),
+    getSession: async (_agent: string, id: string) => { if (fault === 'ownership_changed' && cleanupDiscoveryFinished && sessions.has(id)) sessions.get(id)!.metadata!.user = 'other'; if (fault === 'session_route_missing_cleanup' && cleanupDiscoveryFinished) throw new sdk.ZooworkError(404, '', 'service_api.not_found'); if (!sessions.has(id)) throw new sdk.ZooworkError(404, '', 'not_found'); return sessions.get(id) },
+    postEvents: async (_agent: string, id: string, events: sdk.OutboundEvent[]) => {
+      if (revoked.has(id) && fault === 'revoked_unauthorized_provider') observation.unauthorized.push({ method: 'tools/call' })
+      if (revoked.has(id) && fault !== 'revoke_accepted') throw new sdk.ZooworkError(409, '', 'vault_binding_revoked')
+      if (revoked.has(id)) return { events: [{ accepted: true }] }
+      const value = sessions.get(id)!
+      const user = value.metadata!.user as 'a' | 'b'
+      const actual = fault === 'cross_identity' ? (user === 'a' ? 'b' : 'a') : user
+      const account = fixture.accounts[actual]
+      const title = String(events[0]!.content).match(/titled "([^"]+)"/)![1]!
+      observation.accounts[actual]!.requests.push(...['whoami', 'create_draft'].map(tool => ({ method: 'tools/call', tool,
+        outcome: 'ok', credentialHeaders: { authorization: `Bearer ${fault === 'wrong_fingerprint' ? 'wrong' : account.fingerprint}` } })))
+      observation.drafts[actual]!.push({ title, body: account.marker })
+      value.run_status = 'succeeded'
+      value.history = [{ seq: 1, entry_type: 'message', entry: { type: 'message', message: { role: 'assistant', content: `${fault === 'stale_answer' ? 'old' : title} ${account.marker}` } } }] as sdk.SessionRecord['history']
+      if (fault === 'tool_only_answer' || fault === 'thinking_only_answer' || fault === 'text_block_answer') {
+        const content = fault === 'tool_only_answer'
+          ? [{ type: 'toolCall', id: 'call_draft', name: 'create_draft', arguments: { title, body: account.marker } }]
+          : fault === 'thinking_only_answer'
+            ? [{ type: 'thinking', thinking: `${title} ${account.marker}` }]
+            : [{ type: 'text', text: title }, { type: 'text', text: ` ${account.marker}` }]
+        value.history = [
+          { seq: 1, entry_type: 'message', entry: { type: 'message', message: { role: 'assistant', content } } },
+          { seq: 2, entry_type: 'message', entry: { type: 'message', message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } } },
+        ] as sdk.SessionRecord['history']
+      }
+      return { events: [{ accepted: true }] }
+    },
+    revokeSessionVaultBinding: async (_agent: string, id: string) => { revoked.add(id); return { status: 'revoked', revision: 2 } },
+    createVaultOffboarding: async (input: sdk.VaultOffboardingInput) => {
+      for (const row of input.sessions) revoked.add(row.session_id)
+      return { id: 'offboard_this_run', status: 'completed', actor_ref: 'key:test', correlation_id: 'corr',
+        counts: { revoked: 2, pending: 0, failed: 0, not_found: 0 }, sessions: input.sessions.map(row => ({ ...row,
+          state: 'revoked', attempts: 1, attempt_log: fault === 'missing_audit' ? [] : [{ result: 'revoked' }] })) }
+    },
+    deleteSession: async (_agent: string, id: string) => { calls.push(`delete:${id}`); if (fault !== 'delete_noop') sessions.delete(id) },
     deleteVault: async (id: string) => {
-      calls.push(`delete_vault ${id}`)
-      if (id === opts.failVaultDelete) throw new sdk.ZooworkError(503, 'x', 'vault.unavailable')
+      calls.push(`delete:${id}`)
+      if (fault === 'cleanup_failure' && id === 'vlt_0') throw fail('secret-untrusted-error')
+      vaults.delete(id)
     },
   } as unknown as sdk.ZooworkClient
-  return { client, calls }
+  const foreign = { listVaults: client.listVaults,
+    getAgent: async (id: string) => ({ ownership: { project_id: fault === 'same_scope' ? fixture.projectId : 'proj_other',
+      org_id: id === fixture.foreignProjectAgentId ? 'org_main' : 'org_other' } }),
+    getVault: async () => { if (fault === 'foreign_read') return {}; throw new sdk.ZooworkError(404, '', 'vault.not_found') },
+    getSession: async () => { throw new sdk.ZooworkError(404, '', 'service_api.agent_not_found') },
+  } as unknown as sdk.ZooworkClient
+  const run = () => vaultAcceptance(sdk, client, { fixture, tokens, foreignProject: foreign, foreignOrg: foreign,
+    signal: new AbortController().signal, attempts: 2, delay: async () => {}, cleanupMode: () => {
+      calls.push('cleanup')
+      if (fault === 'unrelated_resources') {
+        const value = structuredClone(sessions.values().next().value!)
+        sessions.set('ses_other_case', { ...value, session_id: 'ses_other_case', metadata: { ...value.metadata, case: 'not-intended' } })
+        sessions.set('ses_wrong_user', { ...value, session_id: 'ses_wrong_user', metadata: { ...value.metadata, user: 'b' } })
+        sessions.set('ses_wrong_ref', { ...value, session_id: 'ses_wrong_ref', external_user_ref: 'other' })
+        const vault = structuredClone(vaults.values().next().value!)
+        vaults.set('vlt_other', { ...vault, id: 'vlt_other', metadata: { ...vault.metadata, user: 'other' } })
+      }
+      if (fault === 'ambiguous_session') {
+        const value = structuredClone(sessions.values().next().value!)
+        sessions.set('ses_duplicate', { ...value, session_id: 'ses_duplicate' })
+      }
+      if (fault === 'ambiguous_vault') {
+        const value = structuredClone(vaults.values().next().value!)
+        vaults.set('vlt_duplicate', { ...value, id: 'vlt_duplicate' })
+      }
+    },
+    save: () => { if (fault === 'save_failure') throw fail('disk') },
+    observe: async () => structuredClone({ ...observation, droppedForBudget: fault === 'truncated_fixture' ? 1 : 0 }),
+  })
+  return { run, calls, client }
 }
 
-const status = (steps: { id: string; status: string }[], id: string) => steps.find((s) => s.id === id)?.status
-
-test('without a fixture every step is not_covered, never passed', async () => {
-  const { client } = setup()
-  const steps = await vaultSmoke(sdk, client, { runId: 'r' })
-  assert.deepEqual(steps.filter((s) => s.status === 'passed').map((s) => s.id), ['vault_list'])
+test('full public compatibility path proves identity, scope, revoke, offboarding and surviving user, then cleans up', async () => {
+  const { run, calls } = setup(); const result = await run()
+  assert.equal(result.passed, true, JSON.stringify(result))
+  assert.deepEqual(result.checks, ['preflight', 'bindings_use_own_credentials', 'foreign_project_and_org_reads_denied',
+    'a_identity', 'b_identity', 'revoke_refuses_drive', 'offboarding_completes', 'b_survives_a_offboarding'])
+  assert.equal(result.cleanup.complete, true)
+  assert.deepEqual(result.resources.retained_offboardings, ['offboard_this_run'])
+  assert.deepEqual(calls, ['cleanup', 'delete:ses_0', 'delete:ses_1', 'delete:ses_2', 'delete:vlt_0', 'delete:vlt_1'])
+})
+for (const fault of ['cross_binding', 'cross_identity', 'wrong_fingerprint', 'truncated_fixture', 'foreign_read',
+  'revoked_unauthorized_provider', 'secret_id', 'same_scope', 'revoke_accepted', 'missing_audit', 'secret_echo', 'stale_answer', 'save_failure'] as Fault[]) {
+  test(`${fault} cannot produce a passing acceptance`, async () => {
+    const result = await setup(fault).run(); assert.equal(result.passed, false)
+    assert.ok(result.failure)
+    assert.ok(!JSON.stringify(result).includes('TokenA'))
+  })
+}
+for (const fault of ['tool_only_answer', 'thinking_only_answer'] as const) {
+  test(`${fault} with successful provider calls cannot prove a visible reply`, async () => {
+    const result = await setup(fault).run()
+    assert.equal(result.passed, false)
+    assert.equal(result.failure?.kind, 'turn_or_fixture_not_covered')
+    assert.ok(!result.checks.includes('a_identity'))
+    assert.equal(result.cleanup.complete, true)
+  })
+}
+test('visible text blocks prove all three replies and preserve cleanup', async () => {
+  const result = await setup('text_block_answer').run()
+  assert.equal(result.passed, true, JSON.stringify(result))
+  for (const phase of ['a_identity', 'b_identity', 'b_survives_a_offboarding']) assert.ok(result.checks.includes(phase))
+  assert.equal(result.cleanup.complete, true)
+})
+test('one failed Vault cleanup does not prevent cleaning the other; reports only safe errors', async () => {
+  const { run, calls } = setup('cleanup_failure'); const result = await run()
+  assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
+  assert.ok(calls.includes('delete:vlt_1'))
+  assert.ok(!JSON.stringify(result).includes('secret-untrusted-error'))
+})
+test('a missing create response never pretends cleanup is complete when discovery cannot settle it', async () => {
+  const result = await setup('lost_create').run()
+  assert.equal(result.resources.uncertain, true); assert.equal(result.cleanup.complete, false)
+  assert.deepEqual(result.resources.intended_sessions, ['session-a'])
+})
+test('fixture config rejects shared identities, foreign MCP origin and incomplete deployment provenance', () => {
+  const config = { ...fixture, origin: 'https://fixture.example.invalid/', facadeCommit: 'f'.repeat(40), engineCommit: 'e'.repeat(40) }
+  assert.equal(fixtureConfig(config).runId, fixture.runId)
+  assert.throws(() => fixtureConfig({ ...config, mcpServerUrl: 'https://foreign.example.invalid/mcp' }))
+  assert.throws(() => fixtureConfig({ ...config, accounts: { a: fixture.accounts.a, b: fixture.accounts.a } }))
+  assert.throws(() => fixtureConfig({ ...config, engineCommit: '' }))
 })
 
-test('upstream isolation is not_covered: creating resources is not an assertion', async () => {
-  const { client } = setup()
-  const steps = await vaultSmoke(sdk, client, { runId: 'r', fixture })
-  assert.equal(status(steps, 'two_users_setup'), 'passed')
-  assert.equal(status(steps, 'binding_uses_own_credential'), 'passed')
-  assert.equal(status(steps, 'upstream_identity_isolated'), 'not_covered')
-  assert.equal(steps.some((s) => s.id === 'two_users_isolated'), false)
+test('successful delete responses without deletion cannot pass cleanup', async () => {
+  const result = await setup('delete_noop').run(); assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
 })
 
-test('a Session bound to another user\'s credential fails the binding assertion', async () => {
-  const { client } = setup({ crossBind: true })
-  const steps = await vaultSmoke(sdk, client, { runId: 'r', fixture })
-  assert.equal(status(steps, 'binding_uses_own_credential'), 'failed')
+for (const fault of ['beta_disabled_cleanup', 'session_route_missing_cleanup'] as Fault[]) {
+  test(`${fault} after discovery cannot pretend cleanup completed`, async () => {
+    const result = await setup(fault).run(); assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
+  })
+}
+
+test('disabled beta before setup creates nothing and cannot pass', async () => {
+  const result = await setup('beta_unavailable').run(); assert.equal(result.passed, false)
+  assert.deepEqual(result.resources.intended_vaults, []); assert.ok(result.failure)
+})
+test('discovery recovers a committed create whose response was lost before journaling', async () => {
+  const { run, calls } = setup('recover_create'); const result = await run()
+  assert.equal(result.passed, false); assert.equal(result.cleanup.complete, true)
+  assert.ok(calls.includes('delete:ses_0')); assert.equal(result.resources.uncertain, false)
 })
 
-test('cleanup revokes and deletes every Session, and one failed Vault delete does not skip the next', async () => {
-  const { client, calls } = setup({ failVaultDelete: 'vlt_1' })
-  const steps = await vaultSmoke(sdk, client, { runId: 'r', fixture })
-  for (const call of ['revoke ses_0', 'delete_session ses_0', 'revoke ses_1', 'delete_session ses_1', 'delete_vault vlt_1', 'delete_vault vlt_2']) {
-    assert.ok(calls.includes(call), call)
-  }
-  assert.equal(status(steps, 'cleanup_vault_a'), 'failed')
-  assert.equal(status(steps, 'cleanup_vault_b'), 'passed')
+test('same run marker with a different intended tuple is ignored, not adopted or deleted', async () => {
+  const { run, calls } = setup('unrelated_resources'); const result = await run()
+  assert.equal(result.passed, true, JSON.stringify(result))
+  assert.deepEqual(result.resources.ignored, { sessions: 3, vaults: 1 })
+  for (const id of ['ses_other_case', 'ses_wrong_user', 'ses_wrong_ref', 'vlt_other']) assert.ok(!calls.includes(`delete:${id}`))
+})
+for (const fault of ['ambiguous_session', 'ambiguous_vault'] as Fault[]) {
+  test(`${fault} never adopts duplicate matches after a lost create response`, async () => {
+    const { run, calls } = setup(fault); const result = await run()
+    assert.equal(result.passed, false); assert.equal(result.cleanup.complete, false)
+    assert.ok(result.cleanup.failures.some(error => error.kind === 'cleanup_recovery_ambiguous'))
+    assert.ok(!calls.some(call => call.includes('duplicate')))
+    assert.deepEqual(fault === 'ambiguous_session' ? result.resources.sessions : result.resources.vaults, [])
+  })
+}
+test('changed intended metadata after discovery is rechecked before deletion', async () => {
+  const { run, calls } = setup('ownership_changed'); const result = await run()
+  assert.equal(result.cleanup.complete, false); assert.ok(!calls.some(call => call.startsWith('delete:')))
 })

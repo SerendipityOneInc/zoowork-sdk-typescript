@@ -47,6 +47,10 @@ jobs:
       # The published artifact must still build, and must not carry tests or fixtures.
       - run: pnpm run build
 
+      # Runner regressions are offline; live Vault acceptance stays explicitly opt-in.
+      - run: pnpm typecheck:e2e
+      - run: pnpm test:e2e:offline
+
       # Coding assistants read dist/AGENTS.md and CHANGELOG.md from the installed package.
       - run: |
           npm pack --dry-run --json > pack.json

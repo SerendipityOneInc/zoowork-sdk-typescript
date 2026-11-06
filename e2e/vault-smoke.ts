@@ -1,130 +1,284 @@
-// SKELETON, NOT WIRED IN: no command runs this file, and `pnpm test:e2e` does not call it.
-//
-// The beta Vault live check for the façade on staging (ecap-workspace Vault public API spec,
-// "Acceptance and smoke evidence"). It needs things the standard smoke does not have: Vault
-// enabled for the test organization, a project key, an Agent in that project whose MCP server is a
-// fixture that records the injected identity, and a second fixture token. Until those exist and a
-// maintainer wires it into `runner.ts` with the same guards as `smoke.ts` (pinned origin, bounded
-// requests, private records, cleanup reserve), every step that needs them reports `not_covered`.
-// A step passes only on an assertion it actually made; creating resources is not one.
 import type * as SDK from '@zoowork-ai/sdk'
+import { check, safeFailure } from './guard.ts'
+import { assertIdentity, assertObservation, type FixtureAccount, type FixtureObservation } from './vault-observation.ts'
 
-type PublicSDK = typeof SDK
-export type VaultStepStatus = 'passed' | 'failed' | 'not_covered'
-export interface VaultStep { id: string; status: VaultStepStatus; code?: string }
-
-export interface VaultSmokeFixture {
-  projectId: string
-  agentId: string
-  mcpServerUrl: string
-  /** One fixture token per simulated end user. Never logged or saved. */
-  tokens: { a: string; b: string }
+type Client = SDK.ZooworkClient
+export interface VaultFixture {
+  runId: string; projectId: string; agentId: string; mcpServerUrl: string
+  foreignProjectAgentId: string; foreignOrgAgentId: string
+  accounts: { a: FixtureAccount; b: FixtureAccount }
 }
-
+export interface VaultAcceptanceRecord {
+  run_id: string; passed: boolean; checks: string[]; failure?: ReturnType<typeof safeFailure>
+  resources: { vaults: string[]; sessions: string[]; retained_offboardings: string[]; intended_vaults: string[]; intended_sessions: string[]; uncertain: boolean; ignored: { sessions: number; vaults: number } }
+  cleanup: { complete: boolean; failures: ReturnType<typeof safeFailure>[] }
+}
+interface Options {
+  fixture: VaultFixture; tokens: { a: string; b: string }
+  foreignProject: Client; foreignOrg: Client; observe: () => Promise<FixtureObservation>
+  signal: AbortSignal; cleanupMode: () => void; save: (record: VaultAcceptanceRecord) => void
+  delay?: () => Promise<void>; attempts?: number; secretValues?: string[]
+}
 const USERS = ['a', 'b'] as const
-type User = (typeof USERS)[number]
-interface UserResources { vaultId?: string; credentialId?: string; session?: SDK.SessionRecord }
+type User = typeof USERS[number]
 
-/** Steps that need a fixture-side record of the identity each MCP call carried. */
-const UPSTREAM_STEPS = ['upstream_identity_isolated', 'revoke_refuses_drive', 'offboarding_completes'] as const
-
-export async function vaultSmoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: {
-  runId: string; fixture?: VaultSmokeFixture
-}): Promise<VaultStep[]> {
-  const steps: VaultStep[] = []
-  const created: Record<User, UserResources> = { a: {}, b: {} }
-  const key = (step: string) => `${options.runId}:${step}`
-  const record = async (id: string, body: () => Promise<void>): Promise<boolean> => {
-    try {
-      await body()
-      steps.push({ id, status: 'passed' })
-      return true
-    } catch (error) {
-      const code = error instanceof sdk.ZooworkError ? error.type : undefined
-      steps.push({ id, status: sdk.isVaultBetaUnavailable(error) ? 'not_covered' : 'failed', ...(code ? { code } : {}) })
-      return false
+/** Public SDK compatibility acceptance. The application, not Engine, maps A/B to their Vaults. */
+export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: Options): Promise<VaultAcceptanceRecord> {
+  const f = options.fixture
+  const record: VaultAcceptanceRecord = { run_id: f.runId, passed: false, checks: [],
+    resources: { vaults: [], sessions: [], retained_offboardings: [], intended_vaults: [], intended_sessions: [], uncertain: false, ignored: { sessions: 0, vaults: 0 } }, cleanup: { complete: false, failures: [] } }
+  const own: Record<User, { vault?: SDK.VaultRecord; credential?: string; session?: SDK.SessionRecord }> = { a: {}, b: {} }
+  const delay = options.delay ?? (() => new Promise(resolve => setTimeout(resolve, 1000)))
+  const attempts = options.attempts ?? 120
+  let cleaning = false
+  let began = false
+  const save = () => {
+    try { options.save(record) } catch {
+      record.failure ??= { kind: 'record_write_failed' }; record.passed = false
+      if (!cleaning) check(false, 'record_write_failed')
     }
   }
-  const assert = (condition: boolean, what: string): void => {
-    if (!condition) throw new Error(`assertion failed: ${what}`)
+  const pass = (name: string) => { record.checks.push(name); save() }
+  const key = (name: string) => `${f.runId}:${name}`
+  const scan = (value: unknown) => {
+    const text = JSON.stringify(value)
+    check(![options.tokens.a, options.tokens.b, ...(options.secretValues ?? [])].some(secret => text.includes(secret)), 'secret_in_public_response')
   }
-
-  // Reachability: a list either answers or says the beta is off for this organization.
-  const reachable = await record('vault_list', async () => { await client.listVaults({ limit: 1 }) })
-  const fixture = options.fixture
-  if (!fixture || !reachable) {
-    for (const id of ['two_users_setup', 'binding_uses_own_credential', ...UPSTREAM_STEPS, 'cleanup']) {
-      steps.push({ id, status: 'not_covered' })
+  const observe = async () => {
+    const value = await options.observe()
+    assertObservation(value, f.runId, Object.values(f.accounts)); scan(value)
+    return value
+  }
+  const expect404 = async (action: () => Promise<unknown>) => {
+    try { await action() } catch (error) {
+      check(error instanceof sdk.ZooworkError && error.status === 404 && !sdk.isVaultBetaUnavailable(error), 'wrong_tenant_error')
+      return
     }
-    return steps
+    check(false, 'foreign_scope_read_succeeded')
   }
-
-  try {
-    // Two users, one project Vault each, same MCP URL, one credentialed Session each.
-    const ready = await record('two_users_setup', async () => {
-      for (const user of USERS) {
-        const own = created[user]
-        const vault = await client.createVault(
-          { scope: 'project', project_id: fixture.projectId, name: `sdk-e2e-${options.runId}-${user}` },
-          { idempotencyKey: key(`vault-${user}`) },
-        )
-        own.vaultId = vault.id
-        const credential = await client.createVaultCredential(vault.id, {
-          name: 'fixture', purpose: 'mcp', provider_account_ref: `sdk-e2e-${user}`,
-          auth: { type: 'static_bearer', mcp_server_url: fixture.mcpServerUrl, access_token: fixture.tokens[user] },
-        }, { idempotencyKey: key(`credential-${user}`) })
-        own.credentialId = credential.id
-        own.session = await client.createSession(fixture.agentId, {
-          isolation: 'session', vault_ids: [vault.id], external_user_ref: `sdk-e2e-${user}`,
-        }, key(`session-${user}`))
+  const intendedSession = (value: SDK.SessionRecord) => {
+    const { user, case: scenario, sdk_vault_e2e: run } = value.metadata ?? {}
+    return run === f.runId && (user === 'a' || user === 'b') && typeof scenario === 'string'
+      && record.resources.intended_sessions.includes(scenario)
+      && (scenario === `session-${user}` || (user === 'a' && scenario === 'session-a-second'))
+      && (value.external_user_ref == null || value.external_user_ref === key(user))
+  }
+  const intendedVault = (value: SDK.VaultRecord) => value.metadata.sdk_vault_e2e === f.runId
+    && (value.metadata.user === 'a' || value.metadata.user === 'b')
+    && record.resources.intended_vaults.includes(value.metadata.user) && value.scope === 'project'
+    && value.project_id === f.projectId && value.name === `sdk-vault-${f.runId}-${value.metadata.user}`
+  // Discover fully before adopting IDs: duplicate exact tuples are ambiguous, not bulk-delete authority.
+  const unique = (rows: Map<string, Set<string>>, target: string[]) => {
+    check([...rows.values()].every(ids => ids.size === 1), 'cleanup_recovery_ambiguous')
+    for (const ids of rows.values()) for (const id of ids) if (!target.includes(id)) target.push(id)
+    return new Set(rows.keys())
+  }
+  const gone = (error: unknown, resource: 'vault' | 'session') => error instanceof sdk.ZooworkError
+    && error.status === 404 && !sdk.isVaultBetaUnavailable(error)
+    && (resource === 'vault' ? error.type === 'vault.not_found' : ['not_found', 'session_not_found'].includes(error.type ?? ''))
+  const confirmGone = async (action: () => Promise<unknown>, resource: 'vault' | 'session') => {
+    try { await action() } catch (error) { check(gone(error, resource), 'cleanup_not_found_ambiguous'); return }
+    check(false, 'cleanup_resource_still_visible')
+  }
+  async function session(user: User, suffix: string): Promise<SDK.SessionRecord> {
+    record.resources.uncertain = true; record.resources.intended_sessions.push(suffix); save()
+    const value = await client.createSession(f.agentId, { isolation: 'session', vault_ids: [own[user].vault!.id],
+      external_user_ref: key(user), metadata: { sdk_vault_e2e: f.runId, user, case: suffix },
+    }, key(suffix))
+    scan(value); record.resources.sessions.push(value.session_id); save()
+    const binding = value.vault_binding
+    check(value.isolation === 'session' && binding?.status === 'unrevoked'
+      && value.vault_ids?.length === 1 && value.vault_ids[0] === own[user].vault!.id
+      && binding.credential_bindings.length > 0 && binding.credential_bindings.every(item =>
+        item.vault_id === own[user].vault!.id && item.credential_id === own[user].credential), 'binding_wrong_credential')
+    return value
+  }
+  async function drive(user: User, target: SDK.SessionRecord, phase: string): Promise<void> {
+    const before = await observe()
+    const title = key(phase)
+    const receipt = await client.postEvents(f.agentId, target.session_id, [{ type: 'user.message',
+      content: `Use the connected support service to call whoami. Create one draft titled "${title}" whose body contains the marker returned by whoami. Reply with the draft title and that marker.`,
+    }])
+    scan(receipt); check(receipt.events.some(row => row.accepted === true), 'event_not_accepted')
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      options.signal.throwIfAborted()
+      const value = await client.getSession(f.agentId, target.session_id, { history: true, limit: 200 })
+      scan(value)
+      check(!['failed', 'aborted', 'cancelled'].includes(value.run_status ?? ''), 'run_failed')
+      const history = value.history ?? []
+      check(history.length < 200, 'history_truncated')
+      check(!JSON.stringify(history).includes(f.accounts[user === 'a' ? 'b' : 'a'].marker), 'other_user_marker_leaked')
+      const answer = history.some(row => {
+        const message = row.entry.message as { role?: string } | undefined
+        const text = sdk.messageText(message)
+        return message?.role === 'assistant' && text.includes(title) && text.includes(f.accounts[user].marker)
+      })
+      if (value.run_status === 'succeeded' && answer) {
+        assertIdentity(before, await observe(), f.accounts[user], f.accounts[user === 'a' ? 'b' : 'a'], title)
+        pass(phase); return
       }
-    })
-
-    // Each Session's binding selects its own user's credential, and only that one.
-    if (ready) {
-      await record('binding_uses_own_credential', async () => {
-        for (const user of USERS) {
-          const own = created[user]
-          const binding = own.session?.vault_binding
-          assert(binding !== undefined && binding.status === 'unrevoked', `${user}: an unrevoked binding`)
-          assert(binding!.credential_bindings.length > 0, `${user}: at least one bound credential`)
-          for (const selection of binding!.credential_bindings) {
-            assert(selection.vault_id === own.vaultId && selection.credential_id === own.credentialId,
-              `${user}: every selection is the user's own Vault and credential`)
+      await delay()
+    }
+    check(false, 'turn_or_fixture_not_covered')
+  }
+  async function refusesDrive(target: SDK.SessionRecord): Promise<void> {
+    const before = await observe()
+    let refused = false
+    try { await client.postEvents(f.agentId, target.session_id, [{ type: 'user.message', content: 'Check my support account.' }]) }
+    catch (error) { refused = error instanceof sdk.ZooworkError && error.status === 409
+      && sdk.vaultSessionErrorCode(error) === 'vault.binding_revoked' }
+    check(refused, 'revoked_drive_not_refused')
+    const after = await observe()
+    check(JSON.stringify(after.accounts) === JSON.stringify(before.accounts)
+      && JSON.stringify(after.unauthorized) === JSON.stringify(before.unauthorized), 'revoked_drive_reached_provider')
+  }
+  try {
+    // Only this run's already-provisioned canary Agent may receive sessions. No mutable Agent configuration is changed.
+    check(/^[a-f0-9]{32}$/.test(f.runId), 'invalid_run_id')
+    const agent = await client.getAgent(f.agentId); scan(agent)
+    check(agent.declared?.name === `sdk-vault-${f.runId}`
+      && (agent.declared?.labels as Record<string, unknown> | undefined)?.sdk_vault_e2e === f.runId
+      && agent.ownership?.project_id === f.projectId, 'dedicated_canary_agent_required')
+    const projectAgent = await options.foreignProject.getAgent(f.foreignProjectAgentId)
+    const orgAgent = await options.foreignOrg.getAgent(f.foreignOrgAgentId)
+    scan(projectAgent); scan(orgAgent)
+    check(Boolean(agent.ownership?.org_id) && Boolean(projectAgent.ownership?.project_id)
+      && projectAgent.ownership?.org_id === agent.ownership?.org_id
+      && projectAgent.ownership?.project_id !== f.projectId
+      && Boolean(orgAgent.ownership?.org_id) && orgAgent.ownership?.org_id !== agent.ownership?.org_id,
+    'foreign_scope_provenance_required')
+    for (const scoped of [client, options.foreignProject, options.foreignOrg]) scan(await scoped.listVaults({ limit: 1 }))
+    const initial = await observe()
+    check(Object.values(f.accounts).every(account => initial.accounts[account.id]!.requests.length === 0
+      && initial.drafts[account.id]!.length === 0), 'fresh_fixture_accounts_required')
+    pass('preflight'); began = true
+    for (const user of USERS) {
+      record.resources.uncertain = true; record.resources.intended_vaults.push(user); save()
+      const vault = await client.createVault({ scope: 'project', project_id: f.projectId,
+        name: `sdk-vault-${f.runId}-${user}`, metadata: { sdk_vault_e2e: f.runId, user },
+      }, { idempotencyKey: key(`vault-${user}`) })
+      scan(vault); own[user].vault = vault; record.resources.vaults.push(vault.id); save()
+      check(vault.scope === 'project' && vault.project_id === f.projectId, 'vault_wrong_project')
+      const credential = await client.createVaultCredential(vault.id, { name: 'fixture', purpose: 'mcp',
+        provider_account_ref: f.accounts[user].id,
+        auth: { type: 'static_bearer', mcp_server_url: f.mcpServerUrl, access_token: options.tokens[user] },
+      }, { idempotencyKey: key(`credential-${user}`) })
+      scan(credential); own[user].credential = credential.id
+      own[user].session = await session(user, `session-${user}`)
+    }
+    pass('bindings_use_own_credentials')
+    const beforeDenied = await observe()
+    for (const scoped of [options.foreignProject, options.foreignOrg]) {
+      await expect404(() => scoped.getVault(own.a.vault!.id))
+      await expect404(() => scoped.getSession(f.agentId, own.a.session!.session_id))
+    }
+    check(JSON.stringify((await observe()).accounts) === JSON.stringify(beforeDenied.accounts), 'denied_read_reached_provider')
+    pass('foreign_project_and_org_reads_denied')
+    await drive('a', own.a.session!, 'a_identity')
+    await drive('b', own.b.session!, 'b_identity')
+    const binding = own.a.session!.vault_binding!
+    const revoked = await client.revokeSessionVaultBinding(f.agentId, own.a.session!.session_id,
+      { idempotencyKey: key('revoke-a'), revision: binding.revision })
+    scan(revoked); check(revoked.status === 'revoked', 'revoke_not_confirmed')
+    await refusesDrive(own.a.session!); pass('revoke_refuses_drive')
+    const second = await session('a', 'session-a-second')
+    const input = { external_user_ref: key('a'), sessions: [own.a.session!, second].map(value => ({
+      agent_id: f.agentId, session_id: value.session_id,
+      revision: value.session_id === own.a.session!.session_id ? revoked.revision : value.vault_binding!.revision,
+    })) }
+    let ledger = await client.createVaultOffboarding(input, { idempotencyKey: key('offboard-a') })
+    scan(ledger); record.resources.retained_offboardings.push(ledger.id); save()
+    const replay = await client.createVaultOffboarding(input, { idempotencyKey: key('offboard-a') })
+    scan(replay); check(replay.id === ledger.id, 'offboarding_not_idempotent')
+    for (let attempt = 0; attempt < attempts && ledger.status === 'in_progress'; attempt++) {
+      options.signal.throwIfAborted(); await delay(); ledger = await client.getVaultOffboarding(ledger.id); scan(ledger)
+    }
+    check(ledger.status === 'completed' && ledger.counts.revoked === 2 && ledger.counts.pending === 0
+      && ledger.counts.failed === 0 && ledger.counts.not_found === 0 && ledger.actor_ref.length > 0
+      && ledger.correlation_id.length > 0 && ledger.sessions.length === 2, 'offboarding_incomplete')
+    check(input.sessions.every(expected => ledger.sessions.some(row => row.agent_id === expected.agent_id
+      && row.session_id === expected.session_id && row.state === 'revoked' && row.attempts >= 1
+      && row.attempt_log.some(attempt => attempt.result === 'revoked'))), 'offboarding_audit_incomplete')
+    await refusesDrive(own.a.session!); await refusesDrive(second); pass('offboarding_completes')
+    await drive('b', own.b.session!, 'b_survives_a_offboarding')
+  } catch (error) { record.failure = safeFailure(error) }
+  finally {
+    cleaning = true; options.cleanupMode()
+    const clean = async (action: () => Promise<void>) => {
+      try { await action() } catch (error) { record.cleanup.failures.push(safeFailure(error)) }
+      save()
+    }
+    if (began) {
+      // Recover ambiguous create responses by exact run metadata, never by a loose name prefix.
+      await clean(async () => {
+        let sessionCursor: string | undefined
+        const sessionMatches = new Map<string, Set<string>>()
+        for (let page = 0; page < 10; page++) {
+          const values = await client.listSessionPage(f.agentId, { cursor: sessionCursor, limit: 100 }); scan(values)
+          for (const value of values.sessions) if (value.metadata?.sdk_vault_e2e === f.runId) {
+            if (!intendedSession(value)) { record.resources.ignored.sessions++; continue }
+            const scenario = String(value.metadata.case)
+            const ids = sessionMatches.get(scenario) ?? new Set<string>()
+            ids.add(value.session_id); sessionMatches.set(scenario, ids)
           }
-          assert(own.session?.vault_ids?.length === 1 && own.session.vault_ids[0] === own.vaultId, `${user}: vault_ids`)
+          if (!values.next_cursor) break
+          check(values.next_cursor !== sessionCursor && page < 9, 'cleanup_session_discovery_incomplete')
+          sessionCursor = values.next_cursor
+        }
+        const foundSessions = unique(sessionMatches, record.resources.sessions)
+        const vaultMatches = new Map<string, Set<string>>()
+        let cursor: string | undefined
+        for (let page = 0; page < 10; page++) {
+          const values = await client.listVaults({ cursor, limit: 100 }); scan(values)
+          for (const value of values.data) if (value.metadata.sdk_vault_e2e === f.runId && value.project_id === f.projectId) {
+            if (!intendedVault(value)) { record.resources.ignored.vaults++; continue }
+            const user = String(value.metadata.user)
+            const ids = vaultMatches.get(user) ?? new Set<string>()
+            ids.add(value.id); vaultMatches.set(user, ids)
+          }
+          if (!values.has_more) {
+            const foundVaults = unique(vaultMatches, record.resources.vaults)
+            record.resources.uncertain = !record.resources.intended_vaults.every(value => foundVaults.has(value))
+              || !record.resources.intended_sessions.every(value => foundSessions.has(value))
+            check(!record.resources.uncertain, 'unsettled_create_requires_recovery'); return
+          }
+          check(values.next_cursor && values.next_cursor !== cursor, 'cleanup_cursor_missing'); cursor = values.next_cursor
+        }
+        check(false, 'cleanup_discovery_incomplete')
+      })
+      for (const id of record.resources.sessions) await clean(async () => {
+        try {
+          const value = await client.getSession(f.agentId, id); scan(value)
+          check(intendedSession(value), 'cleanup_session_ownership_changed')
+          await client.deleteSession(f.agentId, id)
+          await confirmGone(() => client.getSession(f.agentId, id), 'session')
+        } catch (error) {
+          if (!gone(error, 'session')) throw error
         }
       })
-    } else {
-      steps.push({ id: 'binding_uses_own_credential', status: 'not_covered' })
-    }
-
-    // Not asserted yet: what the fixture received on each MCP call. Reported, never passed.
-    for (const id of UPSTREAM_STEPS) steps.push({ id, status: 'not_covered' })
-  } finally {
-    // Only what this run created, each item on its own: one failure must not leave the rest behind.
-    // A 404 on a retried delete means it is already gone.
-    const gone = (error: unknown) => error instanceof sdk.ZooworkError && error.status === 404
-    const cleanup = async (id: string, action: () => Promise<unknown>): Promise<void> => {
-      await record(id, async () => {
-        try { await action() } catch (error) { if (!gone(error)) throw error }
+      await clean(async () => {
+        // A generic Engine `not_found` alone cannot prove deletion if a route disappeared.
+        let cursor: string | undefined
+        for (let page = 0; page < 10; page++) {
+          const values = await client.listSessionPage(f.agentId, { cursor, limit: 100 }); scan(values)
+          check(!values.sessions.some(value => record.resources.sessions.includes(value.session_id)), 'cleanup_session_still_listed')
+          if (!values.next_cursor) return
+          check(values.next_cursor !== cursor, 'cleanup_cursor_missing'); cursor = values.next_cursor
+        }
+        check(false, 'cleanup_session_verification_incomplete')
+      })
+      for (const id of record.resources.vaults) await clean(async () => {
+        try {
+          const value = await client.getVault(id); scan(value)
+          check(intendedVault(value), 'cleanup_vault_ownership_changed')
+          await client.deleteVault(id, { idempotencyKey: key(`cleanup-${id}`), revision: value.revision })
+          await confirmGone(() => client.getVault(id), 'vault')
+        } catch (error) { if (!gone(error, 'vault')) throw error }
       })
     }
-    for (const user of USERS) {
-      const { session, vaultId } = created[user]
-      if (session) {
-        await cleanup(`cleanup_revoke_${user}`, () => client.revokeSessionVaultBinding(fixture.agentId, session.session_id, {
-          idempotencyKey: key(`revoke-${user}`), revision: session.vault_binding?.revision ?? 1,
-        }))
-        await cleanup(`cleanup_session_${user}`, () => client.deleteSession(fixture.agentId, session.session_id))
-      }
-      if (vaultId) {
-        await cleanup(`cleanup_vault_${user}`, async () => {
-          const current = await client.getVault(vaultId)
-          await client.deleteVault(vaultId, { idempotencyKey: key(`delete-${user}`), revision: current.revision })
-        })
-      }
-    }
+    record.cleanup.complete = !record.resources.uncertain && record.cleanup.failures.length === 0
+    record.passed = !record.failure && record.cleanup.complete && record.checks.includes('b_survives_a_offboarding')
+    save()
   }
-  return steps
+  return record
 }
