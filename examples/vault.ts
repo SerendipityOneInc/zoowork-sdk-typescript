@@ -5,12 +5,14 @@
  *   ZOOWORK_API_KEY=zwp_live_... AGENT_ID=agt_... PROJECT_ID=proj_... \
  *   MCP_SERVER_URL=https://... MCP_TOKEN=... pnpm exec tsx examples/vault.ts
  *
- * Beta: Vault needs to be enabled for your ZooWork account or environment. Until it is, the first
- * call fails with `VaultBetaUnavailableError` (404 `service_api.not_found`). Behaviour and fields
- * may change before general availability.
+ * Beta: Vault is available in the ZooWork production environment. An account or environment where
+ * it is not enabled still fails the first call with `VaultBetaUnavailableError` (404
+ * `service_api.not_found`). Behaviour and fields may change before general availability.
  *
  * The key must be a project key of PROJECT_ID, and AGENT_ID an Agent in that project whose
- * declared MCP server is MCP_SERVER_URL. Every write carries an idempotency key derived from the
+ * declared MCP server is MCP_SERVER_URL with `auth: { type: 'vault' }` and no `credential` (for
+ * example `updateAgent(agentId, { mcp: [{ name: 'tools', url: MCP_SERVER_URL, auth: { type: 'vault' } }] })`).
+ * Engine uses a Vault credential only for a server that declares it. Every write carries an idempotency key derived from the
  * run, so rerunning a failed step with the same RUN_ID replays instead of duplicating.
  */
 import {

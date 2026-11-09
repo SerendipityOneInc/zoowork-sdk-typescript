@@ -2,9 +2,10 @@
  * Vault: credential storage for an Agent's MCP servers, the Vault fields of Session creation,
  * revoking a Session's Vault binding, and the offboarding ledger.
  *
- * BETA. Every method and type in this module is a beta feature. It needs Vault enabled for your
- * ZooWork account or environment; until then the server answers 404 `service_api.not_found`, or
- * 400 `vault.session_fields_unavailable` when `createSession` carries Vault fields. The SDK throws
+ * BETA. Every method and type in this module is a beta feature. Vault is available in the ZooWork
+ * production environment; an account or environment where it is not enabled still gets 404
+ * `service_api.not_found`, or 400 `vault.session_fields_unavailable` when `createSession` carries
+ * Vault fields. The SDK throws
  * a {@link VaultBetaUnavailableError} for both (match with {@link isVaultBetaUnavailable}), with
  * the server's code kept verbatim in `type`. Behaviour and fields may change before general
  * availability.
@@ -368,9 +369,10 @@ export interface VaultOffboarding {
  * @beta Vault methods of the client. See the module notes above for the shared rules (idempotency,
  * revisions, scopes, delete retries).
  *
- * Beta: needs Vault enabled for your ZooWork account or environment. Until then each method rejects
- * with a {@link VaultBetaUnavailableError} (server code 404 `service_api.not_found`, kept in `type`).
- * Behaviour and fields may change before general availability.
+ * Beta: Vault is available in the ZooWork production environment. Where it is not enabled for the
+ * account or environment, each method rejects with a {@link VaultBetaUnavailableError} (server code
+ * 404 `service_api.not_found`, kept in `type`). Behaviour and fields may change before general
+ * availability.
  */
 export interface VaultApi {
   /** @beta Create an org or project Vault (201). Needs Vault enabled; see {@link VaultApi}. */
@@ -509,12 +511,12 @@ export function createVaultApi(json: Request, failure: VaultFailure, { query, se
 /**
  * @beta Session errors caused by a Vault binding, under both spellings the service uses.
  *
- * TRANSITION: on Session sub-routes (post events, change configuration, …) the service currently
- * passes Engine's body through: `{ "error": { "type": "vault_binding_revoked", … } }`. A later
- * release maps it and answers both codes: `{ "code": "vault.binding_revoked", "detail": …,
- * "error": { "type": "vault_binding_revoked", … } }`, the dotted code at the top level and Engine's
- * code kept in `error.type` (and `vault_profile_restricted` always as 403). `ZooworkError.type`
- * reads `error.type` first, so on these routes it stays the bare Engine code in both phases.
+ * On Session sub-routes (post events, change configuration, …) the service answers both codes:
+ * `{ "code": "vault.binding_revoked", "detail": …, "error": { "type": "vault_binding_revoked", … } }`,
+ * the dotted code at the top level and Engine's code kept in `error.type` (and
+ * `vault_profile_restricted` always as 403). `ZooworkError.type` reads `error.type` first, so on
+ * these routes it stays the bare Engine code. An older service passes Engine's body through with
+ * only `error.type`.
  * Session creation answers the dotted code alone. Match through {@link vaultSessionErrorCode},
  * which reads the top-level dotted code when the body carries one and accepts either spelling
  * otherwise, rather than on `type`.

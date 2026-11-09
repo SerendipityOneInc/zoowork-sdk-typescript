@@ -227,6 +227,11 @@ needs an agent-scope sandbox.
 
 ## Sessions, approvals, environments
 
+`createSession` takes `isolation: 'shared' | 'session'` (default `shared`). `session` separates
+that Session's workspace, Memory, Artifacts and file references from other Sessions; it does not
+isolate the Agent owner's platform, GitHub, browser or model-billing credentials from
+model-driven sandbox code. See the [owner credential boundary](#vault-beta).
+
 `listSessions` keeps the legacy numeric-page contract. Use `listSessionPage` for the filtered
 cursor lane: it starts with `sls1:0`, accepts channel/surface/runtime/archive filters, and returns
 `next_cursor` plus a `list_cursor` on each row. Cursors are opaque and bound to the same filters.
@@ -391,16 +396,36 @@ are copied verbatim from Engine and are byte-compatible with all of them.
 
 ## Vault (beta)
 
-> **Beta.** Vault needs to be enabled for your ZooWork account or environment. Until it is, the
-> Vault methods fail with 404 `service_api.not_found`, and `createSession` with Vault fields fails
-> with 400 `vault.session_fields_unavailable`. The SDK throws a `VaultBetaUnavailableError` for
-> both (check with `isVaultBetaUnavailable(err)`); `err.type` keeps the server code. Behaviour and
-> fields may change before general availability.
+> **Beta.** Vault is available in the ZooWork production environment. An account or environment
+> where it is not enabled still fails the Vault methods with 404 `service_api.not_found`, and
+> `createSession` with Vault fields with 400 `vault.session_fields_unavailable`. The SDK throws a
+> `VaultBetaUnavailableError` for both (check with `isVaultBetaUnavailable(err)`); `err.type` keeps
+> the server code. Behaviour and fields may change before general availability.
+
+> **Owner credential boundary.** Session isolation (`isolation: "session"`) separates a Session's
+> sandbox workspace, Memory, Artifacts and file references from other Sessions. It does not isolate
+> the Agent owner's platform identity, GitHub and browser logins, or model billing permissions:
+> model-driven code in the sandbox can still use the owner's credentials for these. The Agent
+> definition (instructions, Skills, tool configuration) stays shared. MCP credentials stored in a
+> Vault are not placed in the sandbox's environment variables. Session isolation is not
+> owner-credential isolation.
 
 A Vault stores credentials for an Agent's MCP servers. A Session created with `vault_ids` uses
 them; responses never return a secret. Vault needs a Platform API key. A project key manages its
 project's Vaults. Use the Default Project key for org Vaults: a project key cannot read or manage
 them (403 `vault.management_forbidden`).
+
+Declare each MCP server that should use Vault credentials on the Agent with
+`auth: { type: 'vault' }` (and no `credential`; the `url` must be HTTPS without embedded
+credentials, query or fragment). Engine uses a Vault credential only for such a server:
+
+```ts
+await zc.updateAgent(agentId, {
+  mcp: [{ name: 'tools', url: 'https://mcp.example.com/mcp', auth: { type: 'vault' } }],
+})
+```
+
+A Session without a Vault binding never connects to that server.
 
 ```ts
 const vault = await zc.createVault(
@@ -435,10 +460,10 @@ Rules:
 - Read `credential.health` through `vaultCredentialHealthState(credential)`. Only `ok` is healthy.
   Show a re-authorize prompt on `reauthorization_required` and a rotate prompt on `expired`
   (`updateVaultCredential`). A state the SDK does not know reads as `unknown`.
-- A Session's Vault errors carry two spellings while the service migrates. Session routes answer
-  Engine's code in `error.type` (`vault_binding_revoked`), which is what `err.type` holds; a later
-  release adds the dotted code at the top level (`"code": "vault.binding_revoked"`) and keeps
-  `error.type` unchanged. Match with `vaultSessionErrorCode(err)`: it reads the top-level `vault.*`
+- A Session's Vault errors carry two spellings. Session routes answer the dotted code at the top
+  level (`"code": "vault.binding_revoked"`) and keep Engine's code in `error.type`
+  (`vault_binding_revoked`), which is what `err.type` holds; an older service answers only
+  `error.type`. Match with `vaultSessionErrorCode(err)`: it reads the top-level `vault.*`
   code when present, accepts either spelling otherwise, and returns the dotted one
   (`vault.binding_revoked`, `vault.binding_expired`, `vault.profile_restricted`).
 - `err.code` (beta) is the body's top-level `code`, read from the whole body; `bodySnippet` keeps

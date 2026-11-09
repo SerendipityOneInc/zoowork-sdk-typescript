@@ -401,6 +401,10 @@ export interface McpToolPermissionOverride {
  * a later catalog resolution may probe again, not a periodic retry or recovery guarantee.
  * These failure/recovery details are source-reviewed, not deployment-verified here.
  */
+export interface McpVaultAuth {
+  type: 'vault'
+}
+
 export interface McpServerDeclaration {
   /** Server slug. Appears in every tool name as `mcp__<name>__<tool>`. No underscores. */
   name: string
@@ -410,6 +414,14 @@ export interface McpServerDeclaration {
   transport?: 'streamable-http' | 'sse'
   /** Credential slug for a static bearer. Declarable, but unusable through the gateway — see above. */
   credential?: string
+  /**
+   * @beta Declare `{ type: 'vault' }` to have this server use the credential of the Session's Vault
+   * binding. Engine uses Vault credentials only for servers that declare this. Such a server must
+   * not also set `credential`, and `url` must be an HTTPS URL without embedded credentials, query
+   * or fragment. A Session without a Vault binding never connects to it. Needs Vault enabled; see
+   * the Vault notes in the README.
+   */
+  auth?: McpVaultAuth
   /** Expose only these tool names from this server. Omit for all of them. */
   toolFilter?: string[]
   /**
@@ -1635,7 +1647,10 @@ export interface SessionCreateInput {
   idle_compaction?: boolean | null
   /**
    * Isolation mode, fixed for the Session's life. Omitted: `shared`. `session` without Vault fields
-   * is 400 `isolation_unavailable` until the deployment enables Session isolation.
+   * is 400 `isolation_unavailable` on a deployment that has not enabled Session isolation.
+   * `session` separates this Session's workspace, Memory, Artifacts and file references; it does
+   * not isolate the Agent owner's platform identity, GitHub, browser logins or model billing
+   * permissions from model-driven sandbox code.
    */
   isolation?: SessionIsolation
 }

@@ -15,10 +15,13 @@ copy installed in this project. Before you use a method, field, or option from t
   instead, for example with a deprecated method or an untyped value, say so.
 
 **Vault is beta** (`@beta` in the declarations): Vault methods, the Vault fields of
-`createSession`, revoke and offboarding. They work only where Vault is enabled for the account or
-environment; otherwise they throw `VaultBetaUnavailableError` (404 `service_api.not_found`, or 400
+`createSession`, revoke and offboarding. Where Vault is not enabled for the account or environment
+they throw `VaultBetaUnavailableError` (404 `service_api.not_found`, or 400
 `vault.session_fields_unavailable`). That is not an SDK bug: tell the user Vault is not enabled
 rather than working around it. Behaviour and fields may change before general availability.
+`isolation: "session"` does not isolate the Agent owner's platform, GitHub, browser or
+model-billing credentials from model-driven sandbox code; do not call it owner-credential
+isolation.
 
 Server behavior (errors, event streams, schedules, limits) does not depend on the SDK version.
 Follow the live docs for it: https://zoowork.ai/docs/llms.txt
