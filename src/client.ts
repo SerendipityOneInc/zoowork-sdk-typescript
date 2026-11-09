@@ -390,9 +390,10 @@ export interface McpToolPermissionOverride {
  *    so an underscore in the server name makes the split ambiguous and the server is rejected.
  *  - `credential` is a dead end for API-key callers. The slug is accepted and stored on the
  *    agent, but the endpoint that would hold the secret it points at
- *    (`PUT /agents/{id}/credentials/{app}`) is 404 through the gateway BY DESIGN. There is no
- *    other way to store it, so an authenticated MCP server cannot be made to work today.
- *    Declare public servers only.
+ *    (`PUT /agents/{id}/credentials/{app}`) is 404 through the gateway BY DESIGN. For a server
+ *    that needs each end user's own credential, declare `auth: { type: 'vault' }` instead and
+ *    attach the user's Vault when creating their Session (Vault, beta). A server that declares
+ *    both `auth` and `credential` is disabled.
  *
  * Remote HTTP only; no stdio. Catalog failures emit `agent.error` with
  * `kind: 'mcp_connection_failed'` or `'mcp_authentication_failed'`, a server name,
