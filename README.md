@@ -391,11 +391,17 @@ are copied verbatim from Engine and are byte-compatible with all of them.
 
 ## Vault (beta)
 
-> **Beta.** Vault needs to be enabled for your ZooWork account or environment. Until it is, the
-> Vault methods fail with 404 `service_api.not_found`, and `createSession` with Vault fields fails
-> with 400 `vault.session_fields_unavailable`. The SDK throws a `VaultBetaUnavailableError` for
-> both (check with `isVaultBetaUnavailable(err)`); `err.type` keeps the server code. Behaviour and
-> fields may change before general availability.
+> **Beta.** Vault is available in the ZooWork production environment. An account or environment
+> where it is not enabled still fails the Vault methods with 404 `service_api.not_found`, and
+> `createSession` with Vault fields with 400 `vault.session_fields_unavailable`. The SDK throws a
+> `VaultBetaUnavailableError` for both (check with `isVaultBetaUnavailable(err)`); `err.type` keeps
+> the server code. Fields may change before general availability.
+
+> **Owner credential boundary.** Session isolation (`isolation: "session"`) separates a Session's
+> workspace and Memory. It does not isolate the Agent owner's platform identity, GitHub and browser
+> logins, or model billing permissions: model-driven code in the sandbox can still use the owner's
+> credentials for these. MCP credentials stored in a Vault are not placed in the sandbox's
+> environment variables. This release is not owner-credential isolation.
 
 A Vault stores credentials for an Agent's MCP servers. A Session created with `vault_ids` uses
 them; responses never return a secret. Vault needs a Platform API key. A project key manages its

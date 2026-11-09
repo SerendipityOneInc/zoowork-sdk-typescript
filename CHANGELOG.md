@@ -3,11 +3,15 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.15.0 — 2026-11-09
 
 Additive types, one new optional request filter, the beta Vault surface and documentation
-corrections. Source-reviewed against Engine and the claw-interface Vault routes; deployment
-availability is unverified.
+corrections. Source-reviewed against Engine and the claw-interface Vault routes. The public Vault
+two-user acceptance (the public two-user profile of both the TypeScript and Python SDKs) passed on
+staging against Engine `v0.2.50-beta.3` (zooclaw-engine Actions run 42192283178), with the SDK
+and outer cleanup completed. Production enabled the public Vault API on 2026-11-09 (Engine
+v0.2.51-release, claw-interface service-v0.18.57-release); Engine's own production canary passed,
+but this SDK has not been run against production.
 
 - `AgentResource.skills` entries now require `skill_id`. The service already rejected `name`-only
   entries with `400 invalid_request`, so this only moves that failure to compile time. Document
@@ -27,11 +31,11 @@ availability is unverified.
   of a `testAgentWebhook` receipt to find that test's delivery.
 - README: schedule definitions remain after `stopAgent` and `deleteAgent`, but fires are skipped
   while the Agent is stopped or deleted, with `schedule.skipped` reason `runtime_stopped`.
-- **Beta: Vault.** Needs Vault enabled for the account or environment; until then calls fail with
-  `VaultBetaUnavailableError` (404 `service_api.not_found`, or 400
-  `vault.session_fields_unavailable` on `createSession`), with the server code kept in `type`.
-  Behaviour and fields may change before general availability. Unit-tested offline against the
-  claw-interface Vault routes; not yet run against a deployment.
+- **Beta: Vault.** Available in the ZooWork production environment. An account or environment
+  where Vault is not enabled still fails with `VaultBetaUnavailableError` (404
+  `service_api.not_found`, or 400 `vault.session_fields_unavailable` on `createSession`), with the
+  server code kept in `type`. Fields may change before general availability. Unit-tested offline
+  against the claw-interface Vault routes and accepted on staging (see above).
   - Vault and credential management: `createVault`, `listVaults`, `getVault`, `updateVault`,
     `archiveVault`, `deleteVault`, `createVaultCredential`, `listVaultCredentials`,
     `getVaultCredential`, `updateVaultCredential`, `archiveVaultCredential`,
