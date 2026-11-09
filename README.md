@@ -227,6 +227,11 @@ needs an agent-scope sandbox.
 
 ## Sessions, approvals, environments
 
+`createSession` takes `isolation: 'shared' | 'session'` (default `shared`). `session` separates
+that Session's workspace, Memory, Artifacts and file references from other Sessions; it does not
+isolate the Agent owner's platform, GitHub, browser or model-billing credentials from
+model-driven sandbox code. See the [owner credential boundary](#vault-beta).
+
 `listSessions` keeps the legacy numeric-page contract. Use `listSessionPage` for the filtered
 cursor lane: it starts with `sls1:0`, accepts channel/surface/runtime/archive filters, and returns
 `next_cursor` plus a `list_cursor` on each row. Cursors are opaque and bound to the same filters.
@@ -395,13 +400,15 @@ are copied verbatim from Engine and are byte-compatible with all of them.
 > where it is not enabled still fails the Vault methods with 404 `service_api.not_found`, and
 > `createSession` with Vault fields with 400 `vault.session_fields_unavailable`. The SDK throws a
 > `VaultBetaUnavailableError` for both (check with `isVaultBetaUnavailable(err)`); `err.type` keeps
-> the server code. Fields may change before general availability.
+> the server code. Behaviour and fields may change before general availability.
 
 > **Owner credential boundary.** Session isolation (`isolation: "session"`) separates a Session's
-> workspace and Memory. It does not isolate the Agent owner's platform identity, GitHub and browser
-> logins, or model billing permissions: model-driven code in the sandbox can still use the owner's
-> credentials for these. MCP credentials stored in a Vault are not placed in the sandbox's
-> environment variables. This release is not owner-credential isolation.
+> sandbox workspace, Memory, Artifacts and file references from other Sessions. It does not isolate
+> the Agent owner's platform identity, GitHub and browser logins, or model billing permissions:
+> model-driven code in the sandbox can still use the owner's credentials for these. The Agent
+> definition (instructions, Skills, tool configuration) stays shared. MCP credentials stored in a
+> Vault are not placed in the sandbox's environment variables. Session isolation is not
+> owner-credential isolation.
 
 A Vault stores credentials for an Agent's MCP servers. A Session created with `vault_ids` uses
 them; responses never return a secret. Vault needs a Platform API key. A project key manages its

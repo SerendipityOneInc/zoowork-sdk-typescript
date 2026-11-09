@@ -2,9 +2,10 @@
  * Vault: credential storage for an Agent's MCP servers, the Vault fields of Session creation,
  * revoking a Session's Vault binding, and the offboarding ledger.
  *
- * BETA. Every method and type in this module is a beta feature. It needs Vault enabled for your
- * ZooWork account or environment; until then the server answers 404 `service_api.not_found`, or
- * 400 `vault.session_fields_unavailable` when `createSession` carries Vault fields. The SDK throws
+ * BETA. Every method and type in this module is a beta feature. Vault is available in the ZooWork
+ * production environment; an account or environment where it is not enabled still gets 404
+ * `service_api.not_found`, or 400 `vault.session_fields_unavailable` when `createSession` carries
+ * Vault fields. The SDK throws
  * a {@link VaultBetaUnavailableError} for both (match with {@link isVaultBetaUnavailable}), with
  * the server's code kept verbatim in `type`. Behaviour and fields may change before general
  * availability.
@@ -368,9 +369,10 @@ export interface VaultOffboarding {
  * @beta Vault methods of the client. See the module notes above for the shared rules (idempotency,
  * revisions, scopes, delete retries).
  *
- * Beta: needs Vault enabled for your ZooWork account or environment. Until then each method rejects
- * with a {@link VaultBetaUnavailableError} (server code 404 `service_api.not_found`, kept in `type`).
- * Behaviour and fields may change before general availability.
+ * Beta: Vault is available in the ZooWork production environment. Where it is not enabled for the
+ * account or environment, each method rejects with a {@link VaultBetaUnavailableError} (server code
+ * 404 `service_api.not_found`, kept in `type`). Behaviour and fields may change before general
+ * availability.
  */
 export interface VaultApi {
   /** @beta Create an org or project Vault (201). Needs Vault enabled; see {@link VaultApi}. */

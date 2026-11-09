@@ -31,10 +31,16 @@ but this SDK has not been run against production.
   of a `testAgentWebhook` receipt to find that test's delivery.
 - README: schedule definitions remain after `stopAgent` and `deleteAgent`, but fires are skipped
   while the Agent is stopped or deleted, with `schedule.skipped` reason `runtime_stopped`.
+- Owner credential boundary: Session isolation (`isolation: "session"`) separates a Session's
+  sandbox workspace, Memory, Artifacts and file references. It does not isolate the Agent owner's
+  platform identity, GitHub and browser logins, or model billing permissions: model-driven code in
+  the sandbox can still use the owner's credentials for these. MCP credentials stored in a Vault
+  are not placed in the sandbox's environment variables. Session isolation is not
+  owner-credential isolation.
 - **Beta: Vault.** Available in the ZooWork production environment. An account or environment
   where Vault is not enabled still fails with `VaultBetaUnavailableError` (404
   `service_api.not_found`, or 400 `vault.session_fields_unavailable` on `createSession`), with the
-  server code kept in `type`. Fields may change before general availability. Unit-tested offline
+  server code kept in `type`. Behaviour and fields may change before general availability. Unit-tested offline
   against the claw-interface Vault routes and accepted on staging (see above).
   - Vault and credential management: `createVault`, `listVaults`, `getVault`, `updateVault`,
     `archiveVault`, `deleteVault`, `createVaultCredential`, `listVaultCredentials`,

@@ -1635,7 +1635,10 @@ export interface SessionCreateInput {
   idle_compaction?: boolean | null
   /**
    * Isolation mode, fixed for the Session's life. Omitted: `shared`. `session` without Vault fields
-   * is 400 `isolation_unavailable` until the deployment enables Session isolation.
+   * is 400 `isolation_unavailable` on a deployment that has not enabled Session isolation.
+   * `session` separates this Session's workspace, Memory, Artifacts and file references; it does
+   * not isolate the Agent owner's platform identity, GitHub, browser logins or model billing
+   * permissions from model-driven sandbox code.
    */
   isolation?: SessionIsolation
 }
