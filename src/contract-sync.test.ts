@@ -193,6 +193,20 @@ test('MCP exposure serializes unchanged and rejects an auto mode', async () => {
   void unsupported
 })
 
+test('MCP Vault auth serializes unchanged and rejects other auth types', async () => {
+  const server = {
+    name: 'synthetic', url: 'https://mcp.example.test', auth: { type: 'vault' },
+  } satisfies McpServerDeclaration
+  const { client, calls } = harness({ agent_id: 'agent-test' })
+
+  await client.updateAgent('agent-test', { mcp: [server] })
+  expect(JSON.parse(String(calls[0].init.body))).toEqual({ mcp: [server] })
+
+  // @ts-expect-error Only the vault auth type is part of the public declaration.
+  const unsupported: McpServerDeclaration = { name: 'synthetic', url: 'https://mcp.example.test', auth: { type: 'managed_identity' } }
+  void unsupported
+})
+
 test('MCP runtime context and approval declarations serialize unchanged with typed values', async () => {
   const server = {
     name: 'operations',

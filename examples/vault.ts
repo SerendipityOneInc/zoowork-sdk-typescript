@@ -10,7 +10,9 @@
  * `service_api.not_found`). Behaviour and fields may change before general availability.
  *
  * The key must be a project key of PROJECT_ID, and AGENT_ID an Agent in that project whose
- * declared MCP server is MCP_SERVER_URL. Every write carries an idempotency key derived from the
+ * declared MCP server is MCP_SERVER_URL with `auth: { type: 'vault' }` and no `credential` (for
+ * example `updateAgent(agentId, { mcp: [{ name: 'tools', url: MCP_SERVER_URL, auth: { type: 'vault' } }] })`).
+ * Engine uses a Vault credential only for a server that declares it. Every write carries an idempotency key derived from the
  * run, so rerunning a failed step with the same RUN_ID replays instead of duplicating.
  */
 import {

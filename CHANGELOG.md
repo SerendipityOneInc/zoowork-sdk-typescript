@@ -42,6 +42,9 @@ but this SDK has not been run against production.
   `service_api.not_found`, or 400 `vault.session_fields_unavailable` on `createSession`), with the
   server code kept in `type`. Behaviour and fields may change before general availability. Unit-tested offline
   against the claw-interface Vault routes and accepted on staging (see above).
+  - `McpServerDeclaration.auth` (`{ type: 'vault' }`, new type `McpVaultAuth`) declares an MCP
+    server that uses the Session's Vault credential. Engine uses Vault credentials only for
+    servers that declare it; such a server must not set `credential`.
   - Vault and credential management: `createVault`, `listVaults`, `getVault`, `updateVault`,
     `archiveVault`, `deleteVault`, `createVaultCredential`, `listVaultCredentials`,
     `getVaultCredential`, `updateVaultCredential`, `archiveVaultCredential`,

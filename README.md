@@ -415,6 +415,18 @@ them; responses never return a secret. Vault needs a Platform API key. A project
 project's Vaults. Use the Default Project key for org Vaults: a project key cannot read or manage
 them (403 `vault.management_forbidden`).
 
+Declare each MCP server that should use Vault credentials on the Agent with
+`auth: { type: 'vault' }` (and no `credential`; the `url` must be HTTPS without embedded
+credentials, query or fragment). Engine uses a Vault credential only for such a server:
+
+```ts
+await zc.updateAgent(agentId, {
+  mcp: [{ name: 'tools', url: 'https://mcp.example.com/mcp', auth: { type: 'vault' } }],
+})
+```
+
+A Session without a Vault binding never connects to that server.
+
 ```ts
 const vault = await zc.createVault(
   { scope: 'project', project_id: 'proj_…', name: 'user-a', metadata: { user: 'a' } },
@@ -448,10 +460,10 @@ Rules:
 - Read `credential.health` through `vaultCredentialHealthState(credential)`. Only `ok` is healthy.
   Show a re-authorize prompt on `reauthorization_required` and a rotate prompt on `expired`
   (`updateVaultCredential`). A state the SDK does not know reads as `unknown`.
-- A Session's Vault errors carry two spellings while the service migrates. Session routes answer
-  Engine's code in `error.type` (`vault_binding_revoked`), which is what `err.type` holds; a later
-  release adds the dotted code at the top level (`"code": "vault.binding_revoked"`) and keeps
-  `error.type` unchanged. Match with `vaultSessionErrorCode(err)`: it reads the top-level `vault.*`
+- A Session's Vault errors carry two spellings. Session routes answer the dotted code at the top
+  level (`"code": "vault.binding_revoked"`) and keep Engine's code in `error.type`
+  (`vault_binding_revoked`), which is what `err.type` holds; an older service answers only
+  `error.type`. Match with `vaultSessionErrorCode(err)`: it reads the top-level `vault.*`
   code when present, accepts either spelling otherwise, and returns the dotted one
   (`vault.binding_revoked`, `vault.binding_expired`, `vault.profile_restricted`).
 - `err.code` (beta) is the body's top-level `code`, read from the whole body; `bodySnippet` keeps

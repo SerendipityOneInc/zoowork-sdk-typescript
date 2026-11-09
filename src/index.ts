@@ -38,6 +38,7 @@ export {
   type FeishuPollResult,
   type McpContextConfig,
   type McpServerDeclaration,
+  type McpVaultAuth,
   type McpToolPermission,
   type McpToolPermissionOverride,
   type CustomToolDeclaration,

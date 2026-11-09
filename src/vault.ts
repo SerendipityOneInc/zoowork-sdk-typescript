@@ -511,12 +511,12 @@ export function createVaultApi(json: Request, failure: VaultFailure, { query, se
 /**
  * @beta Session errors caused by a Vault binding, under both spellings the service uses.
  *
- * TRANSITION: on Session sub-routes (post events, change configuration, …) the service currently
- * passes Engine's body through: `{ "error": { "type": "vault_binding_revoked", … } }`. A later
- * release maps it and answers both codes: `{ "code": "vault.binding_revoked", "detail": …,
- * "error": { "type": "vault_binding_revoked", … } }`, the dotted code at the top level and Engine's
- * code kept in `error.type` (and `vault_profile_restricted` always as 403). `ZooworkError.type`
- * reads `error.type` first, so on these routes it stays the bare Engine code in both phases.
+ * On Session sub-routes (post events, change configuration, …) the service answers both codes:
+ * `{ "code": "vault.binding_revoked", "detail": …, "error": { "type": "vault_binding_revoked", … } }`,
+ * the dotted code at the top level and Engine's code kept in `error.type` (and
+ * `vault_profile_restricted` always as 403). `ZooworkError.type` reads `error.type` first, so on
+ * these routes it stays the bare Engine code. An older service passes Engine's body through with
+ * only `error.type`.
  * Session creation answers the dotted code alone. Match through {@link vaultSessionErrorCode},
  * which reads the top-level dotted code when the body carries one and accepts either spelling
  * otherwise, rather than on `type`.
