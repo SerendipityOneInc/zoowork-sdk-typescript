@@ -93,7 +93,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
         item.vault_id === own[user].vault!.id && item.credential_id === own[user].credential), 'binding_wrong_credential')
     return value
   }
-  async function drive(user: User, target: SDK.SessionRecord, phase: string): Promise<void> {
+  async function drive(user: User, target: SDK.SessionRecord, phase: string, markerKnown = false): Promise<void> {
     const before = await observe()
     const title = key(phase)
     const receipt = await client.postEvents(f.agentId, target.session_id, [{ type: 'user.message',
@@ -114,7 +114,7 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
         return message?.role === 'assistant' && text.includes(title) && text.includes(f.accounts[user].marker)
       })
       if (value.run_status === 'succeeded' && answer) {
-        assertIdentity(before, await observe(), f.accounts[user], f.accounts[user === 'a' ? 'b' : 'a'], title)
+        assertIdentity(before, await observe(), f.accounts[user], f.accounts[user === 'a' ? 'b' : 'a'], title, markerKnown)
         pass(phase); return
       }
       await delay()
@@ -200,7 +200,8 @@ export async function vaultAcceptance(sdk: typeof SDK, client: Client, options: 
       && row.session_id === expected.session_id && row.state === 'revoked' && row.attempts >= 1
       && row.attempt_log.some(attempt => attempt.result === 'revoked'))), 'offboarding_audit_incomplete')
     await refusesDrive(own.a.session!); await refusesDrive(second); pass('offboarding_completes')
-    await drive('b', own.b.session!, 'b_survives_a_offboarding')
+    // Same Session as b_identity: the marker is already in its history.
+    await drive('b', own.b.session!, 'b_survives_a_offboarding', true)
   } catch (error) { record.failure = safeFailure(error) }
   finally {
     cleaning = true; options.cleanupMode()
