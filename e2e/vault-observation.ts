@@ -21,14 +21,17 @@ export function assertObservation(value: FixtureObservation, runId: string, acco
       && Array.isArray(value.drafts[account.id]), 'fixture_account_evidence_missing')
   }
 }
+// `markerKnown`: an earlier turn in this Session already returned the marker, so the model
+// may legitimately reuse it instead of calling whoami again. The drafted marker and the
+// bearer fingerprint on create_draft still prove which credential this turn used.
 export function assertIdentity(before: FixtureObservation, after: FixtureObservation,
-  own: FixtureAccount, other: FixtureAccount, title: string): void {
+  own: FixtureAccount, other: FixtureAccount, title: string, markerKnown = false): void {
   const previous = before.accounts[own.id]!.requests
   const current = after.accounts[own.id]!.requests
   check(JSON.stringify(current.slice(0, previous.length)) === JSON.stringify(previous), 'fixture_observations_replaced')
   check(JSON.stringify(after.accounts[other.id]) === JSON.stringify(before.accounts[other.id]), 'other_account_was_called')
   const calls = current.slice(previous.length).filter(row => row.method === 'tools/call')
-  check(calls.some(row => row.tool === 'whoami' && row.outcome === 'ok'), 'whoami_not_observed')
+  check(markerKnown || calls.some(row => row.tool === 'whoami' && row.outcome === 'ok'), 'whoami_not_observed')
   check(calls.some(row => row.tool === 'create_draft' && row.outcome === 'ok'), 'draft_call_not_observed')
   check(calls.every(row => row.credentialHeaders.authorization === `Bearer ${own.fingerprint}`), 'wrong_upstream_credential')
   const drafts = after.drafts[own.id]!.filter(draft => draft.title === title)

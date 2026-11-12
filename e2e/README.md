@@ -298,7 +298,9 @@ to their own Vaults by this application code. **Engine does not authorize end us
 - Each Session binds only its mapped Vault/credential. Both model replies and fixture drafts
   contain only that account's private marker, which is never supplied in the user prompt.
   Fixture observations independently require the actual bearer fingerprint on successful
-  `whoami`/`create_draft` calls, with no activity in the other account.
+  `whoami`/`create_draft` calls, with no activity in the other account. The repeat turn in
+  B's Session after A's offboarding only requires `create_draft`: whoami already answered
+  in that Session, and the model may reuse the marker instead of calling it again.
 - Keys verified as another Project/same organization and another organization cannot read
   the main Vault or Session (404; a disabled beta is not accepted as tenant isolation).
 - Revoking A returns a revoked binding; subsequent drive returns the normalized
