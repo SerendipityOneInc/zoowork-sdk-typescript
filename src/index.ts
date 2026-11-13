@@ -216,6 +216,7 @@ export type {
   AgentDatabaseRows,
   UsageOptions,
   UsageResult,
+  UsageSpend,
   BalanceResult,
   RunOutputArtifact,
   RunOutputItem,

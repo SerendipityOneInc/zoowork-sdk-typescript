@@ -560,7 +560,7 @@ MIT
 These helpers require an SDK release that includes them. Check the installed declarations before using an example; use the documented HTTP endpoint if the installed release lacks the method.
 
 ```ts
-const usage = await zc.getUsage({ range: '7d', view: 'both' })
+const usage = await zc.getUsage({ range: '7d', view: 'both' }) // usage.totals?.amount: USD decimal string
 const balance = await zc.getBalance() // { object: 'balance', available_amount: '11.34', currency: 'usd' }
 const endpoint = await zc.createAgentWebhook(agentId, {
   url: 'https://receiver.example/webhook', event_types: ['run.finished'],
@@ -576,7 +576,9 @@ The workspace Files methods (`getWorkspaceFile`, `writeWorkspaceFile`,
 Send a file to an Agent with `uploadFile`, and retrieve results by asking the Agent to publish
 Artifacts and downloading those through the Artifact API. The database viewer is not a
 supported production workflow. The Agent can use `agent_db` and return query results in its
-reply. Method presence is not production availability. Usage stays within the current key scope.
+reply. Method presence is not production availability. Usage stays within the current key scope
+and reports spend as `amount`, a USD decimal string, on `totals`, each group and each record;
+`currency` is `usd`.
 `getBalance` returns the Organization balance shared by all Projects, in USD, to any Platform
 key in the Organization. Page helpers retain `next_cursor` and `has_more`; replay cursors
 verbatim. `getApproval` and `getCustomToolCall` read terminal as well as pending actions.
