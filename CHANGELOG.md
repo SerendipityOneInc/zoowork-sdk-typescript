@@ -3,6 +3,16 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+- Type Usage spend. `UsageResult.totals`, and each entry of `groups` and `records`, are now
+  `UsageSpend` with an optional `amount`: a USD decimal string that is not rounded to cents.
+  `UsageResult.currency` is `'usd'`. New exported type: `UsageSpend`. The service keeps
+  `credits` in the response as a legacy unit; read `amount`. `totals` was untyped before, so
+  code that asserts it to an interface (`usage.totals as MyTotals`) may need an index signature
+  or an `unknown` step. Source-reviewed against the claw-interface Usage change; the fields are
+  optional because a deployment without that change does not return them.
+
 ## 0.15.0 — 2026-11-09
 
 Additive types, one new optional request filter, the beta Vault surface and documentation
