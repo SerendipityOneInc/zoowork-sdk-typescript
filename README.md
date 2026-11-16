@@ -578,7 +578,7 @@ Artifacts and downloading those through the Artifact API. The database viewer is
 supported production workflow. The Agent can use `agent_db` and return query results in its
 reply. Method presence is not production availability. Usage stays within the current key scope
 and reports spend as `amount`, a USD decimal string, on `totals`, each group and each record;
-`currency` is `usd`.
+`currency` is `usd`. Bill and reconcile with `amount`: `credits` in the same response is deprecated.
 `getBalance` returns the Organization balance shared by all Projects, in USD, to any Platform
 key in the Organization. Page helpers retain `next_cursor` and `has_more`; replay cursors
 verbatim. `getApproval` and `getCustomToolCall` read terminal as well as pending actions.
