@@ -3,7 +3,7 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.16.0 — 2026-11-16
 
 - Type Usage spend. `UsageResult.totals`, and each entry of `groups` and `records`, are now
   `UsageSpend` with an optional `amount`: a USD decimal string that is not rounded to cents.
