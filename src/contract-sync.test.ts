@@ -346,5 +346,7 @@ test('Usage types spend as USD amount strings on totals, groups and records', as
   expectTypeOf(usage.groups).toEqualTypeOf<UsageSpend[] | undefined>()
   expectTypeOf(usage.records).toEqualTypeOf<UsageSpend[] | undefined>()
   expectTypeOf(usage.totals?.amount).toEqualTypeOf<string | undefined>()
+  // Deprecated, still typed so editors and coding assistants show the notice on access.
+  expectTypeOf(usage.totals?.credits).toEqualTypeOf<string | undefined>()
   expect([usage.totals?.amount, usage.groups?.[0]?.amount, usage.records?.[0]?.amount]).toEqual(['12.434', '1.00', '0.01123'])
 })
