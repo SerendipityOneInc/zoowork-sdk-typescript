@@ -80,7 +80,8 @@ await zc.updateAgent(tuned.agent_id, { model: { thinking: null } } satisfies Age
 Agent resources also accept `userTimezone`, a named IANA timezone used for prompt and message
 time context, and `include_global_skills: false` to disable automatic global Skills while keeping
 explicitly listed Skills. `skills: []` also opts out. Schedule timezones are configured
-separately.
+separately. `memory: { dreaming: { enabled: false } }` stops the runtime from consolidating the
+Agent's Memory between turns; it is on by default, and the Agent read reports it as `memory`.
 
 ## Configuration
 

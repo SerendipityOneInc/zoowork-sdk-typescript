@@ -69,6 +69,7 @@ export {
   type ArtifactRecord,
   type ArtifactStatus,
   type OutcomeConfig,
+  type AgentMemoryConfig,
   type OutcomeEvaluator,
   type SystemPromptDeclaration,
   type SystemPromptInfo,

@@ -1127,7 +1127,7 @@ const AGENT_RECORD_KEYS = [
   'ownership',
 ] as const satisfies readonly DeclaredKeys<AgentRecord>[]
 // Source-reviewed additions are tested separately with synthetic contract input.
-const _agentRecordCovered: Covered<AgentRecord, (typeof AGENT_RECORD_KEYS)[number] | 'sandbox_resource_class'> = undefined
+const _agentRecordCovered: Covered<AgentRecord, (typeof AGENT_RECORD_KEYS)[number] | 'sandbox_resource_class' | 'memory'> = undefined
 
 test('AgentRecord declares nothing the wire does not carry across BOTH projections', () => {
   // `config_version` only exists on the create receipt and `declared`/`status` only on the read,

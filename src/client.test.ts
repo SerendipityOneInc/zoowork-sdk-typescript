@@ -189,6 +189,19 @@ test('listModels exposes thinking levels and AgentResource accepts model.thinkin
   void bad
 })
 
+test('AgentResource and AgentRecord type the Memory dreaming setting', async () => {
+  const resource: AgentResource = { name: 'a', memory: { dreaming: { enabled: false } } }
+  const { calls, client } = harness(jsonReply({ agent_id: 'agt_1', memory: { dreaming: { enabled: false } } }))
+  await client.createAgent({ resource })
+  expect(JSON.parse(calls[0]!.body as string).resource.memory).toEqual({ dreaming: { enabled: false } })
+  const read = await client.getAgent('agt_1')
+  expectTypeOf(read.memory).toEqualTypeOf<{ dreaming: { enabled: boolean } } | undefined>()
+  expect(read.memory?.dreaming.enabled).toBe(false)
+  // @ts-expect-error memory accepts only dreaming
+  const bad: AgentResource = { name: 'a', memory: { compaction: true } }
+  void bad
+})
+
 test('createAgent POSTs the envelope and sends Idempotency-Key only when given one', async () => {
   const { calls, client } = harness(jsonReply({ agent_id: 'agt_1', config_version: 1 }))
   const input = { resource: { name: 'a' }, ownership: { owner_uid: 'u', org_id: 'o' } }
