@@ -70,6 +70,8 @@ export {
   type ArtifactStatus,
   type OutcomeConfig,
   type AgentMemoryConfig,
+  type ChannelInteractionInput,
+  type ChannelInteractionSettings,
   type OutcomeEvaluator,
   type SystemPromptDeclaration,
   type SystemPromptInfo,

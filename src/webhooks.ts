@@ -154,6 +154,12 @@ export interface WebhookRunStartedData extends WebhookRunEventData {
 
 export interface WebhookRunFinishedData extends WebhookRunEventData {
   status?: 'succeeded' | 'failed' | 'aborted'
+  /**
+   * How the run ended: `succeeded`, `failed`, `timed_out`, `cancelled_by_user`,
+   * `cancelled_by_system`, `approval_rejected` or `policy_denied`. A run that ends after a denied or
+   * timed-out approval keeps `status: 'succeeded'` and reports `approval_rejected` here. Typed as
+   * `string` so a new value needs no SDK release.
+   */
   terminal_outcome?: string
   output_type?: string
   error_class?: string

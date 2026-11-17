@@ -43,6 +43,7 @@ const agent = await zc.createAgent({
 
 // 2. Start it. Without this, createSession() returns 409 agent_not_running.
 await zc.startAgent(agent.agent_id)
+await zc.waitUntilRunning(agent.agent_id)
 
 // 3. Open a session with the first message already in it.
 const session = await zc.createSession(agent.agent_id, {
@@ -176,7 +177,7 @@ to use the owner; IM sessions reject it. See the field's SDK comment for input c
 
 ## Agent Skills
 
-New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, each `resource.skills` entry needs a `skill_id` and stays on the version resolved at creation, including `'latest'`; to keep a Skill on the newest version, assign it after creation with no `versionPin`. `include_global_skills: false` or an empty list opts out of automatic global Skills. An entry with `name` makes the list the Agent's exact Skill set, drops global Skills, and makes later assignment calls return `409 source_owned_skills`. Root Skill uploads are unavailable to Project keys. Keep source changes in your application; use persona documents for standing instructions and Session messages for text task data.
+New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, each `resource.skills` entry needs a `skill_id` and stays on the version resolved at creation, including `'latest'`; to keep a Skill on the newest version, assign it after creation with no `versionPin`. `include_global_skills: false` or an empty list opts out of automatic global Skills. An entry with `name` makes the list the Agent's exact Skill set, drops global Skills, and makes later assignment calls return `409 source_owned_skills`. A named Project key uploads Skills to its Project scope; a Default Project key uploads at organization scope. Keep source changes in your application; use persona documents for standing instructions and Session messages for text task data.
 
 ## Schedules, wake and exec
 
@@ -249,6 +250,13 @@ An application-executed tool is declared in `resource.custom_tools`. When
 post a typed `user.custom_tool_result` event to the owning session. The run reports
 `awaiting_approval` while paused, so use `pending_custom_tool_calls` to distinguish this wait from
 a normal approval. These contracts are source-reviewed and need deployment verification.
+
+At most 32 custom tools are accepted. `timeoutMs` defaults to 600,000 ms and is at most
+86,400,000 ms. A result carries 1 to 16 text, JSON or base64 image blocks.
+
+An MCP server declaration's `context` is opt-in and is not authentication: it passes runtime
+coordinates such as the Agent and Session IDs to the server. `permission` sets the server's default
+approval; `tools` overrides it per exact tool name.
 
 ```ts
 const call = customToolUse(ev)
@@ -455,7 +463,9 @@ Rules:
 - Update, archive, delete and revoke take `revision` (sent as `If-Match`). A stale one is 412
   `vault.revision_conflict`: read the resource again. `validateVaultCredential` takes neither key
   nor revision.
-- A retried delete that answers 404 `vault.not_found` already succeeded.
+- A retried delete answers 204 again; reads of a deleted resource answer 404 `vault.not_found`.
+- Rotating an `mcp_oauth` credential's token needs `expires_at` (`null` when the provider gave no
+  expiry).
 - With Vault fields, `createSession` needs `isolation`. Omit the Vault fields you do not use; one
   that is present, even `null` or `[]`, makes the request a Vault request.
 - Read `credential.health` through `vaultCredentialHealthState(credential)`. Only `ok` is healthy.
@@ -472,8 +482,9 @@ Rules:
   a Node.js system error code. `isVaultBetaUnavailable(err)` matches
   `vault.session_fields_unavailable` in either `err.code` or `err.type`.
 
-When a user leaves, either archive or delete that user's dedicated Vault or credential (every
-Session using it is refused at its next call), or revoke that user's Sessions. ZooWork does not
+When a user leaves, either archive or delete that user's dedicated Vault or credential (MCP calls
+that need it are refused from then on; the Sessions and their other tools keep working), or revoke
+that user's Sessions. ZooWork does not
 model end users, so your application keeps the user → Session mapping:
 
 ```ts
@@ -496,6 +507,14 @@ while (current.status === 'in_progress' && Date.now() < deadline) {
 directly. Its 404 `service_api.not_found` can mean an unknown Agent or Session as well as Vault
 not being enabled, so it is not reported as `VaultBetaUnavailableError`. See
 [`examples/vault.ts`](examples/vault.ts).
+
+## Errors
+
+Every non-successful response throws `ZooworkError`. Match `err.type` or `err.status`, never the
+message. `err.code` holds the body's top-level dotted code when it differs from `type`. Diagnostic
+fields are `contentType`, `bodySnippet` (the first 600 characters of the body), `cfRay`,
+`requestId` and `retryable` (`true` for 408, 429, 502, 503 and 504; a retry still needs an
+idempotency key to be safe).
 
 ## Two helpers
 
