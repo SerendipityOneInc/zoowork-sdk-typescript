@@ -10,6 +10,18 @@ day the behaviour was verified, not the day it was written.
   `enabled: false` to stop the runtime from rewriting the Agent's Memory between turns. New
   exported type: `AgentMemoryConfig`. Untyped `createAgent` calls already passed the field
   through; typed ones no longer fail to compile.
+- Type the channel interaction settings. `addChannel`, `updateChannel` and `startChannelSetup`
+  accept `allow_from`, `group_allow_from`, `require_mention` and Feishu `topic_followup` (new
+  exported type `ChannelInteractionInput`); `updateChannel` also takes `expected_config_version`.
+  `AgentChannel` types `channel_id` and `interaction_settings` (`ChannelInteractionSettings`). The
+  `updateChannel` JSDoc no longer says `allow_from` is write-once.
+- Correct the Vault notes: a retried delete answers 204 again; archiving refuses only the MCP calls
+  that need the credential; an `mcp_oauth` token rotation needs `expires_at`. Correct the cron
+  JSDoc: the API does not reject macros or `CRON_TZ=`, they are just not the supported form.
+  Document the ZIP backslash rule on `uploadSkill`, and the `terminal_outcome` values on
+  `WebhookRunFinishedData`, including `approval_rejected`.
+- README: wait for `running` in the quickstart, state that Project keys upload Skills, and add the
+  custom tool limits, MCP `context`/`permission` notes and an Errors section.
 
 ## 0.16.0 — 2026-11-16
 

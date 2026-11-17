@@ -14,7 +14,7 @@
  * somebody's build.
  */
 import { expect, expectTypeOf, test } from 'vitest'
-import { createZooworkClient, DEFAULT_BASE_URL, ZooworkError, type AgentResource, type ScheduleInput, type ScheduleUpdate, type ThinkingLevel, type AgentUpdate } from './index.js'
+import { createZooworkClient, DEFAULT_BASE_URL, ZooworkError, type AgentResource, type UpdateChannelInput, type ScheduleInput, type ScheduleUpdate, type ThinkingLevel, type AgentUpdate } from './index.js'
 
 const BASE = 'https://api.test/service/v1'
 const KEY = 'zct_test_key'
@@ -1089,6 +1089,21 @@ test('addChannel POSTs the input verbatim to the collection', async () => {
     platform: 'feishu',
     config: { app_id: 'x', app_secret: 'y' },
   })
+})
+
+test('channel inputs carry the interaction settings and the read types them', async () => {
+  const settings = { config_version: 3, allow_from: ['ou_1'], group_allow_from: [], require_mention: true, supports_topic_followup: true, apply_state: 'applied' as const }
+  const upd = harness(jsonReply({ channel_id: 'ch_1', platform: 'feishu', account: 'default', interaction_settings: settings }))
+  const channel = await upd.client.updateChannel('a', 'feishu', { allow_from: ['ou_1'], require_mention: true, topic_followup: 'auto', expected_config_version: 3 })
+  expect(JSON.parse(upd.calls[0]!.body as string)).toEqual({ allow_from: ['ou_1'], require_mention: true, topic_followup: 'auto', expected_config_version: 3 })
+  expect(channel.channel_id).toBe('ch_1')
+  expect(channel.interaction_settings?.config_version).toBe(3)
+  const add = harness(jsonReply({ platform: 'feishu', account: 'default' }))
+  await add.client.addChannel('a', { platform: 'feishu', group_policy: 'allowlist', group_allow_from: ['oc_1'], config: { replyInThread: 'disabled' } })
+  expect(JSON.parse(add.calls[0]!.body as string)).toMatchObject({ group_allow_from: ['oc_1'], config: { replyInThread: 'disabled' } })
+  // @ts-expect-error topic_followup takes 'auto' or 'require_mention'
+  const bad: UpdateChannelInput = { topic_followup: 'always' }
+  void bad
 })
 
 test('updateChannel and removeChannel POST platform actions; platform is URL-encoded', async () => {

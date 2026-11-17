@@ -21,7 +21,7 @@
  * - Writes on a resource with a revision send `revision` as `If-Match`; a stale one is
  *   412 `vault.revision_conflict` (read again, then retry with the current revision).
  *   `validateVaultCredential` takes neither: it is a bounded probe that changes nothing.
- * - Retrying a delete that already succeeded answers 404 `vault.not_found`: treat it as done.
+ * - A retried delete answers 204 again; reads of a deleted resource answer 404 `vault.not_found`.
  * - Responses never carry credential secrets. IDs are opaque; ignore unknown fields.
  *
  * The SDK offers no way to set the internal `X-Zooclaw-Vault-Context` header: the service builds it
@@ -151,8 +151,9 @@ export interface VaultCredentialCreateInput {
 }
 
 /**
- * @beta A secret rotation: new headers, or a new access token (optionally with its expiry, owner and
- * refresh material). An omitted `refresh_owner` keeps the stored one.
+ * @beta A secret rotation: new headers, or a new access token with its owner and refresh material.
+ * An `mcp_oauth` credential needs `expires_at` with the token (`null` when the provider gave no
+ * expiry); omitting it is a 400. An omitted `refresh_owner` keeps the stored one.
  */
 export type VaultCredentialAuthRotation =
   | { headers: Record<string, string>; access_token?: never; expires_at?: never; refresh_owner?: never; refresh?: never }
@@ -384,11 +385,12 @@ export interface VaultApi {
   /** @beta Rename a Vault or replace its metadata. Needs Vault enabled; see {@link VaultApi}. */
   updateVault(vaultId: string, input: VaultUpdateInput, opts: VaultRevisionWriteOptions): Promise<VaultRecord>
   /**
-   * @beta Archive a Vault. Every Session using it is refused at its next call, so archiving a user's
-   * dedicated Vault is one way to offboard that user. Needs Vault enabled; see {@link VaultApi}.
+   * @beta Archive a Vault. MCP calls that need its credentials are refused from then on; the Sessions
+   * and their other tools keep working. Archiving a user's dedicated Vault is one way to offboard that
+   * user. Needs Vault enabled; see {@link VaultApi}.
    */
   archiveVault(vaultId: string, opts: VaultRevisionWriteOptions): Promise<VaultRecord>
-  /** @beta Delete a Vault (204). A retry answering 404 means it is already gone. Needs Vault enabled; see {@link VaultApi}. */
+  /** @beta Delete a Vault (204). A retry answers 204 again; reads then answer 404. Needs Vault enabled; see {@link VaultApi}. */
   deleteVault(vaultId: string, opts: VaultRevisionWriteOptions): Promise<void>
   /** @beta Store a credential (201). Needs Vault enabled; see {@link VaultApi}. */
   createVaultCredential(vaultId: string, input: VaultCredentialCreateInput, opts: VaultWriteOptions): Promise<VaultCredentialRecord>
@@ -403,9 +405,9 @@ export interface VaultApi {
     input: VaultCredentialUpdateInput,
     opts: VaultRevisionWriteOptions,
   ): Promise<VaultCredentialRecord>
-  /** @beta Archive a credential; Sessions using it are refused at their next call. Needs Vault enabled; see {@link VaultApi}. */
+  /** @beta Archive a credential; MCP calls that need it are refused from then on. Needs Vault enabled; see {@link VaultApi}. */
   archiveVaultCredential(vaultId: string, credentialId: string, opts: VaultRevisionWriteOptions): Promise<VaultCredentialRecord>
-  /** @beta Delete a credential (204). A retry answering 404 means it is already gone. Needs Vault enabled; see {@link VaultApi}. */
+  /** @beta Delete a credential (204). A retry answers 204 again; reads then answer 404. Needs Vault enabled; see {@link VaultApi}. */
   deleteVaultCredential(vaultId: string, credentialId: string, opts: VaultRevisionWriteOptions): Promise<void>
   /**
    * @beta Probe a credential against its MCP server. Sends no `Idempotency-Key` and no `If-Match`:

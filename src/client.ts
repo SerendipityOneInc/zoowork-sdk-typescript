@@ -679,6 +679,8 @@ export interface AgentChannelCapabilities {
  * as the platform adapter sees it.
  */
 export interface AgentChannel {
+  /** Stable ID of the connection. */
+  channel_id?: string
   platform: string
   account: string
   display_name?: string | null
@@ -690,6 +692,8 @@ export interface AgentChannel {
   status_code?: string | null
   /** Source-reviewed capability state. Omitted when the platform reports none. */
   capabilities?: AgentChannelCapabilities | null
+  /** Saved interaction settings. Omitted when the channel service reports none. */
+  interaction_settings?: ChannelInteractionSettings | null
   [k: string]: unknown
 }
 
@@ -732,7 +736,50 @@ export type AddChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'dingtalk-connec
  */
 export type GuidedSetupPlatform = 'feishu' | 'wecom' | 'weixin'
 
-export interface AddChannelInput {
+/**
+ * Who may reach the Agent through a channel, and when it answers in groups. Omit a field to keep the
+ * current setting; `null` is `400 service_api.invalid_body`. Lists hold platform sender or group IDs,
+ * at most 500; with an `'allowlist'` policy they must be explicit IDs, so `'*'` is rejected.
+ *
+ * Platforms support different settings: read `interaction_settings.supports_group_allowlist`,
+ * `supports_mention` and `supports_topic_followup` first. An unsupported setting is
+ * `400 channel.unsupported_setting` (staging, 2026-11-17: Slack has no group allowlist, WeCom no
+ * `require_mention`).
+ */
+export interface ChannelInteractionInput {
+  /** Sender IDs allowed to send direct messages when `dm_policy` is `'allowlist'`. */
+  allow_from?: string[]
+  /** Group IDs the Agent answers in when `group_policy` is `'allowlist'`. */
+  group_allow_from?: string[]
+  /** Whether a group message needs an @mention of the Agent. */
+  require_mention?: boolean
+  /**
+   * Feishu only. `'auto'` answers follow-ups in a topic the Agent already joined without a new
+   * @mention; `'require_mention'` needs one. On creation it also gives each group topic its own
+   * Session. Supported when `interaction_settings.supports_topic_followup` is true.
+   */
+  topic_followup?: 'auto' | 'require_mention'
+}
+
+/** The saved interaction settings a channel reports in `interaction_settings`. */
+export interface ChannelInteractionSettings {
+  /** Pass as `expected_config_version` on {@link ZooworkClient.updateChannel}. */
+  config_version: number
+  allow_from: string[]
+  group_allow_from: string[]
+  require_mention?: boolean | null
+  topic_followup?: 'auto' | 'require_mention'
+  supports_group_allowlist?: boolean
+  supports_mention?: boolean
+  supports_topic_followup: boolean
+  dm_policies?: ('open' | 'allowlist' | 'disabled')[]
+  group_policies?: ('open' | 'allowlist' | 'disabled')[]
+  /** `'pending'` until the platform adapter applies the saved settings. */
+  apply_state: 'pending' | 'applied' | 'paused'
+  [k: string]: unknown
+}
+
+export interface AddChannelInput extends ChannelInteractionInput {
   /**
    * See {@link AddChannelPlatform}. Typed loosely so a newly supported platform needs no SDK
    * release. `'weixin'`/`'wechat'` is refused here with `400 channel.weixin_setup_required` —
@@ -756,11 +803,6 @@ export interface AddChannelInput {
   /** Server default: `'open'`. */
   group_policy?: string
   /**
-   * Sender IDs allowed to send direct messages when `dm_policy` is `'allowlist'`; ignored for other
-   * policies. DingTalk requires explicit IDs, so `'*'` is rejected there.
-   */
-  allow_from?: string[]
-  /**
    * Platform credentials for the direct (non-QR) path. Keys are platform-specific and
    * **camelCase**; anything else is stored and ignored:
    *
@@ -769,13 +811,16 @@ export interface AddChannelInput {
    * - `wecom` — `{ botId, secret }`, both required
    * - `feishu` — `{ appId, appSecret, domain }`, only when skipping the QR flow
    * - `dingtalk-connector` — `{ clientId, clientSecret }`; no public guided QR route
+   *
+   * A new Feishu channel replies inside the originating topic by default; pass
+   * `{ replyInThread: 'disabled' }` here to reply in the main chat instead.
    */
   config?: Record<string, unknown>
   /** Feishu only. Enable document-permission administration; defaults to false. */
   permission_admin_enabled?: boolean
 }
 
-export interface UpdateChannelInput {
+export interface UpdateChannelInput extends ChannelInteractionInput {
   /** Which binding to touch — see {@link AddChannelInput.account}. Server default: `'default'`. */
   account?: string
   dm_policy?: string
@@ -783,6 +828,8 @@ export interface UpdateChannelInput {
   enabled?: boolean
   /** Feishu only. Other platforms reject this field when it is present. */
   permission_admin_enabled?: boolean
+  /** `interaction_settings.config_version` you last read; a stale one rejects the write. */
+  expected_config_version?: number
 }
 
 /**
@@ -791,7 +838,7 @@ export interface UpdateChannelInput {
  * is ignored rather than rejected: `weixin` accepts an `account` in the body and still binds
  * `'default'` (staging-verified 2026-08-28).
  */
-export interface ChannelSetupInput {
+export interface ChannelSetupInput extends ChannelInteractionInput {
   /** Feishu only: `'feishu'` (default) or `'lark'` — the international brand of the same platform. */
   brand?: 'feishu' | 'lark'
   /**
@@ -1176,8 +1223,9 @@ export interface StreamEventsOptions {
  * previously misdeclared as every. Use everyMs explicitly: the SDK does not convert units
  * or rename the obsolete every field at runtime.
  *
- * Cron is a five-field expression. Macros and a `CRON_TZ=` prefix are rejected; overlap is
- * fixed to SKIP server-side, so a fire that lands on a still-running one is dropped, not queued.
+ * Cron is a five-field expression, with the timezone in `tz`. Do not use macros such as `@daily` or
+ * a `CRON_TZ=` prefix: the API does not reject them, but they are not the supported form. Overlap
+ * is fixed to SKIP server-side, so a fire that lands on a still-running one is dropped, not queued.
  */
 export type ScheduleSpec =
   | { kind: 'cron'; expr: string; tz?: string; [k: string]: unknown }
@@ -1805,9 +1853,10 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    */
   addChannel(agentId: string, input: AddChannelInput): Promise<AgentChannel>
   /**
-   * Change `dm_policy` / `group_policy` / `enabled` on one bound platform account, and get the
-   * channel back in its NEW state. `allow_from` is deliberately not editable — write-once at
-   * create.
+   * Change `dm_policy` / `group_policy` / `enabled` and the {@link ChannelInteractionInput} settings
+   * on one bound platform account, and get the channel back in its NEW state. Pass
+   * `expected_config_version` from `interaction_settings.config_version`; a concurrent settings
+   * write makes it `409 channel.settings_conflict`.
    *
    * `enabled: false` is not just a flag: it was observed moving `status` to `'disabled'` and
    * resetting `health` to `'unknown'`. Updating a platform with no binding answers
@@ -1932,7 +1981,8 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * So `zip -r skill.zip market-research/` where `market-research/SKILL.md` declares
    * `name: market-research`. A zip whose ROOT is the skill (SKILL.md at the top) is also
    * accepted. `SKILL.md` must be non-empty and declare both `name` and `description`.
-   * 50 MB expanded, zip only (store/deflate), encrypted zips rejected.
+   * 50 MB expanded, zip only (store/deflate), encrypted zips rejected. Entry paths must use `/`: a
+   * path containing a backslash is `400 invalid_zip`, which catches archives some Windows tools build.
    *
    * Platform keys on deployments with Project Skill registry support use project scope for a
    * named Project and org scope for the Default Project. Ownership is derived from the key;
