@@ -584,6 +584,19 @@ export interface AgentResource {
   sandbox?: { scope: 'agent' | 'session' }
   environment_id?: string
   environment_version?: number
+  /** Background Memory consolidation. See {@link AgentMemoryConfig}. */
+  memory?: AgentMemoryConfig
+}
+
+/**
+ * Agent Memory settings. `dreaming.enabled` (default `true`) lets the runtime consolidate the
+ * Agent's Memory between turns: it merges duplicates, replaces corrected facts and saves facts a
+ * finished conversation left unsaved, which changes Memory IDs and versions. Send
+ * `{ dreaming: { enabled: false } }` to turn it off. `memory` accepts only `dreaming`; another
+ * key is `400 invalid_request`.
+ */
+export interface AgentMemoryConfig {
+  dreaming?: { enabled: boolean }
 }
 
 /**
@@ -892,6 +905,8 @@ export interface AgentRecord {
   status?: AgentStatus
   ownership?: Ownership
   sandbox_resource_class?: string
+  /** The Memory settings in force, with defaults applied. Absent from the create receipt. */
+  memory?: { dreaming: { enabled: boolean } }
   [k: string]: unknown
 }
 

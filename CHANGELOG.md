@@ -3,6 +3,14 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+- Type the Agent Memory setting. `AgentResource.memory` accepts `{ dreaming: { enabled } }`, and
+  `AgentRecord.memory` reports the setting in force. Consolidation is on by default; send
+  `enabled: false` to stop the runtime from rewriting the Agent's Memory between turns. New
+  exported type: `AgentMemoryConfig`. Untyped `createAgent` calls already passed the field
+  through; typed ones no longer fail to compile.
+
 ## 0.16.0 — 2026-11-16
 
 - Type Usage spend. `UsageResult.totals`, and each entry of `groups` and `records`, are now
