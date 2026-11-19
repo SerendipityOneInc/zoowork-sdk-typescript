@@ -252,7 +252,9 @@ post a typed `user.custom_tool_result` event to the owning session. The run repo
 a normal approval. These contracts are source-reviewed and need deployment verification.
 
 At most 32 custom tools are accepted. `timeoutMs` defaults to 600,000 ms and is at most
-86,400,000 ms. A result carries 1 to 16 text, JSON or base64 image blocks.
+86,400,000 ms. A result carries 1 to 16 text, JSON or base64 image blocks; pass `endTurn: true`
+(or `end_turn: true` on `user.custom_tool_result`) to end the turn immediately after recording
+the result without triggering another LLM turn (compatible with `isError: true`).
 
 An MCP server declaration's `context` is opt-in and is not authentication: it passes runtime
 coordinates such as the Agent and Session IDs to the server. `permission` sets the server's default

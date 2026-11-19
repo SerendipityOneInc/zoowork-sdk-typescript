@@ -694,6 +694,7 @@ test('custom-tool calls list pending work and resolve a call with an application
   const result = await resolved.client.resolveCustomToolCall('a', 'ctc/1', {
     content: [{ type: 'json', value: { price: 42 } }],
     isError: false,
+    endTurn: true,
     resolvedBy: 'pricing-service',
   })
   expect(result.signaled).toBe(true)
@@ -704,6 +705,7 @@ test('custom-tool calls list pending work and resolve a call with an application
   expect(JSON.parse(resolved.calls[0]!.body as string)).toEqual({
     content: [{ type: 'json', value: { price: 42 } }],
     isError: false,
+    endTurn: true,
     resolvedBy: 'pricing-service',
   })
 

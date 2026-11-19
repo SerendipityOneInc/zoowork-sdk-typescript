@@ -1130,6 +1130,8 @@ export type CustomToolResultEvent = OutboundEvent & {
   type: 'user.custom_tool_result'
   content: CustomToolResultContent[]
   is_error?: boolean
+  /** When true, ends the current turn immediately after recording this result without invoking the LLM again. */
+  end_turn?: boolean
   idempotency_key?: string
 } & (
     | { /** The `callId` from `agent.custom_tool_use`. */ custom_tool_use_id: string; call_id?: never }
@@ -2138,7 +2140,7 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
   resolveCustomToolCall(
     agentId: string,
     callId: string,
-    input: { content: CustomToolResultContent[]; isError?: boolean; resolvedBy?: string },
+    input: { content: CustomToolResultContent[]; isError?: boolean; endTurn?: boolean; resolvedBy?: string },
   ): Promise<CustomToolCallRecord>
 
   // ── approvals ──
