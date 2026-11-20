@@ -3,6 +3,16 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+- Correct the MCP JSDoc. `AgentResource.mcp` no longer says that only unauthenticated servers
+  work: a server that needs a credential gets it from a Vault (beta). The `McpServerDeclaration`
+  notes, which 0.15.0 left attached to `McpVaultAuth`, are back on `McpServerDeclaration`, and
+  they cover a key that every Session shares as well as each end user's own credential.
+  `VaultManagedRefreshInput` no longer says that the server keeps ZooWork-managed refresh off:
+  the Engine release that opened the public Vault API (v0.2.51-release) accepts
+  `refresh_owner: 'engine'`. Source-reviewed against the Engine deployment configuration.
+
 ## 0.17.0 — 2026-11-20
 
 - Type the Agent Memory setting. `AgentResource.memory` accepts `{ dreaming: { enabled } }`, and
