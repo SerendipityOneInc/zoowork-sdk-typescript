@@ -255,9 +255,12 @@ At most 32 custom tools are accepted. `timeoutMs` defaults to 600,000 ms and is 
 86,400,000 ms. A result carries 1 to 16 text, JSON or base64 image blocks; pass `endTurn: true`
 (or `end_turn: true` on `user.custom_tool_result`) to stop further LLM turns once all tool calls
 in the current batch finish, timeout, or cancel (`isError: true` remains orthogonal and can be
-combined without triggering an LLM retry; `run.finished.status: 'succeeded'` reflects the
-application-directed turn end, and `sessions_yield` takes precedence for `turn_end_reason` if both
-fire in the same turn).
+combined without triggering an LLM retry). On Session events, `run.finished` carries
+`status: 'succeeded'` and `turnEndReason: 'custom_tool'` (or `'yielded'` if `sessions_yield`
+also fired in the same turn); on Webhooks, a custom-tool-ended turn emits `run.finished` with
+`data.turn_end_reason: 'custom_tool'`, whereas a turn where `sessions_yield` takes precedence
+emits `run.yielded` instead of `run.finished` (so webhook consumers subscribed only to
+`run.finished` will not receive a yielded turn).
 
 An MCP server declaration's `context` is opt-in and is not authentication: it passes runtime
 coordinates such as the Agent and Session IDs to the server. `permission` sets the server's default

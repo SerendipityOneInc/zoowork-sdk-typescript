@@ -1130,7 +1130,7 @@ export type CustomToolResultEvent = OutboundEvent & {
   type: 'user.custom_tool_result'
   content: CustomToolResultContent[]
   is_error?: boolean
-  /** When true, ends the current turn immediately after recording this result without invoking the LLM again. */
+  /** When true, stops further LLM turns once all tool calls in the current batch finish, timeout, or cancel. */
   end_turn?: boolean
   idempotency_key?: string
 } & (
