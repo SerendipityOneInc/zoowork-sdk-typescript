@@ -3,7 +3,7 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.17.0 — 2026-11-20
 
 - Type the Agent Memory setting. `AgentResource.memory` accepts `{ dreaming: { enabled } }`, and
   `AgentRecord.memory` reports the setting in force. Consolidation is on by default; send
@@ -22,6 +22,17 @@ day the behaviour was verified, not the day it was written.
   `WebhookRunFinishedData`, including `approval_rejected`.
 - README: wait for `running` in the quickstart, state that Project keys upload Skills, and add the
   custom tool limits, MCP `context`/`permission` notes and an Errors section.
+- Support terminal (`end_turn`) custom tool results. `resolveCustomToolCall` accepts optional
+  `endTurn`, `CustomToolResultEvent` (`user.custom_tool_result`) accepts optional `end_turn`,
+  `CustomToolUse` / `customToolUse()` surfaces `endTurn`, and `WebhookRunFinishedData` types
+  optional `turn_end_reason`. Passing `endTurn: true` / `end_turn: true` stops further LLM
+  turns once all tool calls in the current batch finish, timeout, or cancel (`isError: true`
+  remains orthogonal). On Session events, `run.finished` reports `status: 'succeeded'` and
+  `turnEndReason: 'custom_tool'` (or `'yielded'` when `sessions_yield` also fired); on
+  Webhooks, `run.finished` carries `data.turn_end_reason: 'custom_tool'`, while a turn where
+  `sessions_yield` takes precedence emits `run.yielded` instead of `run.finished`. Shipped on
+  Engine `v0.2.61-release`; the public custom-tool contract remains source-reviewed and awaits
+  live deployment verification.
 
 ## 0.16.0 — 2026-11-16
 
