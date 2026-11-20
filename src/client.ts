@@ -380,20 +380,28 @@ export interface McpToolPermissionOverride {
   requireConfirmation?: boolean
 }
 
+/** @beta The `auth` of an MCP server whose credential comes from the Session's Vault binding. */
+export interface McpVaultAuth {
+  type: 'vault'
+}
+
 /**
  * One remote MCP server, declared as `resource.mcp[]` on create or update.
  *
- * Staging-verified 2026-08-07, end to end, for UNAUTHENTICATED public servers: the tools appear
- * in the model's manifest as `mcp__<server>__<tool>` and really execute. Two traps:
+ * Staging-verified 2026-08-07, end to end, for unauthenticated public servers: the tools appear
+ * in the model's manifest as `mcp__<server>__<tool>` and really execute. Servers that take a
+ * Vault credential (`auth`, beta) passed the two-user Vault acceptance on staging for 0.15.0.
+ * Two traps:
  *
  *  - `name` must not contain an underscore. The tool-name grammar is `mcp__<server>__<tool>`,
  *    so an underscore in the server name makes the split ambiguous and the server is rejected.
  *  - `credential` is a dead end for API-key callers. The slug is accepted and stored on the
  *    agent, but the endpoint that would hold the secret it points at
  *    (`PUT /agents/{id}/credentials/{app}`) is 404 through the gateway BY DESIGN. For a server
- *    that needs each end user's own credential, declare `auth: { type: 'vault' }` instead and
- *    attach the user's Vault when creating their Session (Vault, beta). A server that declares
- *    both `auth` and `credential` is disabled.
+ *    that needs a credential, declare `auth: { type: 'vault' }` instead and attach a Vault that
+ *    holds it when creating each Session (Vault, beta): each end user's own Vault, or one Vault
+ *    that every Session shares for a key your application owns. A server that declares both
+ *    `auth` and `credential` is disabled.
  *
  * Remote HTTP only; no stdio. Catalog failures emit `agent.error` with
  * `kind: 'mcp_connection_failed'` or `'mcp_authentication_failed'`, a server name,
@@ -402,10 +410,6 @@ export interface McpToolPermissionOverride {
  * a later catalog resolution may probe again, not a periodic retry or recovery guarantee.
  * These failure/recovery details are source-reviewed, not deployment-verified here.
  */
-export interface McpVaultAuth {
-  type: 'vault'
-}
-
 export interface McpServerDeclaration {
   /** Server slug. Appears in every tool name as `mcp__<name>__<tool>`. No underscores. */
   name: string
@@ -563,7 +567,11 @@ export interface AgentResource {
    * `permissions` keys remain exact. Kept open for forward-compatible policy fields.
    */
   tool_policy?: Record<string, unknown>
-  /** Remote MCP servers. Only unauthenticated ones work today — see {@link McpServerDeclaration}. */
+  /**
+   * Remote MCP servers. A server that needs a credential gets it from a Vault (beta): declare
+   * `auth: { type: 'vault' }` and create each Session with `vault_ids`. See
+   * {@link McpServerDeclaration}.
+   */
   mcp?: McpServerDeclaration[]
   /**
    * Tools executed by your application. At most 32. A model call emits
