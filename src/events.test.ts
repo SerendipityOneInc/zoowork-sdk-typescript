@@ -69,7 +69,7 @@ test('customToolUse exposes requested and resolved application-tool phases', () 
   expect(customToolUse(normalizeEvent({
     seq: 2,
     event_type: 'agent.custom_tool_use',
-    payload: { phase: 'resolved', callId: 'ctc_1', outcome: 'completed', isError: false, resolvedBy: 'app' },
-  }))).toEqual({ phase: 'resolved', callId: 'ctc_1', outcome: 'completed', isError: false, resolvedBy: 'app' })
+    payload: { phase: 'resolved', callId: 'ctc_1', outcome: 'completed', isError: false, endTurn: true, resolvedBy: 'app' },
+  }))).toEqual({ phase: 'resolved', callId: 'ctc_1', outcome: 'completed', isError: false, endTurn: true, resolvedBy: 'app' })
   expect(customToolUse(normalizeEvent({ seq: 3, event_type: 'agent.tool', payload: {} }))).toBeUndefined()
 })

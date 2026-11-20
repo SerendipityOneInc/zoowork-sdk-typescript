@@ -264,6 +264,7 @@ test('custom tools and filtered session pages preserve the source-reviewed publi
     custom_tool_use_id: 'ctc-test',
     content: [{ type: 'json', value: { price: 42 } }],
     is_error: false,
+    end_turn: true,
     idempotency_key: 'price-result-1',
   } satisfies CustomToolResultEvent
   const create = harness({ agent_id: 'agent-test' })

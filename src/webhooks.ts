@@ -162,6 +162,7 @@ export interface WebhookRunFinishedData extends WebhookRunEventData {
    */
   terminal_outcome?: string
   output_type?: string
+  turn_end_reason?: string
   error_class?: string
   failure_stage?: string
 }
