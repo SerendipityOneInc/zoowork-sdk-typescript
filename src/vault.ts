@@ -103,8 +103,10 @@ export interface VaultRevisionWriteOptions extends VaultWriteOptions {
   revision: number
 }
 
-/** @beta Engine-managed OAuth refresh material. The server keeps it off until it opens managed refresh
- * (400 `vault.unsupported_refresh_owner` meanwhile). */
+/**
+ * @beta OAuth refresh material for `refresh_owner: 'engine'`: ZooWork refreshes the access token
+ * with it. A deployment without managed refresh answers 400 `vault.unsupported_refresh_owner`.
+ */
 export type VaultManagedRefreshInput = {
   token_endpoint: string
   client_id: string
