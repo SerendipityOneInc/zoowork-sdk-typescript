@@ -1,5 +1,5 @@
 import type { ApprovalRecord, CustomToolCallRecord, Ownership } from './client.js';
-import type { WebhookEventType } from './webhooks.js';
+import type { NodeWebhookEventType, WebhookEventType } from './webhooks.js';
 /** Response fields retain their API spelling; unknown additions are preserved. */
 export type ApiObject = Record<string, unknown>;
 export interface CursorOptions {
@@ -115,7 +115,7 @@ export interface RunOutput extends ApiObject {
 }
 export interface AgentWebhookInput {
     url: string;
-    event_types: Exclude<WebhookEventType, 'webhook.test'>[];
+    event_types: Exclude<WebhookEventType, 'webhook.test' | NodeWebhookEventType>[];
     description?: string | null;
     session_scope?: 'api' | 'all';
     enabled?: boolean;
@@ -231,20 +231,20 @@ export interface DeveloperApi {
     redeliverAgentWebhookDelivery(agentId: string, webhookId: string, deliveryId: string, idempotencyKey: string): Promise<WebhookRedeliveryReceipt>;
     redeliverAgentWebhookDeliveries(agentId: string, webhookId: string, input: WebhookBatchRedeliveryInput, idempotencyKey: string): Promise<WebhookBatchRedeliveryReceipt>;
 }
-type Request = <T>(path: string, init?: {
+export type Request = <T>(path: string, init?: {
     method?: string;
     body?: string;
     headers?: Record<string, string>;
 }) => Promise<T>;
 const segment = encodeURIComponent;
-function query(params: Record<string, string | number | boolean | undefined>): string {
+export function query(params: Record<string, string | number | boolean | undefined>): string {
     const result = new URLSearchParams();
     for (const [key, value] of Object.entries(params))
         if (value !== undefined)
             result.set(key, String(value));
     return result.size ? `?${result}` : '';
 }
-function post(body: unknown, idempotencyKey?: string) {
+export function post(body: unknown, idempotencyKey?: string) {
     return { method: 'POST', body: JSON.stringify(body), ...(idempotencyKey !== undefined ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}) };
 }
 /** Uses the same authentication/error transport as the existing client. Never retries writes. */

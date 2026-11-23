@@ -9,6 +9,7 @@
  */
 
 import { createDeveloperApi, type DeveloperApi } from './developer-api.js'
+import { createNodesApi, type NodesApi } from './nodes.js'
 import { parseSSE, isObj } from './sse.js'
 import { normalizeEvent, type SessionEvent } from './events.js'
 import {
@@ -1735,7 +1736,7 @@ export interface SessionCreateInput {
  */
 type NoVaultFields = { [K in Exclude<keyof SessionVaultFields, 'isolation'>]?: never }
 
-export interface ZooworkClient extends DeveloperApi, VaultApi {
+export interface ZooworkClient extends DeveloperApi, VaultApi, NodesApi {
   listModels(): Promise<ModelInfo[]>
 
   // ── agents ──
@@ -2583,6 +2584,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
 
   const client: ZooworkClient = {
     ...createDeveloperApi(json, bytes, artifactSelectors),
+    ...createNodesApi(json),
     ...createVaultApi(json, vaultFailure, { query, sessions }),
     listModels: async () => {
       const data = await json<ModelInfo[] | { models?: ModelInfo[] }>('/models')
