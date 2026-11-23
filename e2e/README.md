@@ -226,6 +226,36 @@ package or runner changes. Tests under `e2e/thinking.test.ts` are synthetic, off
 regressions and do not prove live availability. Changes confined to `e2e/` do not require an SDK
 version bump or registry publication; a runtime/API change follows the normal release process.
 
+## Custom tools (`end_turn`)
+
+The separate custom-tools runner verifies public gateway forwarding and terminal `end_turn`
+semantics on a single throwaway Agent across two Sessions:
+
+1. `rest_end_turn`: `resolveCustomToolCall` sends `endTurn: true` / `isError: false`.
+2. `session_event_end_turn_error`: `postEvents` sends `user.custom_tool_result` with
+   `is_error: true` and `end_turn: true`.
+
+Both cases require `customToolUse(ev)` to surface `phase: 'resolved'`, `outcome: 'completed'`,
+`endTurn: true`, the expected `isError`, `run.finished` with `status: 'succeeded'`,
+`outputType: 'not_required'`, and `turnEndReason: 'custom_tool'`, and zero subsequent
+`agent.assistant` or retry events after resolution.
+
+Build the current SDK checkout (or test from an isolated consumer with `custom-tools.ts`,
+`custom-tools-smoke.ts`, and `guard.ts`), then run the opt-in test:
+
+```sh
+pnpm build
+node e2e/custom-tools.ts --out-dir /absolute/private/new-custom-tools-result \
+  --confirm-staging --api-key-stdin
+```
+
+Default staging is `https://claw-interface.ecap.yesy.live/service/v1`; pass `--base-url` to
+override, or pass `--base-url HTTPS_SERVICE_V1 --confirm-production` with maintainer authorization
+for production. Requests are capped at 250 over ten minutes with an independent 40-request,
+90-second cleanup reserve (`stopAgent`, `deleteSession`, `deleteAgent`, 404 check). Offline
+regressions live in `e2e/custom-tools.test.ts`; changes confined to `e2e/` do not require an SDK
+version bump or npm publication.
+
 ## Vault public API compatibility acceptance (beta)
 
 `pnpm test:e2e:vault` is a separate, staging-only acceptance command. It uses the built SDK
