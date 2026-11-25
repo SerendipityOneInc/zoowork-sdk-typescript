@@ -1056,6 +1056,100 @@ export interface SessionQueue {
   [k: string]: unknown
 }
 
+/** One model a Session can be switched to; see {@link SessionModel.available_models}. */
+export interface SessionModelOption {
+  /** Pass as {@link SessionModelUpdate} `model_id`. Spelled without the `litellm/` prefix. */
+  id: string
+  display_name: string
+  /** Same meaning as `ModelInfo.thinking`. */
+  thinking: NonNullable<ModelInfo['thinking']>
+  [k: string]: unknown
+}
+
+/**
+ * The model and thinking level of one Session, separate from the Agent's `model` configuration.
+ * Returned by `getSessionModel` and `updateSessionModel`. Source-reviewed against Engine and the
+ * public gateway; not yet verified live.
+ */
+export interface SessionModel {
+  session_id: string
+  /** `override` when this Session has its own model, `agent_default` when it follows the Agent. */
+  mode: 'agent_default' | 'override' | string
+  /**
+   * The Session's own model in the catalog's full spelling (`litellm/…`, unlike
+   * {@link SessionModelOption.id}), or `null` when it follows the Agent. If that model is later
+   * retired, turns fail until another one is selected; there is no fallback.
+   */
+  selected_model_id: string | null
+  /** The Agent's model, as configured on the Agent. */
+  default_model_id: string
+  /** `auto` when the Agent routes each turn to a model itself. */
+  default_mode: 'fixed' | 'auto' | string
+  /** The model the next turn uses; `null` when it is not fixed (Agent `auto`) or `available` is false. */
+  next_turn_model_id: string | null
+  /** Display names, `null` when the model is not a listed platform model. */
+  current_model_name: string | null
+  default_model_name: string | null
+  /** The thinking levels of the Session's current model (the Agent's one when it has no override). */
+  current_model_thinking: NonNullable<ModelInfo['thinking']> | null
+  /** Models an update can switch to. Empty while the Session is not writable. */
+  available_models: SessionModelOption[]
+  /** The Session's own thinking level, or `null` when it has none. */
+  thinking: ThinkingLevel | null
+  /** The Agent's thinking level when this Session inherits it, otherwise `null`. */
+  default_thinking: ThinkingLevel | null
+  /** Absent on servers too old to accept `thinking` here. */
+  thinking_supported?: boolean
+  /** Send back as `expected_selection_version`; increments on every change to the selection. */
+  selection_version: number
+  /** Send back as `expected_config_version`. The Agent's config version. */
+  config_version: number
+  applies_from: 'next_turn' | string
+  /** `true` when the Session is writable and its current model can run; always `false` when not writable. */
+  available: boolean
+  /** Whether `updateSessionModel` is accepted. */
+  writable: boolean
+  /**
+   * Why the Session is not writable, or `task_model_unavailable` when it is writable but the
+   * current model cannot run; `null` otherwise. `task_model_read_only` covers subagent Sessions,
+   * Sessions whose `runtime_mode` is not `active`, and Sessions pinned to a config version
+   * (`createSession` with an explicit `runtime_mode: 'active'` pins one).
+   */
+  unavailable_reason:
+    | 'session_archived'
+    | 'task_model_read_only'
+    | 'vault_profile_restricted'
+    | 'task_model_subscription_bound'
+    | 'task_model_unavailable'
+    | string
+    | null
+  [k: string]: unknown
+}
+
+/**
+ * A change to a Session's model, its thinking level, or both. An omitted field and `null` mean
+ * different things:
+ *
+ * - `model_id`: a string selects that model (with or without the `litellm/` prefix); `null`
+ *   restores the Agent's model AND thinking level, so it cannot be combined with a level;
+ *   omitted keeps the model.
+ * - `thinking`: a level sets it and also fixes the current model for this Session; `null` clears
+ *   the Session's level; omitted keeps it, except that switching to a different model clears it.
+ *
+ * Once a model is fixed, the Session no longer inherits the Agent's level: without one of its own
+ * it uses the model's default. Clearing the level of a Session that follows the Agent is a no-op.
+ *
+ * Both `expected_*` values come from the last {@link SessionModel} you read.
+ */
+export type SessionModelUpdate = {
+  expected_selection_version: number
+  expected_config_version: number
+} & (
+  | { model_id: string; thinking?: ThinkingLevel | null }
+  | { model_id?: undefined; thinking: ThinkingLevel | null }
+  | { model_id: null; thinking?: null }
+)
+
 export interface SessionRecord {
   session_id: string
   /** `api:{session_id}` for a session you created; `agent:{agent_id}:cron:{schedule_id}:…` for a scheduled fire. */
@@ -2108,6 +2202,26 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
   archiveSession(agentId: string, sessionId: string): Promise<{ session_id?: string; archived: boolean }>
   /** Soft delete (204). An in-flight run is cancelled first; transcripts and events survive for audit. */
   deleteSession(agentId: string, sessionId: string): Promise<void>
+  /** The Session's current model and thinking level, the models it can switch to, and the versions an update needs. */
+  getSessionModel(agentId: string, sessionId: string): Promise<SessionModel>
+  /**
+   * Set the model and/or thinking level of ONE Session from its next turn; the Agent and its other
+   * Sessions do not change. See {@link SessionModelUpdate} for omitted vs `null`.
+   *
+   * Optimistic concurrency: `409 task_model_changed` means the selection or the Agent
+   * configuration changed since you read it, and nothing was written. The SDK never retries this
+   * call. Read again and decide before sending another update. There is no idempotency key, so a
+   * retry after a lost response may get this 409 for your own earlier write; compare the re-read
+   * state first. A write that changes nothing succeeds without a new `selection_version`.
+   *
+   * Other failures, by `ZooworkError.type`: 409 with the `unavailable_reason` value when the
+   * Session is not writable (`task_model_read_only`, `session_archived`,
+   * `task_model_subscription_bound`); 409 `task_model_unavailable` for a model that cannot be
+   * selected; 403 `vault_profile_restricted` for a Session with Vault credentials; 400
+   * `invalid_request` for an unknown model or an unsupported combination, such as a thinking level
+   * alone while the Session follows an Agent with `auto` routing (send a `model_id` with it).
+   */
+  updateSessionModel(agentId: string, sessionId: string, update: SessionModelUpdate): Promise<SessionModel>
   /**
    * 202; `user.interrupt` with no in-flight run returns `accepted:false` — not an error.
    * Accepted events come back as full event objects (with `seq`) where the server supports the
@@ -2945,6 +3059,12 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     deleteSession: async (agentId, sessionId) => {
       await json(`${sessions(agentId)}/${encodeURIComponent(sessionId)}`, { method: 'DELETE' })
     },
+    getSessionModel: (agentId, sessionId) => json(`${sessions(agentId)}/${encodeURIComponent(sessionId)}/model`),
+    updateSessionModel: (agentId, sessionId, update) =>
+      json(`${sessions(agentId)}/${encodeURIComponent(sessionId)}/model`, {
+        method: 'PUT',
+        body: JSON.stringify(update),
+      }),
     postEvents: async (agentId, sessionId, events) => {
       const data = await json<{ events?: { id?: string; type?: string; accepted?: boolean }[] }>(
         `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events`,

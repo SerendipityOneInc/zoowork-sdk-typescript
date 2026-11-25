@@ -272,6 +272,34 @@ scope, so do not reuse a cursor created without it.
 `patchSession`: the gateway does not proxy `PATCH` at all (405), so session `metadata` is fixed at
 creation time.
 
+`getSessionModel` and `updateSessionModel` read and change the model and thinking level of one
+Session from its next turn, without changing the Agent. Not yet verified live.
+
+```ts
+const state = await zc.getSessionModel(agentId, sessionId)
+// Both versions come from the read; a mismatch is 409 and writes nothing.
+const versions = {
+  expected_selection_version: state.selection_version,
+  expected_config_version: state.config_version,
+}
+try {
+  await zc.updateSessionModel(agentId, sessionId, {
+    ...versions,
+    model_id: state.available_models[0].id, // omit to keep the model
+    thinking: 'high',                       // omit to keep the level (a model switch clears it)
+  })
+  // Instead: { ...versions, thinking: null } clears the level and keeps the model;
+  //          { ...versions, model_id: null } follows the Agent's model and level again.
+} catch (err) {
+  if (!(err instanceof ZooworkError) || err.type !== 'task_model_changed') throw err
+  // Someone else changed it first. Read again and decide; the SDK does not retry.
+}
+```
+
+Check `state.writable` first; `unavailable_reason` says why not (for example `session_archived`, or
+`task_model_read_only` for a subagent Session). `state.thinking` is the Session's own level and
+`state.default_thinking` the Agent level it inherits.
+
 An application-executed tool is declared in `resource.custom_tools`. When
 `customToolUse(ev)?.phase === 'requested'`, execute the named operation and call
 `resolveCustomToolCall`; `listCustomToolCalls` recovers pending work after a restart. You may also

@@ -3,6 +3,15 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## Unreleased
+
+- Read and change the model and thinking level of one Session with `getSessionModel` and
+  `updateSessionModel`. `thinking: null` clears the Session's level and `model_id: null` follows
+  the Agent again; an omitted field is kept. An update carries the `selection_version` and
+  `config_version` it was based on, and a mismatch is `409 task_model_changed`; the SDK does not
+  retry it. New exported types: `SessionModel`, `SessionModelOption`, `SessionModelUpdate`.
+  Source-reviewed against Engine and the public gateway; not yet verified live.
+
 ## 0.18.0 — 2026-11-25
 
 - Support Platform Agent Build with `createBuildAgent`, `getBuild`, `openBuildSession`,
