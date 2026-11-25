@@ -1,0 +1,116 @@
+import { expect, test, vi } from 'vitest'
+import { createZooworkClient, type ZooworkClient, ZooworkError } from './index.js'
+
+const baseUrl = 'https://api.test/service/v1'
+const apiKey = 'zwp_synthetic'
+const receipt = {
+  agent_id: 'a', config_version: 2, mode: 'build', build_session_id: 's', working_revision_id: 'r1',
+} as const
+
+const cases: {
+  name: string
+  method: string
+  path: string
+  key?: string
+  body?: unknown
+  call: (client: ZooworkClient) => Promise<unknown>
+  response: unknown
+}[] = [
+  {
+    name: 'create with options', method: 'POST', path: '/agents', key: 'create-1',
+    body: { mode: 'build', name: 'Quote agent', intent: '', model: 'model' },
+    call: (c) => c.createBuildAgent({ name: 'Quote agent', intent: '', model: 'model' }, 'create-1'),
+    response: receipt,
+  },
+  {
+    name: 'create with defaults', method: 'POST', path: '/agents', key: 'create-2',
+    body: { mode: 'build' }, call: (c) => c.createBuildAgent({}, 'create-2'), response: receipt,
+  },
+  {
+    name: 'summary', method: 'GET', path: '/agents/a%20b/build', call: (c) => c.getBuild('a b'),
+    response: {
+      name: 'Quote agent', description: '', avatar_url: null,
+      quick_commands: [{ id: 'quote', label: 'Quote', label_cn: '', prompt: 'Quote' }],
+      working_revision_id: 'r2', effective_revision_id: null,
+      apply: { state: 'pending', blockers: [] }, future: { field: true },
+    },
+  },
+  {
+    name: 'open session', method: 'POST', path: '/agents/a%20b/build-session',
+    call: (c) => c.openBuildSession('a b'), response: { session_id: 's', working_revision_id: 'r2' },
+  },
+  {
+    name: 'superseded result', method: 'GET', path: '/agents/a%20b/build-session/runs/run%3F1',
+    call: (c) => c.getBuildRun('a b', 'run?1'),
+    response: {
+      run_id: 'run?1', change: 'committed', revision_id: 'r1', working_revision_id: 'r2',
+      effective_revision_id: 'r2', apply: { state: 'superseded', blockers: [] },
+    },
+  },
+  {
+    name: 'conflicted result', method: 'GET', path: '/agents/a%20b/build-session/runs/run2',
+    call: (c) => c.getBuildRun('a b', 'run2'),
+    response: { run_id: 'run2', change: 'conflict', working_revision_id: 'r2', effective_revision_id: null },
+  },
+  {
+    name: 'retry apply', method: 'POST', path: '/agents/a%20b/build/apply', key: 'apply-1',
+    call: (c) => c.retryBuildApply('a b', 'apply-1'),
+    response: { state: 'blocked', blockers: [{ code: 'agent_revision.environment_rebuild_required' }] },
+  },
+  {
+    name: 'revision list', method: 'GET', path: '/agents/a%20b/revisions',
+    call: (c) => c.listRevisions('a b'),
+    response: { revisions: [{ revision_id: 'r2', parent_revision_id: 'r1', skill_bindings: [] }] },
+  },
+  {
+    name: 'revision diff', method: 'GET', path: '/agents/a%20b/revisions/r%3F2/diff',
+    call: (c) => c.getRevisionDiff('a b', 'r?2'),
+    response: { revision_id: 'r?2', parent_revision_id: 'r1', unified_diff: '+New source\n' },
+  },
+]
+
+test.each(cases)('Build wire contract for $name', async ({ method, path, key, body, call, response }) => {
+  const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    const request = new Request(url, init)
+    expect(request.url).toBe(baseUrl + path)
+    expect(request.method).toBe(method)
+    expect(request.headers.get('Authorization')).toBe('Bearer ' + apiKey)
+    expect(request.headers.get('Idempotency-Key')).toBe(key ?? null)
+    expect(request.headers.has('If-Match')).toBe(false)
+    expect(request.headers.get('Content-Type')).toBe(body === undefined ? null : 'application/json')
+    if (body === undefined) expect(await request.text()).toBe('')
+    else expect(await request.json()).toEqual(body)
+    return Response.json(response, { status: path === '/agents' ? 201 : 200 })
+  })
+  expect(await call(createZooworkClient({ apiKey, baseUrl, fetch }))).toEqual(response)
+  expect(fetch).toHaveBeenCalledOnce()
+})
+
+test('Build writes require idempotency keys before HTTP', async () => {
+  const fetch = vi.fn()
+  const client = createZooworkClient({ apiKey, baseUrl, fetch })
+  // @ts-expect-error Build creation requires an idempotency key.
+  await expect(client.createBuildAgent({})).rejects.toThrow('idempotencyKey')
+  // @ts-expect-error Build apply requires an idempotency key.
+  await expect(client.retryBuildApply('a')).rejects.toThrow('idempotencyKey')
+  for (const key of ['', ' \t ']) {
+    await expect(client.createBuildAgent({}, key)).rejects.toThrow('idempotencyKey')
+    await expect(client.retryBuildApply('a', key)).rejects.toThrow('idempotencyKey')
+  }
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+test.each<[number, string, (client: ZooworkClient) => Promise<unknown>]>([
+  [404, 'agent.build_run_not_found', (c) => c.getBuildRun('a', 'r')],
+  [409, 'agent.build_not_enabled', (c) => c.getBuild('a')],
+  [400, 'agent.invalid_idempotency_key', (c) => c.retryBuildApply('a', 'k'.repeat(201))],
+  [400, 'agent.build_attachments_unsupported', (c) => c.postEvents('a', 's', [
+    { type: 'user.message', content: 'text', attachments: [{ artifact_id: 'art_1' }] },
+  ])],
+  [409, 'agent.build_managed_configuration', (c) => c.updateAgent('a', { name: 'Name' })],
+])('Build server error %i %s passes through', async (status, code, call) => {
+  const fetch = async () => Response.json({ code, detail: 'Synthetic gateway error' }, { status })
+  const result = call(createZooworkClient({ apiKey, baseUrl, fetch }))
+  await expect(result).rejects.toBeInstanceOf(ZooworkError)
+  await expect(result).rejects.toMatchObject({ status, code })
+})

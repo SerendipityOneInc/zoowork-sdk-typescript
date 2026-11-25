@@ -8,6 +8,16 @@
  * that, never on the message text.
  */
 
+import type {
+  AgentRevisionDiff,
+  AgentRevisionList,
+  BuildAgentCreated,
+  BuildAgentInput,
+  BuildApply,
+  BuildRun,
+  BuildSession,
+  BuildSummary,
+} from './build.js'
 import { createDeveloperApi, type DeveloperApi } from './developer-api.js'
 import { parseSSE, isObj } from './sse.js'
 import { normalizeEvent, type SessionEvent } from './events.js'
@@ -25,6 +35,13 @@ import {
  * need to point at a different deployment.
  */
 export const DEFAULT_BASE_URL = 'https://clawapi.ecap.gsmo.ai/service/v1'
+
+function buildWriteHeaders(idempotencyKey: string): Record<string, string> {
+  if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
+    throw new TypeError('idempotencyKey is required and must be a non-empty string')
+  }
+  return { 'Idempotency-Key': idempotencyKey.trim() }
+}
 
 /**
  * Read an environment variable without assuming a Node runtime.
@@ -1745,6 +1762,20 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * Ownership is derived from the key. Omit caller-supplied ownership.
    */
   createAgent(input: { resource: AgentResource; ownership?: Ownership }, idempotencyKey?: string): Promise<AgentRecord>
+  /** Create a Build Agent and its Build session. Reuse the key for the same creation. */
+  createBuildAgent(input: BuildAgentInput, idempotencyKey: string): Promise<BuildAgentCreated>
+  /** Read the current working and effective revisions and their apply status. */
+  getBuild(agentId: string): Promise<BuildSummary>
+  /** Open or retrieve this Agent's single Build session. */
+  openBuildSession(agentId: string): Promise<BuildSession>
+  /** Read a Build turn's result using the run ID from the session events. */
+  getBuildRun(agentId: string, runId: string): Promise<BuildRun>
+  /** Retry applying the current saved Working Revision. */
+  retryBuildApply(agentId: string, idempotencyKey: string): Promise<BuildApply>
+  /** List the Build Agent's saved revisions. */
+  listRevisions(agentId: string): Promise<AgentRevisionList>
+  /** Read the unified diff between a saved revision and its parent. */
+  getRevisionDiff(agentId: string, revisionId: string): Promise<AgentRevisionDiff>
   /**
    * List Agents within the key's Project and applicable owner visibility. Labels filter
    * declared labels, and page size is 100. Reads by id still recheck authorization;
@@ -2605,6 +2636,24 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
       })
     },
+    createBuildAgent: async ({ name, intent, model }, idempotencyKey) =>
+      json('/agents', {
+        method: 'POST',
+        headers: buildWriteHeaders(idempotencyKey),
+        body: JSON.stringify({ mode: 'build', name, intent, model }),
+      }),
+    getBuild: (agentId) => json(`${agents(agentId)}/build`),
+    openBuildSession: (agentId) => json(`${agents(agentId)}/build-session`, { method: 'POST' }),
+    getBuildRun: (agentId, runId) =>
+      json(`${agents(agentId)}/build-session/runs/${encodeURIComponent(runId)}`),
+    retryBuildApply: async (agentId, idempotencyKey) =>
+      json(`${agents(agentId)}/build/apply`, {
+        method: 'POST',
+        headers: buildWriteHeaders(idempotencyKey),
+      }),
+    listRevisions: (agentId) => json(`${agents(agentId)}/revisions`),
+    getRevisionDiff: (agentId, revisionId) =>
+      json(`${agents(agentId)}/revisions/${encodeURIComponent(revisionId)}/diff`),
     listAgents: (opts = {}) => {
       // Capture the filters once so caller mutations cannot change the scope mid-walk.
       const labels = { ...opts.labels }
