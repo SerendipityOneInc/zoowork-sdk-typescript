@@ -3,6 +3,8 @@ import {
   type AgentRevisionList,
   type AgentRevisionSummary,
   type BuildQuickCommand,
+  type BuildApply,
+  type BuildRunApply,
   createZooworkClient,
   type ZooworkClient,
   ZooworkError,
@@ -39,7 +41,7 @@ const cases: {
       name: 'Quote agent', description: '', avatar_url: null,
       quick_commands: [{ name: 'Quote', prompt: 'Draft a quote' } satisfies BuildQuickCommand],
       working_revision_id: 'r2', effective_revision_id: null,
-      apply: { state: 'pending', blockers: [] }, future: { field: true },
+      apply: { state: 'pending', config_version: 3, phase: null, blockers: [] }, future: { field: true },
     },
   },
   {
@@ -51,7 +53,8 @@ const cases: {
     call: (c) => c.getBuildRun('a b', 'run?1'),
     response: {
       run_id: 'run?1', change: 'committed', revision_id: 'r1', working_revision_id: 'r2',
-      effective_revision_id: 'r2', apply: { state: 'superseded', blockers: [] },
+      effective_revision_id: 'r2',
+      apply: { state: 'superseded', config_version: 3, phase: null, blockers: [] } satisfies BuildRunApply,
     },
   },
   {
@@ -62,7 +65,18 @@ const cases: {
   {
     name: 'retry apply', method: 'POST', path: '/agents/a%20b/build/apply', key: 'apply-1',
     call: (c) => c.retryBuildApply('a b', 'apply-1'),
-    response: { state: 'blocked', blockers: [{ code: 'agent_revision.environment_rebuild_required' }] },
+    response: {
+      state: 'blocked', config_version: 3, phase: null,
+      blockers: [{ code: 'agent_revision.environment_rebuild_required', acknowledgeable: true }],
+    } satisfies BuildApply,
+  },
+  {
+    name: 'confirm rebuild', method: 'POST', path: '/agents/a%20b/build/apply', key: 'rebuild-1',
+    body: { confirm_rebuild: true, expected_revision_id: 'r2', expected_config_version: 3 },
+    call: (c) => c.retryBuildApply('a b', 'rebuild-1', {
+      confirm_rebuild: true, expected_revision_id: 'r2', expected_config_version: 3,
+    }),
+    response: { state: 'in_progress', config_version: 4, phase: 'preparing', blockers: [] } satisfies BuildApply,
   },
   {
     name: 'revision list', method: 'GET', path: '/agents/a%20b/revisions',

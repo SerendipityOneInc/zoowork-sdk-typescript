@@ -3,6 +3,8 @@ export type {
   BuildAgentCreated,
   BuildSession,
   BuildApplyState,
+  BuildApplyOptions,
+  BuildRebuildPhase,
   BuildRunApplyState,
   BuildBlocker,
   BuildApply,
