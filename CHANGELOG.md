@@ -3,7 +3,15 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.18.0 — 2026-11-25
+
+- Support Platform Agent Build with `createBuildAgent`, `getBuild`, `openBuildSession`,
+  `getBuildRun`, `retryBuildApply`, `listRevisions`, and `getRevisionDiff`.
+  Build creation and apply retries take an idempotency key. Turn results distinguish saved,
+  applied, superseded, and conflicting changes.
+- Add the `examples/build-chat.ts` server and browser demo. The Project Key stays on the
+  server. The example uses the existing message and SSE APIs to resume the Build chat and
+  open a regular task on the same Agent.
 
 - Correct the MCP JSDoc. `AgentResource.mcp` no longer says that only unauthenticated servers
   work: a server that needs a credential gets it from a Vault (beta). The `McpServerDeclaration`
