@@ -20,7 +20,7 @@ function json(response: ServerResponse, body: unknown, status = 200) {
   response.end(JSON.stringify(body))
 }
 
-async function input(request: IncomingMessage, field: 'name' | 'text', limit: number) {
+async function input(request: IncomingMessage) {
   if (request.headers['content-type'] !== 'application/json') {
     throw new RequestError(415, 'json_required')
   }
@@ -33,13 +33,16 @@ async function input(request: IncomingMessage, field: 'name' | 'text', limit: nu
   }
   try {
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
-    const value = body[field]
     const key = body.request_id
-    if (typeof value === 'string' && value.trim() && value.length <= limit &&
-        typeof key === 'string' && key.trim() && key.length <= 200) return { value, key }
+    if (typeof key === 'string' && key.trim() && key.length <= 200) return { body, key }
   } catch {
     // Invalid JSON or a non-object body.
   }
+  throw new RequestError(400, 'invalid_body')
+}
+
+function requiredText(value: unknown, limit: number): string {
+  if (typeof value === 'string' && value.trim() && value.length <= limit) return value
   throw new RequestError(400, 'invalid_body')
 }
 
@@ -90,7 +93,8 @@ createServer(async (request, response) => {
       return
     }
     if (method === 'POST' && path === '/api/agents') {
-      const { value: name, key } = await input(request, 'name', 128)
+      const { body, key } = await input(request)
+      const name = requiredText(body.name, 128)
       const { agent_id, build_session_id } = await sdk.createBuildAgent({ name }, key)
       if (!sessions.has(agent_id)) sessions.set(agent_id, new Set())
       sessions.get(agent_id)!.add(build_session_id)
@@ -102,7 +106,8 @@ createServer(async (request, response) => {
     const knownSessions = sessions.get(agent)
     if (!path.startsWith('/api/agents/') || !knownSessions) throw new RequestError(404, 'unknown_agent')
     if (method === 'POST' && resource === 'tasks' && sessionPart === undefined) {
-      const { session_id } = await sdk.createSession(agent, {}, crypto.randomUUID())
+      const { key } = await input(request)
+      const { session_id } = await sdk.createSession(agent, {}, key)
       knownSessions.add(session_id)
       return json(response, { session_id })
     }
@@ -116,7 +121,8 @@ createServer(async (request, response) => {
     const session = decodeURIComponent(sessionPart ?? '')
     if (resource !== 'sessions' || !knownSessions.has(session)) throw new RequestError(404, 'unknown_session')
     if (method === 'POST' && action === 'messages') {
-      const { value: content, key } = await input(request, 'text', 8000)
+      const { body, key } = await input(request)
+      const content = requiredText(body.text, 8000)
       await sdk.postEvents(agent, session, [{ type: 'user.message', content, idempotency_key: key }])
       return json(response, { accepted: true })
     }

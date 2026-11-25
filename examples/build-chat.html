@@ -42,6 +42,7 @@
 const $ = (id) => document.getElementById(id)
 const lanes = {}
 const results = new Map()
+const pendingWrites = new Map()
 let agent
 
 async function request(path, body) {
@@ -50,6 +51,16 @@ async function request(path, body) {
   })
   const value = await response.json()
   if (!response.ok) throw new Error(`HTTP ${response.status} · ${value.detail ?? 'Request failed'}`)
+  return value
+}
+
+async function write(path, fields = {}) {
+  const operation = JSON.stringify([path, fields])
+  const requestId = pendingWrites.get(operation) ?? crypto.randomUUID()
+  pendingWrites.set(operation, requestId)
+  const value = await request(path, { ...fields, request_id: requestId })
+  // A lost response may hide a successful write. Retain its key until a response confirms it.
+  pendingWrites.delete(operation)
   return value
 }
 
@@ -122,8 +133,10 @@ function showError(error) { $('error').textContent = error.message }
 $('new-agent').onsubmit = async (event) => {
   event.preventDefault()
   $('error').textContent = ''
+  const button = event.currentTarget.querySelector('button')
+  button.disabled = true
   try {
-    const result = await request('/api/agents', { name: $('agent-name').value, request_id: crypto.randomUUID() })
+    const result = await write('/api/agents', { name: $('agent-name').value })
     for (const lane of Object.values(lanes)) lane.stream.close()
     delete lanes.task
     results.clear()
@@ -136,15 +149,22 @@ $('new-agent').onsubmit = async (event) => {
     $('refresh').disabled = true
     connect('build', result.build_session_id)
   } catch (error) { showError(error) }
+  finally { button.disabled = false }
 }
 
 $('new-task').onclick = async () => {
+  const button = $('new-task')
+  const url = path() + '/tasks'
+  button.disabled = true
+  $('error').textContent = ''
   try {
-    const result = await request(path() + '/tasks', {})
+    const result = await write(url)
+    if (url !== path() + '/tasks') return
     $('task-log').replaceChildren()
     $('task-form').querySelector('button').disabled = false
     connect('task', result.session_id)
   } catch (error) { showError(error) }
+  finally { button.disabled = false }
 }
 $('refresh').onclick = refreshResults
 
@@ -158,8 +178,10 @@ for (const lane of ['build', 'task']) {
     if (!text) return
     $('error').textContent = ''
     button.disabled = true
+    const connection = lanes[lane]
     try {
-      await request(lanes[lane].url + '/messages', { text, request_id: crypto.randomUUID() })
+      await write(connection.url + '/messages', { text })
+      if (lanes[lane] !== connection) return
       append(lane, 'You · ' + text)
       input.value = ''
     } catch (error) { showError(error) }
