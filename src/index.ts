@@ -1,3 +1,22 @@
+export type {
+  BuildAgentInput,
+  BuildAgentCreated,
+  BuildSession,
+  BuildApplyState,
+  BuildRunApplyState,
+  BuildBlocker,
+  BuildApply,
+  BuildRunApply,
+  BuildQuickCommand,
+  BuildSummary,
+  BuildCommittedRun,
+  BuildUncommittedRun,
+  BuildRun,
+  AgentRevisionSummary,
+  AgentRevisionList,
+  AgentRevisionDiff,
+} from './build.js'
+
 export {
   createZooworkClient,
   DEFAULT_BASE_URL,

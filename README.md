@@ -103,6 +103,34 @@ An explicit option always beats the environment variable.
 > `status.agent_desired_state` and `status.computer_desired_state`, when present, show the
 > agent's own switch and its Computer's state, which `desired_state` combines.
 
+## Platform Agent Build
+
+[Run the TypeScript Build chat example](examples/build-chat.ts) with a Project Key.
+Deploy the Engine changes before the Platform API changes. Set `ZOOWORK_API_KEY` in the server
+environment. Keep the Project Key on the backend so the browser only calls your backend.
+Build messages support text only.
+
+From this checkout, install dependencies and start the demo.
+
+```bash
+corepack pnpm@10 install --frozen-lockfile
+corepack pnpm@10 exec tsx examples/build-chat.ts
+```
+
+Open `http://127.0.0.1:18082`. Create a Build Agent and ask it to configure itself. After each turn
+the page reads `getBuildRun` with the event's run ID. It shows saved, applied, superseded, and
+conflict states independently of the model's reply. Refresh results to recheck an earlier turn.
+Open a normal task with the same Agent to use its applied revision. The browser resumes disconnected
+streams via the backend using the last SSE cursor.
+
+Use `createBuildAgent` and `retryBuildApply` with an explicit `idempotencyKey`. You can read the
+current state with `getBuild`, reopen the Build chat with `openBuildSession`, and inspect saved
+changes with `listRevisions` and `getRevisionDiff`.
+Quick commands in `getBuild` have `name` and `prompt`. Each revision in `listRevisions` has
+`revision_id`, a nullable `parent_revision_id`, `commit_message`, `created_at`, and
+`validation_passed`. The example creates real Agents and runs on a live deployment. Delete the
+demo Agent when finished.
+
 ## Listing agents and pagination
 
 `listAgents()` returns an awaitable, async-iterable request. Use `for await` to traverse all
