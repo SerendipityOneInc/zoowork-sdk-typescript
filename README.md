@@ -273,7 +273,8 @@ scope, so do not reuse a cursor created without it.
 creation time.
 
 `getSessionModel` and `updateSessionModel` read and change the model and thinking level of one
-Session from its next turn, without changing the Agent. Not yet verified live.
+Session from its next turn, without changing the Agent. Verified on staging on 2026-11-25, except
+that no turn was run to observe the new model and level.
 
 ```ts
 const state = await zc.getSessionModel(agentId, sessionId)

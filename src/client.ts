@@ -1068,8 +1068,8 @@ export interface SessionModelOption {
 
 /**
  * The model and thinking level of one Session, separate from the Agent's `model` configuration.
- * Returned by `getSessionModel` and `updateSessionModel`. Source-reviewed against Engine and the
- * public gateway; not yet verified live.
+ * Returned by `getSessionModel` and `updateSessionModel`. Verified on staging on 2026-11-25,
+ * except the effect on a turn and Vault, subscription and `auto`-routing Agents.
  */
 export interface SessionModel {
   session_id: string

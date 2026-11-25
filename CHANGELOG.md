@@ -10,7 +10,9 @@ day the behaviour was verified, not the day it was written.
   the Agent again; an omitted field is kept. An update carries the `selection_version` and
   `config_version` it was based on, and a mismatch is `409 task_model_changed`; the SDK does not
   retry it. New exported types: `SessionModel`, `SessionModelOption`, `SessionModelUpdate`.
-  Source-reviewed against Engine and the public gateway; not yet verified live.
+  Verified on staging on 2026-11-25: read, set model and level, level only, clear, reset, the 409
+  conflict, an unknown model and an archived Session. Not verified live: the effect on a turn, and
+  Vault, subscription and `auto`-routing Agents.
 
 ## 0.18.0 — 2026-11-25
 
