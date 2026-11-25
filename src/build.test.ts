@@ -1,5 +1,12 @@
-import { expect, test, vi } from 'vitest'
-import { createZooworkClient, type ZooworkClient, ZooworkError } from './index.js'
+import { expect, expectTypeOf, test, vi } from 'vitest'
+import {
+  type AgentRevisionList,
+  type AgentRevisionSummary,
+  type BuildQuickCommand,
+  createZooworkClient,
+  type ZooworkClient,
+  ZooworkError,
+} from './index.js'
 
 const baseUrl = 'https://api.test/service/v1'
 const apiKey = 'zwp_synthetic'
@@ -30,7 +37,7 @@ const cases: {
     name: 'summary', method: 'GET', path: '/agents/a%20b/build', call: (c) => c.getBuild('a b'),
     response: {
       name: 'Quote agent', description: '', avatar_url: null,
-      quick_commands: [{ id: 'quote', label: 'Quote', label_cn: '', prompt: 'Quote' }],
+      quick_commands: [{ name: 'Quote', prompt: 'Draft a quote' } satisfies BuildQuickCommand],
       working_revision_id: 'r2', effective_revision_id: null,
       apply: { state: 'pending', blockers: [] }, future: { field: true },
     },
@@ -60,7 +67,18 @@ const cases: {
   {
     name: 'revision list', method: 'GET', path: '/agents/a%20b/revisions',
     call: (c) => c.listRevisions('a b'),
-    response: { revisions: [{ revision_id: 'r2', parent_revision_id: 'r1', skill_bindings: [] }] },
+    response: {
+      revisions: [
+        {
+          revision_id: 'r2', parent_revision_id: 'r1', commit_message: 'Update quote format',
+          created_at: '2026-11-25T09:00:00Z', validation_passed: true,
+        },
+        {
+          revision_id: 'r1', parent_revision_id: null, commit_message: 'Create agent',
+          created_at: '2026-11-25T08:00:00Z', validation_passed: true,
+        },
+      ],
+    } satisfies AgentRevisionList,
   },
   {
     name: 'revision diff', method: 'GET', path: '/agents/a%20b/revisions/r%3F2/diff',
@@ -68,6 +86,17 @@ const cases: {
     response: { revision_id: 'r?2', parent_revision_id: 'r1', unified_diff: '+New source\n' },
   },
 ]
+
+test('Build public record types have the documented fields', () => {
+  expectTypeOf<BuildQuickCommand>().toEqualTypeOf<{ name: string; prompt: string }>()
+  expectTypeOf<AgentRevisionSummary>().toEqualTypeOf<{
+    revision_id: string
+    parent_revision_id: string | null
+    commit_message: string
+    created_at: string
+    validation_passed: boolean
+  }>()
+})
 
 test.each(cases)('Build wire contract for $name', async ({ method, path, key, body, call, response }) => {
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {

@@ -1,4 +1,10 @@
-/** Single-customer loopback demo. Run with pnpm exec tsx examples/build-chat.ts. */
+/**
+ * Single-customer loopback demo. Run with pnpm exec tsx examples/build-chat.ts.
+ *
+ * For quick-command buttons, read (await sdk.getBuild(agentId)).quick_commands and send a
+ * command's prompt as message text. Each command has a name for display.
+ * For saved history, listRevisions returns metadata including validation_passed.
+ */
 import { once } from 'node:events'
 import { readFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
