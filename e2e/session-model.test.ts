@@ -8,13 +8,14 @@ const writes = ['set', 'level', 'clear', 'reset'] as const
 type Write = typeof writes[number]
 
 type Rejection = 'stale' | 'unknown' | 'archived'
-interface Broken { rejection?: Rejection; how?: 'succeeds' | 'other_code'; archivedStaysWritable?: boolean }
+interface Broken { rejection?: Rejection; how?: 'succeeds' | 'other_code' | 'other_status'; archivedStaysWritable?: boolean }
 
 async function run(otherModel: boolean, stalled?: Write, broken: Broken = {}) {
   // An expected rejection that succeeds, or fails with another code, must fail the check.
   const reject = (rejection: Rejection, status: number, type: string) => {
     if (broken.rejection !== rejection) throw new ZooworkError(status, 'synthetic', type)
     if (broken.how === 'other_code') throw new ZooworkError(status, 'synthetic', 'other_code')
+    if (broken.how === 'other_status') throw new ZooworkError(418, 'synthetic', type)
     return state
   }
   const thinking: ModelThinking = { default: 'low', levels: ['low', 'high'] }
@@ -34,8 +35,9 @@ async function run(otherModel: boolean, stalled?: Write, broken: Broken = {}) {
   const client: Pick<ZooworkClient, 'getSessionModel' | 'updateSessionModel' | 'archiveSession'> = {
     getSessionModel: async () => state,
     archiveSession: async () => {
-      if (!broken.archivedStaysWritable)
-        state = { ...state, available: false, writable: false, unavailable_reason: 'session_archived', available_models: [] }
+      // Everything else reports the archive, so only the `writable` check can catch this one.
+      state = { ...state, available: false, writable: !!broken.archivedStaysWritable,
+        unavailable_reason: 'session_archived', available_models: [] }
       return { archived: true }
     },
     updateSessionModel: async (_agent, _session, { expected_selection_version, expected_config_version, ...patch }) => {
@@ -84,8 +86,8 @@ const rejections: Record<Rejection, string> = {
   stale: 'expected_task_model_changed', unknown: 'expected_invalid_request', archived: 'expected_session_archived',
 }
 for (const rejection of Object.keys(rejections) as Rejection[]) {
-  for (const how of ['succeeds', 'other_code'] as const) {
-    test(`an expected ${rejection} rejection that ${how === 'succeeds' ? 'succeeds' : 'returns another code'} fails the check`, async () => {
+  for (const how of ['succeeds', 'other_code', 'other_status'] as const) {
+    test(`an expected ${rejection} rejection that ${how === 'succeeds' ? 'succeeds' : `returns another ${how === 'other_code' ? 'code' : 'status'}`} fails the check`, async () => {
       await assert.rejects(run(true, undefined, { rejection, how }), { code: rejections[rejection] })
     })
   }
