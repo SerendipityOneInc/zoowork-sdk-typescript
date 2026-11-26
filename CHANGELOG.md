@@ -3,7 +3,7 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
-## Unreleased
+## 0.19.0 — 2026-11-26
 
 - Read and change the model and thinking level of one Session with `getSessionModel` and
   `updateSessionModel`. `thinking: null` clears the Session's level and `model_id: null` follows
