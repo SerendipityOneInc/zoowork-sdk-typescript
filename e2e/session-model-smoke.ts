@@ -17,7 +17,9 @@ async function expectError(request: Promise<SessionModel>, status: number, type:
 export async function checkSessionModel(client: ZooworkClient, agentId: string, sessionId: string, passed: (label: string) => void) {
   const initial = await client.getSessionModel(agentId, sessionId)
   check(initial.writable && initial.mode === 'agent_default' && initial.selected_model_id === null && initial.thinking === null, 'expected_agent_default')
-  const target = initial.available_models.find(model => model.thinking?.levels?.length >= 2)
+  // Prefer a model other than the Agent's default so the update is a real switch.
+  const candidates = initial.available_models.filter(model => model.thinking?.levels?.length >= 2)
+  const target = candidates.find(model => `litellm/${model.id}` !== initial.default_model_id) ?? candidates[0]
   check(target, 'model_with_two_levels_required')
   const [first, second] = target.thinking.levels
   passed('read_session_model')
