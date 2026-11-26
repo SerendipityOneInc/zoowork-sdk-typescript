@@ -7,7 +7,16 @@ import { checkSessionModel } from './session-model-smoke.ts'
 const writes = ['set', 'level', 'clear', 'reset'] as const
 type Write = typeof writes[number]
 
-async function run(otherModel: boolean, stalled?: Write) {
+type Rejection = 'stale' | 'unknown' | 'archived'
+interface Broken { rejection?: Rejection; how?: 'succeeds' | 'other_code'; archivedStaysWritable?: boolean }
+
+async function run(otherModel: boolean, stalled?: Write, broken: Broken = {}) {
+  // An expected rejection that succeeds, or fails with another code, must fail the check.
+  const reject = (rejection: Rejection, status: number, type: string) => {
+    if (broken.rejection !== rejection) throw new ZooworkError(status, 'synthetic', type)
+    if (broken.how === 'other_code') throw new ZooworkError(status, 'synthetic', 'other_code')
+    return state
+  }
   const thinking: ModelThinking = { default: 'low', levels: ['low', 'high'] }
   const models = (otherModel ? ['base', 'other'] : ['base']).map(id => ({ id, display_name: id, thinking }))
   const target = otherModel ? 'other' : 'base'
@@ -25,16 +34,17 @@ async function run(otherModel: boolean, stalled?: Write) {
   const client: Pick<ZooworkClient, 'getSessionModel' | 'updateSessionModel' | 'archiveSession'> = {
     getSessionModel: async () => state,
     archiveSession: async () => {
-      state = { ...state, available: false, writable: false, unavailable_reason: 'session_archived', available_models: [] }
+      if (!broken.archivedStaysWritable)
+        state = { ...state, available: false, writable: false, unavailable_reason: 'session_archived', available_models: [] }
       return { archived: true }
     },
     updateSessionModel: async (_agent, _session, { expected_selection_version, expected_config_version, ...patch }) => {
       assert.equal(expected_config_version, state.config_version)
-      if (!state.writable) throw new ZooworkError(409, 'synthetic', 'session_archived')
+      if (!state.writable) return reject('archived', 409, 'session_archived')
       if (patch.model_id?.startsWith('sdk-missing-')) {
-        if (expected_selection_version === initialVersion) throw new ZooworkError(409, 'synthetic', 'task_model_changed')
+        if (expected_selection_version === initialVersion) return reject('stale', 409, 'task_model_changed')
         assert.equal(expected_selection_version, state.selection_version)
-        throw new ZooworkError(400, 'synthetic', 'invalid_request')
+        return reject('unknown', 400, 'invalid_request')
       }
       assert.equal(expected_selection_version, state.selection_version)
       assert.deepEqual(patch, patches[nextWrite])
@@ -69,3 +79,17 @@ for (const write of writes) {
     await assert.rejects(run(true, write), { code: failure[write] })
   })
 }
+
+const rejections: Record<Rejection, string> = {
+  stale: 'expected_task_model_changed', unknown: 'expected_invalid_request', archived: 'expected_session_archived',
+}
+for (const rejection of Object.keys(rejections) as Rejection[]) {
+  for (const how of ['succeeds', 'other_code'] as const) {
+    test(`an expected ${rejection} rejection that ${how === 'succeeds' ? 'succeeds' : 'returns another code'} fails the check`, async () => {
+      await assert.rejects(run(true, undefined, { rejection, how }), { code: rejections[rejection] })
+    })
+  }
+}
+test('a Session that stays writable after archiving fails the archived check', async () => {
+  await assert.rejects(run(true, undefined, { archivedStaysWritable: true }), { code: 'expected_archived_state' })
+})

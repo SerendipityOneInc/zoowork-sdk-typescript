@@ -8,11 +8,12 @@ day the behaviour was verified, not the day it was written.
 - Read and change the model and thinking level of one Session with `getSessionModel` and
   `updateSessionModel`. `thinking: null` clears the Session's level and `model_id: null` follows
   the Agent again. Omitting `model_id` keeps the model. Setting only a thinking level fixes
-  that model for the Session. Omitting `thinking` keeps the Session's own level unless the model
-  switches, which clears it. Fixing the current model under `auto` routing also counts as a switch.
-  A model fixed this way no longer inherits the Agent's level and uses the model default if the
-  Session has no level of its own. Updates carry the last read `selection_version` and `config_version`.
-  A mismatch returns 409 `task_model_changed` and the SDK does not retry.
+  that model for the Session, except under inherited `auto` routing, which needs a `model_id`.
+  Omitting `thinking` keeps the Session's own level unless the model switches, which clears it.
+  Fixing the current model under `auto` routing also counts as a switch. A model fixed this way
+  no longer inherits the Agent's level and uses the model default if the Session has no level of
+  its own. Updates carry the last read `selection_version` and `config_version`. A mismatch
+  returns 409 `task_model_changed` and the SDK does not retry.
   New exported types: `ModelThinking`, `SessionModel`, `SessionModelOption`, `SessionModelSelect`,
   `SessionThinkingUpdate`, `SessionModelReset`, `SessionModelUpdate`.
   Verified on staging on 2026-11-26 with `pnpm test:e2e:session-model`: read, set model and level,

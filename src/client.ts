@@ -1083,8 +1083,10 @@ export interface SessionModel {
   mode: 'agent_default' | 'override' | string
   /**
    * The Session's own model in the catalog's full spelling (`litellm/…`, unlike
-   * {@link SessionModelOption.id}), or `null` when it follows the Agent. If that model is later
-   * retired, turns fail until another one is selected; there is no fallback.
+   * {@link SessionModelOption.id}), or `null` when it follows the Agent. There is no runtime
+   * fallback: if the model cannot run, turns fail before any LLM call until another one is
+   * selected. A planned retirement instead moves the Session to the replacement model, clearing
+   * its level and advancing `selection_version`.
    */
   selected_model_id: string | null
   /** The Agent's model, as configured on the Agent. */
@@ -1149,7 +1151,11 @@ export type SessionModelSelect = SessionModelVersions & {
   thinking?: ThinkingLevel | null
 }
 
-/** Set or clear (`null`) only the Session's thinking level; a level also fixes the current model. */
+/**
+ * Set or clear (`null`) only the Session's thinking level; a level also fixes the current model.
+ * While following an `auto` Agent with no selected model a level alone is 400: use
+ * {@link SessionModelSelect}.
+ */
 export type SessionThinkingUpdate = SessionModelVersions & {
   model_id?: undefined
   thinking: ThinkingLevel | null
@@ -1168,7 +1174,8 @@ export type SessionModelReset = SessionModelVersions & {
  * - `model_id`: a string selects that model (with or without the `litellm/` prefix); `null`
  *   restores the Agent's model AND thinking level, so it cannot be combined with a level;
  *   omitted keeps the model.
- * - `thinking`: a level sets it and also fixes the current model for this Session; `null` clears
+ * - `thinking`: a level sets it and also fixes the current model for this Session (except while
+ *   following an `auto` Agent with no selected model, which needs a `model_id`); `null` clears
  *   the Session's level. Omitting `thinking` keeps the Session's own level unless the model
  *   switches. A switch clears it, including fixing the current model under `auto` routing.
  *
