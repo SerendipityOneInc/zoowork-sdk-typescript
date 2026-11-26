@@ -1,7 +1,10 @@
 /** Static labels only: live responses, resource IDs and exception text never reach the terminal. */
-export const MAIN_STEPS = ['models', 'create_agent', 'start_agent', 'create_session', 'stream_turn', 'rest_replay'] as const
+const agentSteps = ['models', 'create_agent', 'start_agent'] as const
+export const MAIN_STEPS = [...agentSteps, 'create_session', 'stream_turn', 'rest_replay'] as const
+export const SESSION_MODEL_STEPS = [...agentSteps, 'create_idle_session', 'session_model'] as const
 const labels = {
   models: 'Read model catalog', create_agent: 'Create temporary agent', start_agent: 'Start agent and wait for readiness',
+  create_idle_session: 'Create temporary session', session_model: 'Check session model selection',
   create_session: 'Create session with initial message', stream_turn: 'Receive a successful streamed model reply',
   rest_replay: 'Match REST history with SSE reply', recover_created_agent: 'Recover uncertain agent creation',
   recover_created_session: 'Recover uncertain session creation', delete_session: 'Delete temporary session',

@@ -1,6 +1,6 @@
 import type * as SDK from '@zoowork-ai/sdk'
 import { check, safeFailure } from './guard.ts'
-import { MAIN_STEPS } from './progress.ts'
+import { MAIN_STEPS, SESSION_MODEL_STEPS } from './progress.ts'
 import type { SmokeStep, StepId } from './progress.ts'
 
 type PublicSDK = typeof SDK
@@ -13,6 +13,7 @@ export interface SmokeRecord {
 }
 export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: {
   runId: string; model?: string; signal: AbortSignal;
+  sessionModelCheck?: (agentId: string, sessionId: string, passed: (label: string) => void) => Promise<void>;
   cleanupMode: () => void; save: (record: SmokeRecord) => void;
 }): Promise<SmokeRecord> {
   const record: SmokeRecord = { schema_version: 1, run_id: options.runId, phase: 'models', passed: false,
@@ -49,7 +50,8 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
   const skip = (id: StepId, reason: SmokeStep['reason']) => {
     record.steps.push({ id, status: 'skipped', duration_ms: 0, reason })
   }
-  const stage = (phase: typeof MAIN_STEPS[number]) => {
+  const stages = options.sessionModelCheck ? SESSION_MODEL_STEPS : MAIN_STEPS
+  const stage = (phase: typeof stages[number]) => {
     finish('passed')
     record.phase = phase
     begin(phase)
@@ -76,39 +78,47 @@ export async function smoke(sdk: PublicSDK, client: SDK.ZooworkClient, options: 
     await client.startAgent(record.resources.agent_id)
     await client.waitUntilRunning(record.resources.agent_id, { timeoutMs: 30_000, signal: options.signal })
     record.checks.push('agent_lifecycle')
-    stage('create_session')
+    stage(options.sessionModelCheck ? 'create_idle_session' : 'create_session')
     record.resources.session_creation_uncertain = true
     save()
     const session = await client.createSession(record.resources.agent_id, {
       metadata: { source: 'sdk-release-e2e', run_id: options.runId },
-      initial_events: [{ type: 'user.message', content: 'Reply with SDK_E2E_OK only. Do not call tools or create schedules.' }],
+      ...(options.sessionModelCheck ? {} : { initial_events: [{ type: 'user.message' as const, content: 'Reply with SDK_E2E_OK only. Do not call tools or create schedules.' }] }),
     }, options.runId + '-session')
     record.resources.session_id = ownSession(session.session_id)
     record.resources.session_creation_uncertain = false
     save()
-    stage('stream_turn')
-    let text = ''
-    let succeeded = false
-    let count = 0
-    for await (const event of client.streamEvents(record.resources.agent_id, record.resources.session_id, { signal: options.signal })) {
-      check(++count <= 500, 'event_budget_exceeded')
-      text += sdk.assistantText(event)
-      if (sdk.isRunFinished(event)) { succeeded = sdk.runOutcome(event) === 'succeeded'; break }
+    if (options.sessionModelCheck) {
+      stage('session_model')
+      await options.sessionModelCheck(record.resources.agent_id, record.resources.session_id, label => {
+        record.checks.push(label)
+        save()
+      })
+    } else {
+      stage('stream_turn')
+      let text = ''
+      let succeeded = false
+      let count = 0
+      for await (const event of client.streamEvents(record.resources.agent_id, record.resources.session_id, { signal: options.signal })) {
+        check(++count <= 500, 'event_budget_exceeded')
+        text += sdk.assistantText(event)
+        if (sdk.isRunFinished(event)) { succeeded = sdk.runOutcome(event) === 'succeeded'; break }
+      }
+      check(succeeded, 'turn_did_not_succeed')
+      check(text.trim().length > 0, 'empty_assistant_reply')
+      record.checks.push('successful_streamed_turn')
+      stage('rest_replay')
+      const durable = await client.listAllEvents(record.resources.agent_id, record.resources.session_id)
+      check(durable.some(e => sdk.isRunFinished(e) && sdk.runOutcome(e) === 'succeeded'), 'rest_missing_successful_turn')
+      check(durable.map(sdk.assistantText).join('').trim() === text.trim(), 'rest_stream_mismatch')
+      record.checks.push('rest_sse_agreement')
     }
-    check(succeeded, 'turn_did_not_succeed')
-    check(text.trim().length > 0, 'empty_assistant_reply')
-    record.checks.push('successful_streamed_turn')
-    stage('rest_replay')
-    const durable = await client.listAllEvents(record.resources.agent_id, record.resources.session_id)
-    check(durable.some(e => sdk.isRunFinished(e) && sdk.runOutcome(e) === 'succeeded'), 'rest_missing_successful_turn')
-    check(durable.map(sdk.assistantText).join('').trim() === text.trim(), 'rest_stream_mismatch')
-    record.checks.push('rest_sse_agreement')
     finish('passed')
   } catch (error) { finish('failed', error); failure = true; record.failure = safeFailure(error) }
   finally {
     options.cleanupMode()
     const failedPhase = record.phase
-    for (const id of MAIN_STEPS) if (!record.steps.some(step => step.id === id)) skip(id, 'previous_step_failed')
+    for (const id of stages) if (!record.steps.some(step => step.id === id)) skip(id, 'previous_step_failed')
     record.phase = 'cleanup'
     safeSave()
     async function clean(step: StepId, fn: () => Promise<void>, notFoundOK = false) {
