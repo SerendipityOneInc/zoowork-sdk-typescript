@@ -3,6 +3,17 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.20.0 — 2026-11-26
+
+- Share a Platform Build Agent with `publishBuild`, `createShareLink`, `listShareLinks`,
+  and `revokeShareLink`. Install a shared Agent as a read-only copy with `previewInstall`
+  and `installSharedAgent`. Use `listInstalledAgents`, `getUpdateStatus`, and
+  `updateInstalledAgent` to inspect and update installed copies.
+  [Sharing example](examples/build-sharing.ts)
+- Document confirmed Environment rebuilds, introduced in 0.19.0. Pass `confirm_rebuild: true`,
+  `expected_revision_id`, and `expected_config_version` in the `retryBuildApply` options to
+  approve rebuilding the Environment for the saved Build revision.
+
 ## 0.19.0 — 2026-11-26
 
 - Read and change the model and thinking level of one Session with `getSessionModel` and
