@@ -1,6 +1,6 @@
 /**
  * SYNTHETIC offline inputs for the Session model resource, source-reviewed against Engine
- * `session-model.ts`. No live response recording exists yet; these tests prove SDK behavior only.
+ * `session-model.ts`. These fixtures exercise the SDK offline. For the live check, see e2e/session-model.ts.
  */
 import { expect, expectTypeOf, test } from 'vitest'
 import {

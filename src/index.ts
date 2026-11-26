@@ -29,6 +29,7 @@ export {
   type ZooworkAuth,
   type Ownership,
   type ModelInfo,
+  type ModelThinking,
   type ThinkingLevel,
   type AgentResource,
   type AgentModelUpdate,

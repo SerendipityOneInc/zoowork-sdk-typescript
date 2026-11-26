@@ -356,6 +356,11 @@ export interface Ownership {
  */
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
 
+export interface ModelThinking {
+  default: ThinkingLevel
+  levels: ThinkingLevel[]
+}
+
 export interface ModelInfo {
   model: string
   display_name?: string
@@ -375,7 +380,7 @@ export interface ModelInfo {
    * {@link ThinkingLevel} resolves to the nearest listed one. `default` is what the platform
    * applies when an Agent sets none. Optional so older servers that omit it still type-check.
    */
-  thinking?: { default: ThinkingLevel; levels: ThinkingLevel[] }
+  thinking?: ModelThinking
   [k: string]: unknown
 }
 
@@ -1062,7 +1067,7 @@ export interface SessionModelOption {
   id: string
   display_name: string
   /** Same meaning as `ModelInfo.thinking`. */
-  thinking: NonNullable<ModelInfo['thinking']>
+  thinking: ModelThinking
   [k: string]: unknown
 }
 
@@ -1091,12 +1096,12 @@ export interface SessionModel {
   current_model_name: string | null
   default_model_name: string | null
   /** The thinking levels of the Session's current model (the Agent's one when it has no override). */
-  current_model_thinking: NonNullable<ModelInfo['thinking']> | null
+  current_model_thinking: ModelThinking | null
   /** Models an update can switch to. Empty while the Session is not writable. */
   available_models: SessionModelOption[]
   /** The Session's own thinking level, or `null` when it has none. */
   thinking: ThinkingLevel | null
-  /** The Agent's thinking level when this Session inherits it, otherwise `null`. */
+  /** The Agent's thinking level when inherited. Null for `auto` routing with no selected model, or when no Agent level applies. */
   default_thinking: ThinkingLevel | null
   /** Absent on servers too old to accept `thinking` here. */
   thinking_supported?: boolean
@@ -1111,7 +1116,8 @@ export interface SessionModel {
   writable: boolean
   /**
    * Why the Session is not writable, or `task_model_unavailable` when it is writable but the
-   * current model cannot run; `null` otherwise. `task_model_read_only` covers subagent Sessions,
+   * current model cannot run; `null` otherwise. The server checks archive, read-only, Vault,
+   * then subscription restrictions in that order. `task_model_read_only` covers subagent Sessions,
    * Sessions whose `runtime_mode` is not `active`, and Sessions pinned to a config version
    * (`createSession` with an explicit `runtime_mode: 'active'` pins one).
    */
@@ -1134,12 +1140,15 @@ export interface SessionModel {
  *   restores the Agent's model AND thinking level, so it cannot be combined with a level;
  *   omitted keeps the model.
  * - `thinking`: a level sets it and also fixes the current model for this Session; `null` clears
- *   the Session's level; omitted keeps it, except that switching to a different model clears it.
+ *   the Session's level; omitted keeps it, except that a model switch clears it. With `auto` routing,
+ *   fixing the current model also counts as a switch.
  *
  * Once a model is fixed, the Session no longer inherits the Agent's level: without one of its own
  * it uses the model's default. Clearing the level of a Session that follows the Agent is a no-op.
  *
- * Both `expected_*` values come from the last {@link SessionModel} you read.
+ * Supply at least one of `model_id` and `thinking`. Omitting both or pairing `model_id: null`
+ * with a non-null level raises 400 `invalid_request` during body validation. Both expected
+ * versions come from the last {@link SessionModel} you read.
  */
 export type SessionModelUpdate = {
   expected_selection_version: number
@@ -2202,7 +2211,12 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
   archiveSession(agentId: string, sessionId: string): Promise<{ session_id?: string; archived: boolean }>
   /** Soft delete (204). An in-flight run is cancelled first; transcripts and events survive for audit. */
   deleteSession(agentId: string, sessionId: string): Promise<void>
-  /** The Session's current model and thinking level, the models it can switch to, and the versions an update needs. */
+  /**
+   * Read the current model, thinking level, available choices and versions for an update.
+   * No active Agent config raises 409 `task_model_unavailable` before a missing Session raises
+   * 404 `session_not_found`. A successful read can also return `task_model_unavailable` in
+   * `unavailable_reason` when the current model cannot run.
+   */
   getSessionModel(agentId: string, sessionId: string): Promise<SessionModel>
   /**
    * Set the model and/or thinking level of ONE Session from its next turn; the Agent and its other
@@ -2214,12 +2228,14 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * retry after a lost response may get this 409 for your own earlier write; compare the re-read
    * state first. A write that changes nothing succeeds without a new `selection_version`.
    *
-   * Other failures, by `ZooworkError.type`: 409 with the `unavailable_reason` value when the
-   * Session is not writable (`task_model_read_only`, `session_archived`,
-   * `task_model_subscription_bound`); 409 `task_model_unavailable` for a model that cannot be
-   * selected; 403 `vault_profile_restricted` for a Session with Vault credentials; 400
-   * `invalid_request` for an unknown model or an unsupported combination, such as a thinking level
-   * alone while the Session follows an Agent with `auto` routing (send a `model_id` with it).
+   * The server validates the body (400 `invalid_request`), checks for active Agent config
+   * (409 `task_model_unavailable`), then looks up the Session (404 `session_not_found`).
+   * Vault (403 `vault_profile_restricted`) precedes all remaining 409 checks, so an archived
+   * Vault Session reads as `session_archived` but raises 403 on update.
+   * Next come writability (409 with the read's `unavailable_reason`) and version checks,
+   * then model resolution (400 `invalid_request` for an unknown model, 409
+   * `task_model_unavailable` for an unavailable model). A thinking level alone while following
+   * an `auto` Agent also raises 400 `invalid_request`: supply a model with the level.
    */
   updateSessionModel(agentId: string, sessionId: string, update: SessionModelUpdate): Promise<SessionModel>
   /**

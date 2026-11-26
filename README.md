@@ -278,28 +278,29 @@ that no turn was run to observe the new model and level.
 
 ```ts
 const state = await zc.getSessionModel(agentId, sessionId)
-// Both versions come from the read; a mismatch is 409 and writes nothing.
-const versions = {
-  expected_selection_version: state.selection_version,
-  expected_config_version: state.config_version,
-}
-try {
-  await zc.updateSessionModel(agentId, sessionId, {
-    ...versions,
-    model_id: state.available_models[0].id, // omit to keep the model
-    thinking: 'high',                       // omit to keep the level (a model switch clears it)
-  })
-  // Instead: { ...versions, thinking: null } clears the level and keeps the model;
-  //          { ...versions, model_id: null } follows the Agent's model and level again.
-} catch (err) {
-  if (!(err instanceof ZooworkError) || err.type !== 'task_model_changed') throw err
-  // Someone else changed it first. Read again and decide; the SDK does not retry.
+if (state.writable) {
+  const target = state.available_models.find(model => model.thinking?.levels?.length)
+  const level = target?.thinking?.levels?.[0]
+  if (target && level) {
+    try {
+      await zc.updateSessionModel(agentId, sessionId, {
+        expected_selection_version: state.selection_version,
+        expected_config_version: state.config_version,
+        model_id: target.id,
+        thinking: level,
+      })
+    } catch (err) {
+      if (!(err instanceof ZooworkError) || err.type !== 'task_model_changed') throw err
+      // Read again and decide whether to apply the change with the new versions.
+    }
+  }
 }
 ```
 
-Check `state.writable` first; `unavailable_reason` says why not (for example `session_archived`, or
-`task_model_read_only` for a subagent Session). `state.thinking` is the Session's own level and
-`state.default_thinking` the Agent level it inherits.
+When writes are disabled, `available_models` is empty and `unavailable_reason` explains why. `state.thinking` is the Session's own level and
+`state.default_thinking` the Agent level it inherits. To fix the current model and use its default level, send its
+`model_id` together with `thinking: null`. Clearing only the level while following the Agent is a no-op.
+Use `model_id: null` to follow the Agent’s model and level again.
 
 An application-executed tool is declared in `resource.custom_tools`. When
 `customToolUse(ev)?.phase === 'requested'`, execute the named operation and call

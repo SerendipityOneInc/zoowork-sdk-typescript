@@ -7,10 +7,12 @@ day the behaviour was verified, not the day it was written.
 
 - Read and change the model and thinking level of one Session with `getSessionModel` and
   `updateSessionModel`. `thinking: null` clears the Session's level and `model_id: null` follows
-  the Agent again; an omitted field is kept. An update carries the `selection_version` and
+  the Agent again. Omitting `model_id` keeps the model. Setting only a thinking level fixes
+  that model for the Session. Omitting `thinking` keeps the level unless the model switches,
+  which clears it (fixing the current model under `auto` routing also counts as a switch). An update carries the `selection_version` and
   `config_version` it was based on, and a mismatch is `409 task_model_changed`; the SDK does not
-  retry it. New exported types: `SessionModel`, `SessionModelOption`, `SessionModelUpdate`.
-  Verified on staging on 2026-11-25: read, set model and level, level only, clear, reset, the 409
+  retry it. New exported types: `ModelThinking`, `SessionModel`, `SessionModelOption`, `SessionModelUpdate`.
+  Re-run the 2026-11-25 staging checks with `pnpm test:e2e:session-model` (see [e2e/README.md](e2e/README.md#session-model)): read, set model and level, level only, clear, reset, the 409
   conflict, an unknown model and an archived Session. Not verified live: the effect on a turn, and
   Vault, subscription and `auto`-routing Agents.
 

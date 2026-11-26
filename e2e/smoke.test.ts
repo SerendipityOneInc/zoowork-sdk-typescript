@@ -48,6 +48,22 @@ test('one lifecycle/turn, REST-SSE agreement, then stop and soft-delete only own
   assert.ok(result.steps.every(step => step.status === 'passed' && step.duration_ms >= 0))
   for (const step of result.steps) assert.ok(f.records.some(record => record.steps.some(s => s.id === step.id && s.status === 'running')))
 })
+test('a failed Session model check on an idle Session still cleans up the owned resources', async () => {
+  const f = setup({ createSession: async (_agent, input) => {
+    assert.equal(input.initial_events, undefined)
+    return { session_id: 'SYNTHETIC_SESSION' }
+  } })
+  const result = await smoke(sdk, f.client, { ...f.options, sessionModelCheck: async (agent, session) => {
+    assert.equal(agent, 'agt_SYNTHETIC')
+    assert.equal(session, 'SYNTHETIC_SESSION')
+    throw new sdk.ZooworkError(503, sentinel)
+  } })
+  assert.equal(result.passed, false)
+  assert.equal(result.phase, 'session_model')
+  assert.equal(result.failure?.http_status, 503)
+  assert.equal(result.cleanup.complete, true)
+  assert.deepEqual(f.calls, ['create', 'start', 'ready', 'cleanup_mode', 'delete_session', 'stop', 'delete', 'get'])
+})
 test('REST mismatch fails and still cleans up', async () => {
   const f = setup({ listAllEvents: async () => [] }); const result = await smoke(sdk, f.client, f.options)
   assert.equal(result.passed, false); assert.equal(result.cleanup.complete, true)
