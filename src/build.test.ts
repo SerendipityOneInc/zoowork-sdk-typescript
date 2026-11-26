@@ -71,6 +71,11 @@ const cases: {
     } satisfies BuildApply,
   },
   {
+    name: 'retry without confirmation', method: 'POST', path: '/agents/a%20b/build/apply', key: 'apply-false',
+    call: (c) => c.retryBuildApply('a b', 'apply-false', { confirm_rebuild: false }),
+    response: { state: 'pending', config_version: 3, phase: null, blockers: [] } satisfies BuildApply,
+  },
+  {
     name: 'confirm rebuild', method: 'POST', path: '/agents/a%20b/build/apply', key: 'rebuild-1',
     body: { confirm_rebuild: true, expected_revision_id: 'r2', expected_config_version: 3 },
     call: (c) => c.retryBuildApply('a b', 'rebuild-1', {
@@ -140,6 +145,16 @@ test('Build writes require idempotency keys before HTTP', async () => {
     await expect(client.createBuildAgent({}, key)).rejects.toThrow('idempotencyKey')
     await expect(client.retryBuildApply('a', key)).rejects.toThrow('idempotencyKey')
   }
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+test.each(['false', 1, null])('Build confirmation rejects non-boolean %s before HTTP', async (confirm) => {
+  const fetch = vi.fn()
+  const client = createZooworkClient({ apiKey, baseUrl, fetch })
+  await expect(client.retryBuildApply('a', 'once', {
+    // @ts-expect-error Exercise plain JavaScript inputs at runtime.
+    confirm_rebuild: confirm, expected_revision_id: 'r1', expected_config_version: 4,
+  })).rejects.toThrow(TypeError)
   expect(fetch).not.toHaveBeenCalled()
 })
 

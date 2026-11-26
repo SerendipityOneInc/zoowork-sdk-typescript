@@ -23,6 +23,8 @@
   <section>
     <h2>Build chat</h2>
     <p id="build-status" aria-live="polite"></p>
+    <p id="apply-status" aria-live="polite"></p>
+    <button id="confirm-rebuild" hidden>Confirm Environment rebuild</button>
     <ul id="build-log" aria-live="polite"></ul>
     <form id="build-form">
       <textarea aria-label="Build message" required></textarea><button disabled>Send</button>
@@ -44,6 +46,7 @@ const lanes = {}
 const results = new Map()
 const pendingWrites = new Map()
 let agent
+let buildSummary
 
 async function request(path, body) {
   const response = await fetch(path, body === undefined ? {} : {
@@ -100,6 +103,50 @@ async function refreshResult(run, line) {
 
 async function refreshResults() {
   await Promise.all([...results].map(([run, line]) => refreshResult(run, line)))
+  if (agent) {
+    const url = path() + '/build'
+    try {
+      const summary = await request(url)
+      if (url === path() + '/build') showApply(summary)
+    } catch (error) { showError(error) }
+  }
+}
+
+function showApply(summary) {
+  buildSummary = summary
+  const { apply } = summary
+  $('apply-status').textContent = apply.phase
+    ? 'Environment rebuild · ' + apply.phase
+    : apply.blockers.map((blocker) => blocker.code).join(', ') || apply.state
+  $('confirm-rebuild').hidden = apply.state !== 'blocked' || !apply.blockers.some(
+    (blocker) => blocker.acknowledgeable && blocker.code === 'agent_revision.environment_rebuild_required',
+  )
+}
+
+$('confirm-rebuild').onclick = async () => {
+  if (!buildSummary || !window.confirm('Rebuilding will interrupt tasks currently running on this Agent. Continue?')) return
+  const button = $('confirm-rebuild')
+  const url = path() + '/build'
+  const { working_revision_id, apply } = buildSummary
+  button.disabled = true
+  $('error').textContent = ''
+  try {
+    let result = await write(url, {
+      expected_revision_id: working_revision_id,
+      expected_config_version: apply.config_version,
+    })
+    for (let attempts = 0; url === path() + '/build'; attempts++) {
+      showApply({ working_revision_id, apply: result })
+      if (result.state !== 'in_progress') break
+      if (attempts === 180) throw new Error('Rebuild is still running. Refresh Build results for its current status.')
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const summary = await request(url)
+      result = summary.apply
+      if (summary.working_revision_id !== working_revision_id) break
+    }
+    if (url === path() + '/build') await refreshResults()
+  } catch (error) { showError(error) }
+  finally { button.disabled = false }
 }
 
 function connect(lane, session) {
@@ -122,7 +169,7 @@ function connect(lane, session) {
         line.dataset.run = event.run_id
         results.set(event.run_id, line)
         $('refresh').disabled = false
-        void refreshResult(event.run_id, line)
+        void refreshResults()
       }
     }
   }
@@ -142,6 +189,9 @@ $('new-agent').onsubmit = async (event) => {
     results.clear()
     for (const id of ['build-log', 'task-log', 'build-status']) $(id).replaceChildren()
     agent = result.agent_id
+    buildSummary = undefined
+    $('confirm-rebuild').hidden = true
+    $('apply-status').textContent = ''
     $('agent-id').textContent = agent
     $('build-form').querySelector('button').disabled = false
     $('task-form').querySelector('button').disabled = true

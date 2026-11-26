@@ -2647,18 +2647,23 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     openBuildSession: (agentId) => json(`${agents(agentId)}/build-session`, { method: 'POST' }),
     getBuildRun: (agentId, runId) =>
       json(`${agents(agentId)}/build-session/runs/${encodeURIComponent(runId)}`),
-    retryBuildApply: async (agentId, idempotencyKey, options) =>
-      json(`${agents(agentId)}/build/apply`, {
+    retryBuildApply: async (agentId, idempotencyKey, options) => {
+      const confirmRebuild = options?.confirm_rebuild
+      if (confirmRebuild !== undefined && typeof confirmRebuild !== 'boolean') {
+        throw new TypeError('confirm_rebuild must be a boolean')
+      }
+      return json(`${agents(agentId)}/build/apply`, {
         method: 'POST',
         headers: buildWriteHeaders(idempotencyKey),
-        ...(options?.confirm_rebuild && {
+        ...(confirmRebuild && {
           body: JSON.stringify({
             confirm_rebuild: true,
-            expected_revision_id: options.expected_revision_id,
-            expected_config_version: options.expected_config_version,
+            expected_revision_id: options?.expected_revision_id,
+            expected_config_version: options?.expected_config_version,
           }),
         }),
-      }),
+      })
+    },
     listRevisions: (agentId) => json(`${agents(agentId)}/revisions`),
     getRevisionDiff: (agentId, revisionId) =>
       json(`${agents(agentId)}/revisions/${encodeURIComponent(revisionId)}/diff`),

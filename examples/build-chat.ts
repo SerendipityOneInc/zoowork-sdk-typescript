@@ -111,6 +111,23 @@ createServer(async (request, response) => {
     const agent = decodeURIComponent(agentPart ?? '')
     const knownSessions = sessions.get(agent)
     if (!path.startsWith('/api/agents/') || !knownSessions) throw new RequestError(404, 'unknown_agent')
+    if (resource === 'build' && sessionPart === undefined) {
+      if (method === 'GET') {
+        const { working_revision_id, apply } = await sdk.getBuild(agent)
+        return json(response, { working_revision_id, apply })
+      }
+      if (method === 'POST') {
+        const { body, key } = await input(request)
+        const { expected_config_version } = body
+        if (!Number.isSafeInteger(expected_config_version) || expected_config_version <= 0) {
+          throw new RequestError(400, 'invalid_body')
+        }
+        const expected_revision_id = requiredText(body.expected_revision_id, 128)
+        return json(response, await sdk.retryBuildApply(agent, key, {
+          confirm_rebuild: true, expected_revision_id, expected_config_version,
+        }))
+      }
+    }
     if (method === 'POST' && resource === 'tasks' && sessionPart === undefined) {
       const { key } = await input(request)
       const { session_id } = await sdk.createSession(agent, {}, key)
