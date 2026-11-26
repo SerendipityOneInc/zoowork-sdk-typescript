@@ -50,6 +50,10 @@ export interface BuildQuickCommand {
 }
 
 export interface BuildSummary {
+  origin: 'created' | 'shared'
+  shared_revision_id?: string | null
+  source_revision_id?: string
+  update_available?: boolean
   name: string
   description: string
   avatar_url: string | null
@@ -93,4 +97,69 @@ export interface AgentRevisionDiff {
   revision_id: string
   parent_revision_id: string | null
   unified_diff: string
+}
+
+export interface PublishBuildInput {
+  revision_id: string
+  expected_shared_revision_id: string | null
+}
+
+export interface PublishedBuild {
+  shared_revision_id: string
+}
+
+export interface ShareLinkCreated {
+  share_id: string
+  created_at: string
+  /** Returned on initial creation only. */
+  token?: string
+}
+
+export interface ShareLink {
+  share_id: string
+  created_at: string
+  revoked_at: string | null
+}
+
+export interface AgentInstallPreview {
+  name: string
+  description: string
+  avatar_url: string | null
+  quick_commands: BuildQuickCommand[]
+  source_revision_id: string
+  already_installed: boolean
+  agent_id?: string
+}
+
+export interface InstalledAgent {
+  agent_id: string
+  source_revision_id: string
+}
+
+export interface InstalledAgentItem extends InstalledAgent {
+  shared_revision_id: string | null
+  update_available: boolean
+}
+
+export interface InstalledAgentPage {
+  installs: InstalledAgentItem[]
+  next_cursor: string | null
+}
+
+export interface InstalledAgentQuery {
+  update_available?: boolean
+  cursor?: string
+  limit?: number
+}
+
+export interface UpdateInstalledAgentInput extends Pick<BuildApplyOptions, 'confirm_rebuild' | 'expected_config_version'> {
+  target_source_revision_id: string
+  expected_local_revision_id: string
+}
+
+export interface InstalledAgentUpdateStatus {
+  state: 'updating' | 'succeeded' | 'needs_retry' | 'failed' | null
+  source_revision_id: string
+  active_revision_id: string | null
+  apply: BuildApply
 }

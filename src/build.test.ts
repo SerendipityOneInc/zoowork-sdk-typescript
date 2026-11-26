@@ -172,3 +172,57 @@ test.each<[number, string, (client: ZooworkClient) => Promise<unknown>]>([
   await expect(result).rejects.toBeInstanceOf(ZooworkError)
   await expect(result).rejects.toMatchObject({ status, code })
 })
+
+test('shares, installs and updates through the public wire contract', async () => {
+  const token = 'synthetic-install-token'
+  const update = { state: 'succeeded', source_revision_id: 'r2', active_revision_id: 'local2',
+    apply: { state: 'applied', config_version: 3, phase: null, blockers: [] } }
+  const preparing = { state: 'updating', source_revision_id: 'r1', active_revision_id: null,
+    apply: { state: 'in_progress', config_version: 3, phase: 'preparing', blockers: [] } }
+  const link = { share_id: 'link', created_at: 'now' }
+  const preview = { name: 'Shared', description: '', avatar_url: null, quick_commands: [],
+    source_revision_id: 'r1', already_installed: false }
+  const copy = { agent_id: 'copy', source_revision_id: 'r1' }
+  const page = { installs: [{ ...copy, shared_revision_id: 'r2', update_available: true }], next_cursor: '25' }
+  const publish = { revision_id: 'r2', expected_shared_revision_id: 'r1' }
+  const accept = { target_source_revision_id: 'r2', expected_local_revision_id: 'local1' }
+  const confirm = { ...accept, confirm_rebuild: true, expected_config_version: 2 }
+  const calls = [
+    ['POST', '/agents/a/build/publish', null, null, publish, { shared_revision_id: 'r2' }],
+    ['POST', '/agents/a/share-links', 'once', null, undefined, { ...link, token }],
+    ['GET', '/agents/a/share-links', null, null, undefined, [{ ...link, revoked_at: null }]],
+    ['POST', '/agents/a/share-links/s%3F/revoke', null, null, undefined, undefined],
+    ['GET', '/agent-installs/preview', null, token, undefined, preview],
+    ['POST', '/agent-installs', 'once', token, { expected_source_revision_id: 'r1' }, copy],
+    ['GET', '/agent-installs?update_available=true&cursor=10&limit=2', null, null, undefined, page],
+    ['POST', '/agents/copy/build/update', 'once', null, accept, update],
+    ['POST', '/agents/copy/build/update', 'confirmed', null, confirm, preparing],
+    ['GET', '/agents/copy/build/update-status', null, null, undefined, update],
+  ] as const
+  let next = 0
+  const mocked: typeof fetch = async (path, init) => {
+    const call = calls[next++]
+    if (!call) throw new Error('Unexpected request')
+    const [method, suffix, key, installToken, body, response] = call
+    const headers = new Headers(init?.headers)
+    expect(String(path)).toBe(baseUrl + suffix)
+    expect(init?.method ?? 'GET').toBe(method)
+    expect(headers.get('authorization')).toBe(`Bearer ${apiKey}`)
+    expect(headers.get('idempotency-key')).toBe(key)
+    expect(headers.get('x-agent-install-token')).toBe(installToken)
+    expect(init?.body ? JSON.parse(String(init.body)) : undefined).toEqual(body)
+    return response === undefined ? new Response(null, { status: 204 }) : Response.json(response)
+  }
+  const client = createZooworkClient({ baseUrl, apiKey, fetch: mocked })
+  expect(await client.publishBuild('a', publish)).toEqual({ shared_revision_id: 'r2' })
+  expect(await client.createShareLink('a', 'once')).toEqual({ ...link, token })
+  expect(await client.listShareLinks('a')).toEqual([{ ...link, revoked_at: null }])
+  expect(await client.revokeShareLink('a', 's?')).toBeUndefined()
+  expect(await client.previewInstall(token)).toEqual(preview)
+  expect(await client.installSharedAgent(token, 'r1', 'once')).toEqual(copy)
+  expect(await client.listInstalledAgents({ update_available: true, cursor: '10', limit: 2 })).toEqual(page)
+  expect(await client.updateInstalledAgent('copy', accept, 'once')).toEqual(update)
+  expect(await client.updateInstalledAgent('copy', confirm, 'confirmed')).toEqual(preparing)
+  expect(await client.getUpdateStatus('copy')).toEqual(update)
+  expect(next).toBe(calls.length)
+})

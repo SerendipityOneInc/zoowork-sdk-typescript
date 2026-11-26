@@ -18,6 +18,16 @@ import type {
   BuildRun,
   BuildSession,
   BuildSummary,
+  AgentInstallPreview,
+  InstalledAgent,
+  InstalledAgentPage,
+  InstalledAgentQuery,
+  InstalledAgentUpdateStatus,
+  PublishBuildInput,
+  PublishedBuild,
+  ShareLink,
+  ShareLinkCreated,
+  UpdateInstalledAgentInput,
 } from './build.js'
 import { createDeveloperApi, type DeveloperApi } from './developer-api.js'
 import { parseSSE, isObj } from './sse.js'
@@ -1905,6 +1915,15 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
   getBuildRun(agentId: string, runId: string): Promise<BuildRun>
   /** Retry applying the Working Revision, optionally confirming its Environment rebuild. */
   retryBuildApply(agentId: string, idempotencyKey: string, options?: BuildApplyOptions): Promise<BuildApply>
+  publishBuild(agentId: string, input: PublishBuildInput): Promise<PublishedBuild>
+  createShareLink(agentId: string, idempotencyKey: string): Promise<ShareLinkCreated>
+  listShareLinks(agentId: string): Promise<ShareLink[]>
+  revokeShareLink(agentId: string, shareId: string): Promise<void>
+  previewInstall(token: string): Promise<AgentInstallPreview>
+  installSharedAgent(token: string, expectedSourceRevisionId: string, idempotencyKey: string): Promise<InstalledAgent>
+  listInstalledAgents(input?: InstalledAgentQuery): Promise<InstalledAgentPage>
+  updateInstalledAgent(agentId: string, input: UpdateInstalledAgentInput, idempotencyKey: string): Promise<InstalledAgentUpdateStatus>
+  getUpdateStatus(agentId: string): Promise<InstalledAgentUpdateStatus>
   /** List the Build Agent's saved revisions. */
   listRevisions(agentId: string): Promise<AgentRevisionList>
   /** Read the unified diff between a saved revision and its parent. */
@@ -2824,6 +2843,45 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         }),
       })
     },
+    publishBuild: (agentId, { revision_id, expected_shared_revision_id }) =>
+      json(`${agents(agentId)}/build/publish`, {
+        method: 'POST', body: JSON.stringify({ revision_id, expected_shared_revision_id }),
+      }),
+    createShareLink: (agentId, idempotencyKey) =>
+      json(`${agents(agentId)}/share-links`, { method: 'POST', headers: buildWriteHeaders(idempotencyKey) }),
+    listShareLinks: (agentId) => json(`${agents(agentId)}/share-links`),
+    revokeShareLink: async (agentId, shareId) => {
+      await json(`${agents(agentId)}/share-links/${encodeURIComponent(shareId)}/revoke`, { method: 'POST' })
+    },
+    previewInstall: (token) =>
+      json('/agent-installs/preview', { headers: { 'X-Agent-Install-Token': token } }),
+    installSharedAgent: (token, expectedSourceRevisionId, idempotencyKey) =>
+      json('/agent-installs', {
+        method: 'POST',
+        headers: { ...buildWriteHeaders(idempotencyKey), 'X-Agent-Install-Token': token },
+        body: JSON.stringify({ expected_source_revision_id: expectedSourceRevisionId }),
+      }),
+    listInstalledAgents: ({ update_available, cursor, limit } = {}) =>
+      json(`/agent-installs${query({
+        update_available: update_available === undefined ? undefined : String(update_available),
+        cursor, limit,
+      })}`),
+    updateInstalledAgent: async (agentId, input, idempotencyKey) => {
+      const { target_source_revision_id, expected_local_revision_id, confirm_rebuild, expected_config_version } = input
+      if (confirm_rebuild !== undefined && typeof confirm_rebuild !== 'boolean') {
+        throw new TypeError('confirm_rebuild must be a boolean')
+      }
+      return json(`${agents(agentId)}/build/update`, {
+        method: 'POST',
+        headers: buildWriteHeaders(idempotencyKey),
+        body: JSON.stringify({
+          target_source_revision_id,
+          expected_local_revision_id,
+          ...(confirm_rebuild && { confirm_rebuild: true, expected_config_version }),
+        }),
+      })
+    },
+    getUpdateStatus: (agentId) => json(`${agents(agentId)}/build/update-status`),
     listRevisions: (agentId) => json(`${agents(agentId)}/revisions`),
     getRevisionDiff: (agentId, revisionId) =>
       json(`${agents(agentId)}/revisions/${encodeURIComponent(revisionId)}/diff`),
