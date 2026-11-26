@@ -113,8 +113,8 @@ createServer(async (request, response) => {
     if (!path.startsWith('/api/agents/') || !knownSessions) throw new RequestError(404, 'unknown_agent')
     if (resource === 'build' && sessionPart === undefined) {
       if (method === 'GET') {
-        const { working_revision_id, apply } = await sdk.getBuild(agent)
-        return json(response, { working_revision_id, apply })
+        const { working_revision_id, effective_revision_id, apply } = await sdk.getBuild(agent)
+        return json(response, { working_revision_id, effective_revision_id, apply })
       }
       if (method === 'POST') {
         const { body, key } = await input(request)
@@ -138,6 +138,7 @@ createServer(async (request, response) => {
       const outcome = await sdk.getBuildRun(agent, decodeURIComponent(sessionPart))
       return json(response, {
         change: outcome.change,
+        revision_id: outcome.change === 'committed' ? outcome.revision_id : null,
         apply_state: outcome.change === 'committed' ? outcome.apply.state : null,
       })
     }

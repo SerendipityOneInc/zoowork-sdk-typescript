@@ -95,6 +95,7 @@ function describe(result) {
 async function refreshResult(run, line) {
   try {
     const result = await request(path() + '/runs/' + encodeURIComponent(run))
+    line.dataset.revision = result.revision_id ?? ''
     line.textContent = describe(result)
   } catch {
     line.textContent = 'Result unavailable · refresh to retry'
@@ -131,7 +132,7 @@ $('confirm-rebuild').onclick = async () => {
   if (!buildSummary || !window.confirm('Rebuilding will interrupt tasks currently running on this Agent. Continue?')) return
   const button = $('confirm-rebuild')
   const url = path() + '/build'
-  const { working_revision_id, apply } = buildSummary
+  const { working_revision_id, effective_revision_id, apply } = buildSummary
   button.disabled = true
   $('error').textContent = ''
   try {
@@ -148,7 +149,15 @@ $('confirm-rebuild').onclick = async () => {
       result = summary.apply
       if (summary.working_revision_id !== working_revision_id) break
     }
-    if (url === path() + '/build') await refreshBuild()
+    if (url === path() + '/build') {
+      const affected = [working_revision_id, effective_revision_id]
+      await Promise.all([
+        refreshBuild(),
+        ...[...results]
+          .filter(([, line]) => line.dataset.revision && affected.includes(line.dataset.revision))
+          .map(([run, line]) => refreshResult(run, line)),
+      ])
+    }
   } catch (error) { showError(error) }
   finally { button.disabled = false }
 }
