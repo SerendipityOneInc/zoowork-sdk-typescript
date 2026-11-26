@@ -101,8 +101,7 @@ async function refreshResult(run, line) {
   }
 }
 
-async function refreshResults() {
-  await Promise.all([...results].map(([run, line]) => refreshResult(run, line)))
+async function refreshBuild() {
   if (agent) {
     const url = path() + '/build'
     try {
@@ -110,6 +109,11 @@ async function refreshResults() {
       if (url === path() + '/build') showApply(summary)
     } catch (error) { showError(error) }
   }
+}
+
+async function refreshResults() {
+  await Promise.all([...results].map(([run, line]) => refreshResult(run, line)))
+  await refreshBuild()
 }
 
 function showApply(summary) {
@@ -144,7 +148,7 @@ $('confirm-rebuild').onclick = async () => {
       result = summary.apply
       if (summary.working_revision_id !== working_revision_id) break
     }
-    if (url === path() + '/build') await refreshResults()
+    if (url === path() + '/build') await refreshBuild()
   } catch (error) { showError(error) }
   finally { button.disabled = false }
 }
@@ -169,7 +173,8 @@ function connect(lane, session) {
         line.dataset.run = event.run_id
         results.set(event.run_id, line)
         $('refresh').disabled = false
-        void refreshResults()
+        void refreshResult(event.run_id, line)
+        void refreshBuild()
       }
     }
   }
