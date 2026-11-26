@@ -20,19 +20,28 @@ export interface BuildSession {
 
 export type BuildApplyState = 'applied' | 'pending' | 'blocked' | 'in_progress'
 export type BuildRunApplyState = BuildApplyState | 'superseded'
+export type BuildRebuildPhase = 'stopping' | 'switching' | 'preparing' | 'restoring' | 'ready' | 'failed'
+
+export interface BuildApplyOptions {
+  confirm_rebuild?: boolean
+  expected_revision_id?: string
+  expected_config_version?: number
+}
 
 export interface BuildBlocker {
   code: string
+  acknowledgeable: boolean
 }
 
 export interface BuildApply {
   state: BuildApplyState
+  config_version: number
+  phase: BuildRebuildPhase | null
   blockers: BuildBlocker[]
 }
 
-export interface BuildRunApply {
+export interface BuildRunApply extends Omit<BuildApply, 'state'> {
   state: BuildRunApplyState
-  blockers: BuildBlocker[]
 }
 
 export interface BuildQuickCommand {

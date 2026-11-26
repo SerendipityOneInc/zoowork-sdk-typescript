@@ -14,6 +14,7 @@ import type {
   BuildAgentCreated,
   BuildAgentInput,
   BuildApply,
+  BuildApplyOptions,
   BuildRun,
   BuildSession,
   BuildSummary,
@@ -1902,8 +1903,8 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
   openBuildSession(agentId: string): Promise<BuildSession>
   /** Read a Build turn's result using the run ID from the session events. */
   getBuildRun(agentId: string, runId: string): Promise<BuildRun>
-  /** Retry applying the current saved Working Revision. */
-  retryBuildApply(agentId: string, idempotencyKey: string): Promise<BuildApply>
+  /** Retry applying the Working Revision, optionally confirming its Environment rebuild. */
+  retryBuildApply(agentId: string, idempotencyKey: string, options?: BuildApplyOptions): Promise<BuildApply>
   /** List the Build Agent's saved revisions. */
   listRevisions(agentId: string): Promise<AgentRevisionList>
   /** Read the unified diff between a saved revision and its parent. */
@@ -2806,11 +2807,23 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     openBuildSession: (agentId) => json(`${agents(agentId)}/build-session`, { method: 'POST' }),
     getBuildRun: (agentId, runId) =>
       json(`${agents(agentId)}/build-session/runs/${encodeURIComponent(runId)}`),
-    retryBuildApply: async (agentId, idempotencyKey) =>
-      json(`${agents(agentId)}/build/apply`, {
+    retryBuildApply: async (agentId, idempotencyKey, options) => {
+      const confirmRebuild = options?.confirm_rebuild
+      if (confirmRebuild !== undefined && typeof confirmRebuild !== 'boolean') {
+        throw new TypeError('confirm_rebuild must be a boolean')
+      }
+      return json(`${agents(agentId)}/build/apply`, {
         method: 'POST',
         headers: buildWriteHeaders(idempotencyKey),
-      }),
+        ...(confirmRebuild && {
+          body: JSON.stringify({
+            confirm_rebuild: true,
+            expected_revision_id: options?.expected_revision_id,
+            expected_config_version: options?.expected_config_version,
+          }),
+        }),
+      })
+    },
     listRevisions: (agentId) => json(`${agents(agentId)}/revisions`),
     getRevisionDiff: (agentId, revisionId) =>
       json(`${agents(agentId)}/revisions/${encodeURIComponent(revisionId)}/diff`),
