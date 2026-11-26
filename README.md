@@ -281,8 +281,8 @@ effect on a turn, and Vault, subscription and `auto`-routing Agents.
 ```ts
 const state = await zc.getSessionModel(agentId, sessionId)
 if (state.writable) {
-  const target = state.available_models.find(model => model.thinking?.levels?.length)
-  const level = target?.thinking?.levels?.[0]
+  const target = state.available_models.find(model => model.thinking.levels.length > 0)
+  const level = target?.thinking.levels[0]
   if (target && level) {
     try {
       await zc.updateSessionModel(agentId, sessionId, {
@@ -301,9 +301,10 @@ if (state.writable) {
 
 When writes are disabled, `available_models` is empty and `unavailable_reason` explains why.
 `state.thinking` is the Session's own level. `state.default_thinking` is the inherited Agent level,
-or `null` in `override` mode or when following an `auto` Agent with no selected model.
-Once a model is fixed, the Session no longer inherits the Agent's level. Without a level of its own
-it uses the model's default. For example, when following the Agent, sending only its current
+or `null` while the model is one fixed with `updateSessionModel` and when following an `auto` Agent
+with no selected model. Once a model is fixed this way, the Session no longer inherits the Agent's
+level. Without a level of its own it uses the model's default. A model the Agent switched to itself
+during a turn also reads as `mode: 'override'` but keeps inheriting the Agent level. For example, when following the Agent, sending only its current
 `model_id` fixes that model with `thinking: null`. Clearing only the level while following the
 Agent is a no-op. Use `model_id: null` to follow the Agent's model and level again.
 

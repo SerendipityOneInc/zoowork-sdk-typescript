@@ -387,8 +387,11 @@ production run, supply the production public URL and replace `--confirm-staging`
 an independent 90 seconds and 12 requests. Each request in this check has a 30-second timeout.
 
 The runner creates a temporary Agent and an idle Session. It reads the selection, picks a
-listed model with two thinking levels, sets the model and level, changes only the level,
-clears it, and restores the Agent default. It checks that a stale version takes precedence
+listed model with two thinking levels (preferring one other than the Agent default, and falling
+back to the default model when no other qualifies), sets the model and level, changes only the
+level, clears it, and restores the Agent default. Every write must advance
+`selection_version` by one. The record's `checks` say `model_switch` or
+`same_model_as_default` for the model that was picked. It checks that a stale version takes precedence
 over an unknown model (409), that a current version exposes the unknown model (400), and
 that archiving disables selection (409). Cleanup deletes the Session, stops and deletes the
 Agent, and confirms deletion. The private output directory holds `session-model-result.json`

@@ -10,8 +10,8 @@ day the behaviour was verified, not the day it was written.
   the Agent again. Omitting `model_id` keeps the model. Setting only a thinking level fixes
   that model for the Session. Omitting `thinking` keeps the Session's own level unless the model
   switches, which clears it. Fixing the current model under `auto` routing also counts as a switch.
-  A fixed model no longer inherits the Agent's level and uses the model default if the Session has
-  no level of its own. Updates carry the last read `selection_version` and `config_version`.
+  A model fixed this way no longer inherits the Agent's level and uses the model default if the
+  Session has no level of its own. Updates carry the last read `selection_version` and `config_version`.
   A mismatch returns 409 `task_model_changed` and the SDK does not retry.
   New exported types: `ModelThinking`, `SessionModel`, `SessionModelOption`, `SessionModelSelect`,
   `SessionThinkingUpdate`, `SessionModelReset`, `SessionModelUpdate`.

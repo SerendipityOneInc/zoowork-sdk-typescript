@@ -1103,8 +1103,10 @@ export interface SessionModel {
   /** The Session's own thinking level, or `null` when it has none. */
   thinking: ThinkingLevel | null
   /**
-   * The inherited Agent level, or `null` when none applies. Always `null` in `override` mode
-   * and when following an `auto` Agent with no selected model.
+   * The inherited Agent level, or `null` when none applies. `null` while the model is one fixed
+   * with `updateSessionModel` (or the product UI), and when following an `auto` Agent with no
+   * selected model. A model the Agent switched to itself during a turn (`mode: 'override'` from
+   * an internal tool) still inherits the Agent level.
    */
   default_thinking: ThinkingLevel | null
   /** Absent on servers too old to accept `thinking` here. */
@@ -1141,16 +1143,19 @@ type SessionModelVersions = {
   expected_config_version: number
 }
 
+/** Select a model for one Session, optionally with a thinking level (`null` uses the model default). */
 export type SessionModelSelect = SessionModelVersions & {
   model_id: string
   thinking?: ThinkingLevel | null
 }
 
+/** Set or clear (`null`) only the Session's thinking level; a level also fixes the current model. */
 export type SessionThinkingUpdate = SessionModelVersions & {
   model_id?: undefined
   thinking: ThinkingLevel | null
 }
 
+/** Follow the Agent's model and thinking level again. */
 export type SessionModelReset = SessionModelVersions & {
   model_id: null
   thinking?: null
@@ -1167,8 +1172,8 @@ export type SessionModelReset = SessionModelVersions & {
  *   the Session's level. Omitting `thinking` keeps the Session's own level unless the model
  *   switches. A switch clears it, including fixing the current model under `auto` routing.
  *
- * Once a model is fixed, the Session no longer inherits the Agent's level: without one of its own
- * it uses the model's default. Clearing the level of a Session that follows the Agent is a no-op.
+ * Once a model is fixed with this call, the Session no longer inherits the Agent's level: without
+ * one of its own it uses the model's default. Clearing the level of a Session that follows the Agent is a no-op.
  *
  * Supply at least one of `model_id` and `thinking`. Omitting both or pairing `model_id: null`
  * with a non-null level raises 400 `invalid_request` during body validation. Both expected
@@ -2251,8 +2256,9 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * Vault Session reads as `session_archived` but raises 403 on update.
    * Writability failures return 409 `session_archived`, `task_model_read_only` or
    * `task_model_subscription_bound`. Version checks follow, then model resolution (400
-   * `invalid_request` for an unknown model, 409 `task_model_unavailable` for an unavailable model). A thinking level alone while following
-   * an `auto` Agent also raises 400 `invalid_request`: supply a model with the level.
+   * `invalid_request` for an unknown model, 409 `task_model_unavailable` for an unavailable
+   * model). A thinking level alone while following an `auto` Agent also raises 400
+   * `invalid_request`: supply a model with the level.
    */
   updateSessionModel(agentId: string, sessionId: string, update: SessionModelUpdate): Promise<SessionModel>
   /**
