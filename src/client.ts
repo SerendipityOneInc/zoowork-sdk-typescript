@@ -2250,8 +2250,8 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * Vault (403 `vault_profile_restricted`) precedes all remaining 409 checks, so an archived
    * Vault Session reads as `session_archived` but raises 403 on update.
    * Writability failures return 409 `session_archived`, `task_model_read_only` or
-   * `task_model_subscription_bound`. Version checks follow, then model resolution (400 `invalid_request` for an unknown model, 409
-   * `task_model_unavailable` for an unavailable model). A thinking level alone while following
+   * `task_model_subscription_bound`. Version checks follow, then model resolution (400
+   * `invalid_request` for an unknown model, 409 `task_model_unavailable` for an unavailable model). A thinking level alone while following
    * an `auto` Agent also raises 400 `invalid_request`: supply a model with the level.
    */
   updateSessionModel(agentId: string, sessionId: string, update: SessionModelUpdate): Promise<SessionModel>
