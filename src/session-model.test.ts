@@ -5,7 +5,7 @@
 import { expect, expectTypeOf, test } from 'vitest'
 import {
   createZooworkClient, vaultSessionErrorCode, ZooworkError,
-  type SessionModel, type SessionModelOption, type SessionModelUpdate, type ThinkingLevel,
+  type ModelInfo, type SessionModel, type SessionModelOption, type SessionModelUpdate, type ThinkingLevel,
 } from './index.js'
 
 const BASE = 'https://sdk-contract.test/service/v1'
@@ -144,4 +144,8 @@ test('the update type rejects what the service rejects', () => {
   // @ts-expect-error not a public thinking level.
   const unknownLevel: SessionModelUpdate = { ...VERSIONS, thinking: 'xhigh' }
   void [noVersions, empty, resetWithLevel, unknownLevel]
+})
+
+test('catalog thinking remains assignable to a string-keyed record', () => {
+  expectTypeOf<NonNullable<ModelInfo['thinking']>>().toMatchTypeOf<Record<string, unknown>>()
 })

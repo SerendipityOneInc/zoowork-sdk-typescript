@@ -356,7 +356,12 @@ export interface Ownership {
  */
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
 
-export interface ModelThinking {
+/**
+ * Thinking levels that take effect as named on this model, in ascending order. Any other
+ * {@link ThinkingLevel} resolves to the nearest listed one. `default` is the level the
+ * platform applies when no level is set.
+ */
+export type ModelThinking = {
   default: ThinkingLevel
   levels: ThinkingLevel[]
 }
@@ -375,11 +380,7 @@ export interface ModelInfo {
   selectable?: boolean
   retire_not_before?: string | null
   default_for?: string[]
-  /**
-   * Thinking levels that take effect as named on this model, ascending; any other
-   * {@link ThinkingLevel} resolves to the nearest listed one. `default` is what the platform
-   * applies when an Agent sets none. Optional so older servers that omit it still type-check.
-   */
+  /** Older servers may omit this capability. */
   thinking?: ModelThinking
   [k: string]: unknown
 }
@@ -1073,7 +1074,7 @@ export interface SessionModelOption {
 
 /**
  * The model and thinking level of one Session, separate from the Agent's `model` configuration.
- * Returned by `getSessionModel` and `updateSessionModel`. Verified on staging on 2026-11-25,
+ * Returned by `getSessionModel` and `updateSessionModel`. Verified on staging on 2026-11-26,
  * except the effect on a turn and Vault, subscription and `auto`-routing Agents.
  */
 export interface SessionModel {
@@ -1101,7 +1102,10 @@ export interface SessionModel {
   available_models: SessionModelOption[]
   /** The Session's own thinking level, or `null` when it has none. */
   thinking: ThinkingLevel | null
-  /** The Agent's thinking level when inherited. Null for `auto` routing with no selected model, or when no Agent level applies. */
+  /**
+   * The inherited Agent level, or `null` when none applies. Always `null` in `override` mode
+   * and when following an `auto` Agent with no selected model.
+   */
   default_thinking: ThinkingLevel | null
   /** Absent on servers too old to accept `thinking` here. */
   thinking_supported?: boolean
@@ -1132,6 +1136,26 @@ export interface SessionModel {
   [k: string]: unknown
 }
 
+type SessionModelVersions = {
+  expected_selection_version: number
+  expected_config_version: number
+}
+
+export type SessionModelSelect = SessionModelVersions & {
+  model_id: string
+  thinking?: ThinkingLevel | null
+}
+
+export type SessionThinkingUpdate = SessionModelVersions & {
+  model_id?: undefined
+  thinking: ThinkingLevel | null
+}
+
+export type SessionModelReset = SessionModelVersions & {
+  model_id: null
+  thinking?: null
+}
+
 /**
  * A change to a Session's model, its thinking level, or both. An omitted field and `null` mean
  * different things:
@@ -1140,8 +1164,8 @@ export interface SessionModel {
  *   restores the Agent's model AND thinking level, so it cannot be combined with a level;
  *   omitted keeps the model.
  * - `thinking`: a level sets it and also fixes the current model for this Session; `null` clears
- *   the Session's level; omitted keeps it, except that a model switch clears it. With `auto` routing,
- *   fixing the current model also counts as a switch.
+ *   the Session's level. Omitting `thinking` keeps the Session's own level unless the model
+ *   switches. A switch clears it, including fixing the current model under `auto` routing.
  *
  * Once a model is fixed, the Session no longer inherits the Agent's level: without one of its own
  * it uses the model's default. Clearing the level of a Session that follows the Agent is a no-op.
@@ -1150,14 +1174,7 @@ export interface SessionModel {
  * with a non-null level raises 400 `invalid_request` during body validation. Both expected
  * versions come from the last {@link SessionModel} you read.
  */
-export type SessionModelUpdate = {
-  expected_selection_version: number
-  expected_config_version: number
-} & (
-  | { model_id: string; thinking?: ThinkingLevel | null }
-  | { model_id?: undefined; thinking: ThinkingLevel | null }
-  | { model_id: null; thinking?: null }
-)
+export type SessionModelUpdate = SessionModelSelect | SessionThinkingUpdate | SessionModelReset
 
 export interface SessionRecord {
   session_id: string
@@ -2232,8 +2249,8 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * (409 `task_model_unavailable`), then looks up the Session (404 `session_not_found`).
    * Vault (403 `vault_profile_restricted`) precedes all remaining 409 checks, so an archived
    * Vault Session reads as `session_archived` but raises 403 on update.
-   * Next come writability (409 with the read's `unavailable_reason`) and version checks,
-   * then model resolution (400 `invalid_request` for an unknown model, 409
+   * Writability failures return 409 `session_archived`, `task_model_read_only` or
+   * `task_model_subscription_bound`. Version checks follow, then model resolution (400 `invalid_request` for an unknown model, 409
    * `task_model_unavailable` for an unavailable model). A thinking level alone while following
    * an `auto` Agent also raises 400 `invalid_request`: supply a model with the level.
    */

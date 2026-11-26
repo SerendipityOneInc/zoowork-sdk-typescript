@@ -5,7 +5,7 @@ import * as sdk from '../src/index.js'
 import { baseURL, guardedFetch, safeFailure, validApiKey } from './guard.ts'
 import { smoke } from './smoke.ts'
 import type { SmokeRecord } from './smoke.ts'
-import { LiveProgress, MAIN_STEPS } from './progress.ts'
+import { LiveProgress, MAIN_STEPS, SESSION_MODEL_STEPS } from './progress.ts'
 
 const base = 'https://staging.example.invalid/service/v1'
 const sentinel = 'synthetic-sensitive-value-do-not-emit'
@@ -47,6 +47,23 @@ test('one lifecycle/turn, REST-SSE agreement, then stop and soft-delete only own
   assert.deepEqual(result.steps.map(step => step.id), [...MAIN_STEPS, 'delete_session', 'stop_agent', 'delete_agent', 'confirm_agent_unavailable'])
   assert.ok(result.steps.every(step => step.status === 'passed' && step.duration_ms >= 0))
   for (const step of result.steps) assert.ok(f.records.some(record => record.steps.some(s => s.id === step.id && s.status === 'running')))
+})
+test('a successful Session model check records its labels and cleans up the idle Session', async () => {
+  const f = setup({ createSession: async (_agent, input) => {
+    assert.equal(Object.hasOwn(input, 'initial_events'), false)
+    return { session_id: 'SYNTHETIC_SESSION' }
+  } })
+  const result = await smoke(sdk, f.client, { ...f.options, sessionModelCheck: async (agent, session, passed) => {
+    assert.equal(agent, 'agt_SYNTHETIC')
+    assert.equal(session, 'SYNTHETIC_SESSION')
+    passed('read_session_model')
+    passed('reset_model')
+  } })
+  assert.equal(result.passed, true)
+  assert.equal(result.cleanup.complete, true)
+  assert.deepEqual(result.steps.map(step => step.id),
+    [...SESSION_MODEL_STEPS, 'delete_session', 'stop_agent', 'delete_agent', 'confirm_agent_unavailable'])
+  assert.deepEqual(result.checks, ['model_catalog', 'agent_lifecycle', 'read_session_model', 'reset_model'])
 })
 test('a failed Session model check on an idle Session still cleans up the owned resources', async () => {
   const f = setup({ createSession: async (_agent, input) => {

@@ -41,7 +41,7 @@ async function main(): Promise<void> {
     runner_sha256: hash(['session-model.ts', 'session-model-smoke.ts', 'smoke.ts', 'guard.ts', 'progress.ts'].map(name => name + '\0'
       + hash(readFileSync(new URL(name, import.meta.url)))).join('\0')) }
   const result = await smoke(sdk, client, { runId: randomUUID().replaceAll('-', ''), model: values.model,
-    sessionModelCheck: (agent, session, passed) => checkSessionModel(client, agent, session, passed),
+    sessionModelCheck: (agent, session, passed) => checkSessionModel(sdk.ZooworkError, client, agent, session, passed),
     signal: active, cleanupMode: () => { cleaning = true; active = AbortSignal.timeout(90_000) },
     save: record => writeJSON(recordPath, { ...provenance, ...record }),
   })

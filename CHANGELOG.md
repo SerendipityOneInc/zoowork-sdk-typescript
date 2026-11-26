@@ -8,13 +8,17 @@ day the behaviour was verified, not the day it was written.
 - Read and change the model and thinking level of one Session with `getSessionModel` and
   `updateSessionModel`. `thinking: null` clears the Session's level and `model_id: null` follows
   the Agent again. Omitting `model_id` keeps the model. Setting only a thinking level fixes
-  that model for the Session. Omitting `thinking` keeps the level unless the model switches,
-  which clears it (fixing the current model under `auto` routing also counts as a switch). An update carries the `selection_version` and
-  `config_version` it was based on, and a mismatch is `409 task_model_changed`; the SDK does not
-  retry it. New exported types: `ModelThinking`, `SessionModel`, `SessionModelOption`, `SessionModelUpdate`.
-  Re-run the 2026-11-25 staging checks with `pnpm test:e2e:session-model` (see [e2e/README.md](e2e/README.md#session-model)): read, set model and level, level only, clear, reset, the 409
-  conflict, an unknown model and an archived Session. Not verified live: the effect on a turn, and
-  Vault, subscription and `auto`-routing Agents.
+  that model for the Session. Omitting `thinking` keeps the Session's own level unless the model
+  switches, which clears it. Fixing the current model under `auto` routing also counts as a switch.
+  A fixed model no longer inherits the Agent's level and uses the model default if the Session has
+  no level of its own. Updates carry the last read `selection_version` and `config_version`.
+  A mismatch returns 409 `task_model_changed` and the SDK does not retry.
+  New exported types: `ModelThinking`, `SessionModel`, `SessionModelOption`, `SessionModelSelect`,
+  `SessionThinkingUpdate`, `SessionModelReset`, `SessionModelUpdate`.
+  Verified on staging on 2026-11-26 with `pnpm test:e2e:session-model`: read, set model and level,
+  stale version (409), change only the level, clear it, reset, unknown model (400), and archived
+  Session (409). Not verified live: the effect on a turn, and Vault, subscription and `auto`-routing
+  Agents. See the [Session model check](e2e/README.md#session-model).
 
 ## 0.18.0 — 2026-11-25
 

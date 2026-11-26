@@ -273,8 +273,10 @@ scope, so do not reuse a cursor created without it.
 creation time.
 
 `getSessionModel` and `updateSessionModel` read and change the model and thinking level of one
-Session from its next turn, without changing the Agent. Verified on staging on 2026-11-25, except
-that no turn was run to observe the new model and level.
+Session from its next turn, without changing the Agent. Verified on staging on 2026-11-26 with
+`pnpm test:e2e:session-model`: read, set model and level, stale version (409), change only the
+level, clear it, reset, unknown model (400), and archived Session (409). Not verified live: the
+effect on a turn, and Vault, subscription and `auto`-routing Agents.
 
 ```ts
 const state = await zc.getSessionModel(agentId, sessionId)
@@ -297,10 +299,13 @@ if (state.writable) {
 }
 ```
 
-When writes are disabled, `available_models` is empty and `unavailable_reason` explains why. `state.thinking` is the Session's own level and
-`state.default_thinking` the Agent level it inherits. To fix the current model and use its default level, send its
-`model_id` together with `thinking: null`. Clearing only the level while following the Agent is a no-op.
-Use `model_id: null` to follow the Agent’s model and level again.
+When writes are disabled, `available_models` is empty and `unavailable_reason` explains why.
+`state.thinking` is the Session's own level. `state.default_thinking` is the inherited Agent level,
+or `null` in `override` mode or when following an `auto` Agent with no selected model.
+Once a model is fixed, the Session no longer inherits the Agent's level. Without a level of its own
+it uses the model's default. For example, when following the Agent, sending only its current
+`model_id` fixes that model with `thinking: null`. Clearing only the level while following the
+Agent is a no-op. Use `model_id: null` to follow the Agent's model and level again.
 
 An application-executed tool is declared in `resource.custom_tools`. When
 `customToolUse(ev)?.phase === 'requested'`, execute the named operation and call

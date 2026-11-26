@@ -371,7 +371,8 @@ this implementation cannot establish staging acceptance.
 
 ## Session model
 
-Build the SDK, then run the Session model check with the key supplied through
+Obtain maintainer authorization for temporary writes in the target environment. Possession of an
+API key does not grant consent. Build the SDK, then supply the key through
 `ZOOWORK_API_KEY` or secure stdin (`--api-key-stdin`).
 
 ```sh
@@ -380,6 +381,11 @@ pnpm test:e2e:session-model --out-dir /absolute/private/new-session-model-result
   --base-url https://your-staging-host/service/v1 --confirm-staging
 ```
 
+Use `--model ID` to select the temporary Agent's initial catalog model. For an authorized
+production run, supply the production public URL and replace `--confirm-staging` with
+`--confirm-production`. The main phase has three minutes and at most 80 requests. Cleanup has
+an independent 90 seconds and 12 requests. Each request in this check has a 30-second timeout.
+
 The runner creates a temporary Agent and an idle Session. It reads the selection, picks a
 listed model with two thinking levels, sets the model and level, changes only the level,
 clears it, and restores the Agent default. It checks that a stale version takes precedence
@@ -387,3 +393,8 @@ over an unknown model (409), that a current version exposes the unknown model (4
 that archiving disables selection (409). Cleanup deletes the Session, stops and deletes the
 Agent, and confirms deletion. The private output directory holds `session-model-result.json`
 with the checks and cleanup outcome. No model turn is started.
+
+If cleanup is interrupted, recover the recorded IDs from `session-model-result.json`. For an
+uncertain Agent create, match the exact `sdk_e2e_run` label and generated Agent name. For an
+uncertain Session create, match `metadata.run_id` within that Agent. Finish recovery before
+starting another run.
