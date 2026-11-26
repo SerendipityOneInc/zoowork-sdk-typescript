@@ -617,6 +617,10 @@ test('the event vocabulary is the one Engine publishes, and the two lists are di
     'schedule.dispatch_failed',
     'schedule.skipped',
     'schedule.finished',
+    'node.pairing_requested',
+    'node.online',
+    'node.offline',
+    'node.revoked',
     'webhook.test',
   ])
   // Declared for receivers to handle, but not emitted until Engine E5a ships the server side.
@@ -632,6 +636,37 @@ test('the event vocabulary is the one Engine publishes, and the two lists are di
   for (const type of [...WEBHOOK_EVENT_TYPES, ...WEBHOOK_SCHEDULE_CONFIG_EVENT_TYPES]) {
     expect(isKnownWebhookEventType(type)).toBe(true)
   }
+})
+
+test.each([
+  'node.pairing_requested',
+  'node.online',
+  'node.offline',
+  'node.revoked',
+] as const)('verifies and narrows the owner-scoped %s payload', async (type) => {
+  const data = {
+    org_id: 'org_1',
+    owner_uid: 'owner_1',
+    device_id: 'device_1',
+    display_name: null,
+    platform: 'linux',
+    future_field: true,
+  }
+  const body = JSON.stringify({
+    object: 'event',
+    id: 'whe_device',
+    type,
+    schema_version: 1,
+    created_at: '2026-11-20T00:00:00Z',
+    data,
+  })
+  const headers = await sealed(body)
+  const event = knownWebhookEvent(await unwrapWebhook({ headers, rawBody: body, secret: SECRET, now: NOW }))
+  expect(event?.type).toBe(type)
+  if (event?.type !== type) throw new Error('expected a known device event')
+  expectTypeOf(event.data.device_id).toEqualTypeOf<string>()
+  expectTypeOf(event.data.display_name).toEqualTypeOf<string | null>()
+  expect(event.data).toEqual(data)
 })
 
 test('an event type this release has never heard of passes through instead of throwing', async () => {

@@ -42,6 +42,9 @@ day the behaviour was verified, not the day it was written.
   server. The example uses the existing message and SSE APIs to resume the Build chat and
   open a regular task on the same Agent.
 
+- Add beta device management, invocation history and owner-scoped device webhooks. The signed
+  webhook receiver recognizes `node.pairing_requested`, `node.online`, `node.offline` and
+  `node.revoked`. Verified with mocked HTTP and signed payloads.
 - Correct the MCP JSDoc. `AgentResource.mcp` no longer says that only unauthenticated servers
   work: a server that needs a credential gets it from a Vault (beta). The `McpServerDeclaration`
   notes, which 0.15.0 left attached to `McpVaultAuth`, are back on `McpServerDeclaration`, and

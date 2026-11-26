@@ -40,8 +40,18 @@
 
 // ── event vocabulary ───────────────────────────────────────────────────────
 
+/** Owner-scoped device events (beta). */
+const NODE_WEBHOOK_EVENT_TYPES = [
+  'node.pairing_requested',
+  'node.online',
+  'node.offline',
+  'node.revoked',
+] as const
+
+export type NodeWebhookEventType = (typeof NODE_WEBHOOK_EVENT_TYPES)[number]
+
 /**
- * Event types the deployed Engine delivers, mirrored from its public projection.
+ * Event types mirrored from Engine's public projection.
  *
  * A type not in this list is NOT an error — see {@link isKnownWebhookEventType}.
  */
@@ -61,6 +71,7 @@ export const WEBHOOK_EVENT_TYPES = [
   'schedule.dispatch_failed',
   'schedule.skipped',
   'schedule.finished',
+  ...NODE_WEBHOOK_EVENT_TYPES,
   'webhook.test',
 ] as const
 
@@ -108,7 +119,7 @@ export function isKnownWebhookEventType(type: string): type is WebhookEventType 
 export interface WebhookEventAttribution {
   org_id: string
   owner_uid: string
-  /** Absent only on an owner-scope `webhook.test`, which belongs to no agent. */
+  /** Absent on owner-scoped events that belong to no agent. */
   agent_id?: string
   session_origin?: 'api' | 'schedule' | 'channel' | 'internal'
   run_origin?: 'api' | 'channel' | 'none'
@@ -300,6 +311,13 @@ export interface WebhookTestData extends WebhookEventAttribution {
   endpoint_id: string
 }
 
+/** Data shared by the four owner-scoped device events (beta). Read the event time from `created_at`. */
+export interface WebhookNodeData extends Pick<WebhookEventAttribution, 'org_id' | 'owner_uid'> {
+  device_id: string
+  display_name: string | null
+  platform: string | null
+}
+
 /** Each known type's `data` shape. */
 export interface WebhookEventDataByType {
   'run.started': WebhookRunStartedData
@@ -317,6 +335,10 @@ export interface WebhookEventDataByType {
   'schedule.dispatch_failed': WebhookScheduleDispatchFailedData
   'schedule.skipped': WebhookScheduleSkippedData
   'schedule.finished': WebhookScheduleFinishedData
+  'node.pairing_requested': WebhookNodeData
+  'node.online': WebhookNodeData
+  'node.offline': WebhookNodeData
+  'node.revoked': WebhookNodeData
   'webhook.test': WebhookTestData
   'schedule.created': WebhookScheduleConfigData
   'schedule.updated': WebhookScheduleConfigData

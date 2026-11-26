@@ -475,6 +475,33 @@ library for any language works with the same `whsec_` secret and the same raw bo
 fixed vectors in [`src/__vectors__/webhook-vectors.json`](src/__vectors__/webhook-vectors.json)
 are copied verbatim from Engine and are byte-compatible with all of them.
 
+## Devices (beta)
+
+Use a Platform Project API key to manage the key owner's devices and device webhooks.
+The first release keeps the device-side node host internal. Pairing requires the Engine team's
+reference implementation, `node-host-cli`.
+
+```ts
+const { devices, pending } = await zc.listNodes()
+const { setupCode, expiresAt } = await zc.createNodeBootstrap({ agentScope: [agentId] })
+await zc.createNodeWebhook({
+  url: 'https://receiver.example/webhook',
+  event_types: ['node.online', 'node.offline'],
+}, operationId)
+
+const { invocations, nextCursor } = await zc.listNodeInvocations({ deviceId, limit: 25 })
+```
+
+Use the device ID and the pending request's `requestId` with `approveNode` or `rejectNode`.
+`updateNode` preserves omitted fields and clears `displayName` or `agentScope` when set to
+`null`. Treat the setup code and the token returned by `rotateNodeToken` as credentials.
+Pass `nextCursor` as `cursor` with the same invocation filters to read the next page.
+
+Device webhooks subscribe to `node.pairing_requested`, `node.online`, `node.offline` and
+`node.revoked`. Include `event_types` in every `updateNodeWebhook` call. Verify deliveries with
+[`unwrapWebhook`](#receiving-webhooks) and use `knownWebhookEvent` to narrow the event data.
+When reading delivery logs, follow `next_cursor` while `has_more` is true, even after an empty page.
+
 ## Vault (beta)
 
 > **Beta.** Vault is available in the ZooWork production environment. An account or environment
