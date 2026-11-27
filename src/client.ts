@@ -2502,7 +2502,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events${query({
         after: opts.after,
         cursor: opts.cursor,
-        types: opts.types?.join(','),
+        types: opts.types?.length ? opts.types.join(',') : undefined,
         limit: opts.limit,
       })}`,
     )
@@ -2857,15 +2857,15 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       // Unified lane (default): follow the server's cursor until has_more is false.
       if (opts.after === undefined) {
         let pageCursor = opts.cursor
+        const seen = new Set(pageCursor === undefined ? [] : [pageCursor])
         for (;;) {
           const page = await listEventsPage(agentId, sessionId, {
             ...(pageCursor !== undefined ? { cursor: pageCursor } : {}),
             ...(opts.types ? { types: opts.types } : {}),
             limit: pageSize,
           })
-          // A cursor that fails to advance means the same page again — stop before
-          // re-appending it rather than refetching it forever.
-          if (page.hasMore !== undefined && page.nextCursor === pageCursor) return out
+          // A repeated cursor means the walk can cycle. Keep the previously read pages.
+          if (page.hasMore !== undefined && typeof page.nextCursor === 'string' && seen.has(page.nextCursor)) return out
           out.push(...page.events)
           if (page.hasMore === undefined) {
             // Before the first cursor this is a server without cursor pagination: a short
@@ -2876,6 +2876,7 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
             break
           }
           if (!page.hasMore || !page.nextCursor || page.events.length === 0) return out
+          seen.add(page.nextCursor)
           pageCursor = page.nextCursor
         }
       }
