@@ -382,11 +382,35 @@ export function knownWebhookEvent(event: WebhookEvent): KnownWebhookEvent | unde
   return isKnownWebhookEventType(event.type) ? (event as KnownWebhookEvent) : undefined
 }
 
+/** The event's public Agent ID, if present. */
+export function webhookAgentId(event: WebhookEvent): string | undefined {
+  const value = event.data.agent_id
+  return typeof value === 'string' ? value : undefined
+}
+
+/** The event's Session ID, if present. */
+export function webhookSessionId(event: WebhookEvent): string | undefined {
+  const value = event.data.session_id
+  return typeof value === 'string' ? value : undefined
+}
+
+/** The event's logical run ID, if present. */
+export function webhookRunId(event: WebhookEvent): string | undefined {
+  const value = event.data.run_id
+  return typeof value === 'string' ? value : undefined
+}
+
+/** The event's public Schedule ID, if present. */
+export function webhookScheduleId(event: WebhookEvent): string | undefined {
+  const value = event.data.schedule_id
+  return typeof value === 'string' ? value : undefined
+}
+
 // ── signature verification ─────────────────────────────────────────────────
 
-const WEBHOOK_SECRET_PREFIX = 'whsec_'
-const WEBHOOK_SECRET_BYTES = 32
-const WEBHOOK_SIGNATURE_VERSION = 'v1'
+export const WEBHOOK_SECRET_PREFIX = 'whsec_'
+export const WEBHOOK_SECRET_BYTES = 32
+export const WEBHOOK_SIGNATURE_VERSION = 'v1'
 /** Default clock tolerance, in seconds, in EITHER direction and inclusive. */
 export const WEBHOOK_TOLERANCE_SECONDS = 300
 /** The sender's envelope ceiling. A receiver refuses a larger body without hashing it. */
@@ -531,7 +555,7 @@ function encodeBase64(bytes: Uint8Array): string {
 }
 
 /** The raw HMAC key behind a `whsec_` secret; rejects anything but the exact format. */
-function decodeSecret(secret: string): Uint8Array {
+export function decodeWebhookSecret(secret: string): Uint8Array {
   if (typeof secret !== 'string' || !secret.startsWith(WEBHOOK_SECRET_PREFIX)) {
     throw new ZooworkWebhookError('invalid_secret', `webhook secret must start with ${WEBHOOK_SECRET_PREFIX}`)
   }
@@ -564,13 +588,13 @@ function resolveSecrets(secret: string | readonly string[] | undefined): Uint8Ar
         `no webhook secret: pass secret, or set ${WEBHOOK_SECRET_ENV} to one secret, or to several separated by whitespace or commas (it needs a runtime with process.env)`,
       )
     }
-    return fromEnv.map(decodeSecret)
+    return fromEnv.map(decodeWebhookSecret)
   }
   const secrets = typeof secret === 'string' ? [secret] : secret
   if (secrets.length === 0) {
     throw new ZooworkWebhookError('invalid_secret', 'at least one webhook secret is required')
   }
-  return secrets.map(decodeSecret)
+  return secrets.map(decodeWebhookSecret)
 }
 
 function toBytes(value: Uint8Array | string): Uint8Array {

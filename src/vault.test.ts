@@ -193,6 +193,21 @@ test('a createSession without Vault fields carries none of their keys, not even 
   }
 })
 
+test('createSession with Vault fields validates isolation and idempotency for JS callers', async () => {
+  const { calls, client } = harness({ status: 201, body: RECEIPT })
+  // Cast only here to exercise JS callers, which can bypass the public overloads.
+  const create = client.createSession as (id: string, input: object, key?: string) => Promise<SessionRecord>
+  for (const field of ['vault_ids', 'credential_bindings', 'external_user_ref', 'vault_binding_options']) {
+    await expect(create('a', { [field]: null }, 'key')).rejects.toThrow(/isolation/)
+  }
+  await expect(create('a', { isolation: 'invalid', vault_ids: [] }, 'key')).rejects.toThrow(/isolation/)
+  await expect(create('a', { isolation: 'shared', vault_ids: ['v'] })).rejects.toThrow(/Idempotency-Key/)
+  await expect(create('a', { isolation: 'session', vault_ids: ['v'] }, ' \t')).rejects.toThrow(/Idempotency-Key/)
+  expect(calls).toHaveLength(0)
+  await create('a', { vault_ids: undefined })
+  expect(JSON.parse(calls[0]!.body!)).toEqual({})
+})
+
 test('the Vault fields are only accepted together with isolation and an Idempotency-Key (types)', () => {
   const c = harness().client
   // Compiled, never called: `tsc --noEmit` (part of `pnpm test`) is the assertion.

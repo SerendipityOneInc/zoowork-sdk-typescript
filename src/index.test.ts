@@ -181,8 +181,11 @@ const PUBLIC_VALUES = [
   'WEBHOOK_EVENT_TYPES',
   'WEBHOOK_ID_HEADER',
   'WEBHOOK_SCHEDULE_CONFIG_EVENT_TYPES',
+  'WEBHOOK_SECRET_BYTES',
   'WEBHOOK_SECRET_ENV',
+  'WEBHOOK_SECRET_PREFIX',
   'WEBHOOK_SIGNATURE_HEADER',
+  'WEBHOOK_SIGNATURE_VERSION',
   'WEBHOOK_TIMESTAMP_HEADER',
   'WEBHOOK_TOLERANCE_SECONDS',
   'ZooworkError',
@@ -190,6 +193,7 @@ const PUBLIC_VALUES = [
   'assistantText',
   'createZooworkClient',
   'customToolUse',
+  'decodeWebhookSecret',
   'isKnownWebhookEventType',
   'isRunFinished',
   'isVaultBetaUnavailable',
@@ -205,6 +209,10 @@ const PUBLIC_VALUES = [
   'vaultCredentialHealthState',
   'vaultSessionErrorCode',
   'verifyWebhookSignature',
+  'webhookAgentId',
+  'webhookRunId',
+  'webhookScheduleId',
+  'webhookSessionId',
 ]
 
 test('the entry point exports exactly the documented value surface', () => {
