@@ -690,12 +690,37 @@ test('custom-tool calls list pending work and resolve a call with an application
   ])
   expect(JSON.parse(resolved.calls[0]!.body as string)).toEqual({
     content: [{ type: 'json', value: { price: 42 } }],
-    isError: false,
-    resolvedBy: 'pricing-service',
+    is_error: false,
+    resolved_by: 'pricing-service',
   })
 
   const empty = harness(jsonReply({}))
   expect(await empty.client.listCustomToolCalls('a')).toEqual([])
+})
+
+test('custom-tool result preserves both input aliases and omits unspecified attribution', async () => {
+  const content = [{ type: 'text' as const, text: 'ok' }]
+  const fixture = harness(jsonReply({ signaled: true }))
+
+  await fixture.client.resolveCustomToolCall('a', 'call', { content })
+  await fixture.client.resolveCustomToolCall('a', 'call', {
+    content,
+    is_error: false,
+    isError: true,
+    resolved_by: 'legacy-caller',
+    resolvedBy: 'caller',
+  })
+  await fixture.client.resolveCustomToolCall('a', 'call', {
+    content,
+    is_error: true,
+    resolved_by: 'legacy-caller',
+  })
+
+  expect(fixture.calls.map(({ body }) => JSON.parse(body as string))).toEqual([
+    { content },
+    { content, is_error: false, resolved_by: 'caller' },
+    { content, is_error: true, resolved_by: 'legacy-caller' },
+  ])
 })
 
 test('listApprovals sends status only when supplied', async () => {

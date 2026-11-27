@@ -17,6 +17,7 @@ export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerato
   const reader = body.getReader()
   const dec = new TextDecoder('utf-8')
   let buf = ''
+  let skipLF = false
   let event = 'message'
   let id: string | undefined
   let dataLines: string[] = []
@@ -39,30 +40,38 @@ export async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerato
     return msg
   }
 
+  const readLine = (line: string): SSEMessage | null => {
+    if (line === '') return flush()
+    if (line.startsWith(':')) return null
+    const c = line.indexOf(':')
+    const field = c === -1 ? line : line.slice(0, c)
+    const val = c === -1 ? '' : line.slice(c + 1).replace(/^ /, '')
+    if (field === 'event') event = val
+    else if (field === 'data') dataLines.push(val)
+    else if (field === 'id' && !val.includes('\0')) id = val
+    return null
+  }
+
   try {
     for (;;) {
       const { done, value } = await reader.read()
-      if (done) break
-      buf += dec.decode(value, { stream: true })
-      let i: number
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const raw = buf.slice(0, i)
-        buf = buf.slice(i + 1)
-        const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
-        if (line === '') {
-          const m = flush()
-          if (m) yield m
-          continue
+      buf += done ? dec.decode() : dec.decode(value, { stream: true })
+      while (buf.length > 0) {
+        if (skipLF) {
+          if (buf.startsWith('\n')) buf = buf.slice(1)
+          skipLF = false
         }
-        if (line.startsWith(':')) continue
-        const c = line.indexOf(':')
-        const field = c === -1 ? line : line.slice(0, c)
-        const val = c === -1 ? '' : line.slice(c + 1).replace(/^ /, '')
-        if (field === 'event') event = val
-        else if (field === 'data') dataLines.push(val)
-        else if (field === 'id') id = val
+        const end = buf.search(/[\r\n]/)
+        if (end < 0) break
+        const line = buf.slice(0, end)
+        skipLF = buf[end] === '\r'
+        buf = buf.slice(end + 1)
+        const msg = readLine(line)
+        if (msg) yield msg
       }
+      if (done) break
     }
+    if (buf) readLine(buf)
     const m = flush()
     if (m) yield m
   } finally {

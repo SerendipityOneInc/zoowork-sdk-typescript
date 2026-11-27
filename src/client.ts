@@ -1979,7 +1979,8 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * @beta With Vault fields (`vault_ids`, `isolation` and the optional others): a Session whose Vault
    * MCP servers use the named Vaults' credentials. `idempotencyKey` is required; reuse it to retry a
    * timeout. Omit every Vault field you do not use: one that is present, even `null` or `[]`, makes
-   * this a Vault request. Store the receipt's `vault_binding.revision`.
+   * this a Vault request. The client requires explicit isolation and a nonblank key before sending
+   * a Vault request. Store the receipt's `vault_binding.revision`.
    *
    * Beta: needs Vault enabled for your ZooWork account or environment. Until then this rejects with
    * a {@link VaultBetaUnavailableError} (400 `vault.session_fields_unavailable`). Behaviour and
@@ -2073,7 +2074,13 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
   resolveCustomToolCall(
     agentId: string,
     callId: string,
-    input: { content: CustomToolResultContent[]; isError?: boolean; resolvedBy?: string },
+    input: {
+      content: CustomToolResultContent[]
+      isError?: boolean
+      resolvedBy?: string
+      is_error?: boolean
+      resolved_by?: string
+    },
   ): Promise<CustomToolCallRecord>
 
   // ── approvals ──
@@ -2770,6 +2777,16 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     },
 
     createSession: async (agentId: string, input: SessionCreateInput, idempotencyKey?: string): Promise<SessionRecord> => {
+      const vaultFields = ['vault_ids', 'credential_bindings', 'external_user_ref', 'vault_binding_options'] as const
+      const body = input as SessionCreateInput & Partial<SessionVaultFields>
+      if (body != null && vaultFields.some(field => Object.prototype.propertyIsEnumerable.call(body, field) && body[field] !== undefined)) {
+        if (body.isolation !== 'shared' && body.isolation !== 'session') {
+          throw new TypeError("createSession with Vault fields requires isolation 'shared' or 'session'")
+        }
+        if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
+          throw new TypeError('createSession with Vault fields requires a nonblank Idempotency-Key')
+        }
+      }
       try {
         return await json<SessionRecord>(sessions(agentId), {
           method: 'POST',
@@ -2914,11 +2931,13 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
       )
       return data.custom_tool_calls ?? []
     },
-    resolveCustomToolCall: (agentId, callId, input) =>
-      json(`${agents(agentId)}/custom_tool_calls/${encodeURIComponent(callId)}/result`, {
+    resolveCustomToolCall: (agentId, callId, input) => {
+      const { isError, is_error, resolvedBy, resolved_by, ...body } = input
+      return json(`${agents(agentId)}/custom_tool_calls/${encodeURIComponent(callId)}/result`, {
         method: 'POST',
-        body: JSON.stringify(input),
-      }),
+        body: JSON.stringify({ ...body, is_error: is_error ?? isError, resolved_by: resolvedBy ?? resolved_by }),
+      })
+    },
 
     listApprovals: async (agentId, opts = {}) => {
       const data = await json<{ approvals?: ApprovalRecord[] }>(

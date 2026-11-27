@@ -64,13 +64,25 @@ test('parseSSE emits the final frame even with no trailing blank line', async ()
   ])
 })
 
-test('parseSSE discards a last line that has no newline of its own', async () => {
-  // The boundary the test above stops one character short of, pinned because it is a real data
-  // loss and not an obvious one: line splitting is on `\n`, so a stream cut mid-line leaves that
-  // line in the buffer and only the completed lines flush. Matches the EventSource rule that an
-  // incomplete final line is discarded — but it means `data:` truncated by a dropped connection
-  // arrives EMPTY rather than not at all. Resume from the last seq you saw; do not trust a tail.
-  expect(await collect('event: b\ndata: tail')).toEqual([{ event: 'b', data: '' }])
+test('parseSSE emits a complete final event with no terminating newline', async () => {
+  expect(await collect('event: b\ndata: {"seq":13}')).toEqual([{ event: 'b', data: { seq: 13 } }])
+})
+
+test('parseSSE accepts CR and split CRLF and ignores IDs containing NUL', async () => {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode('\ufeffid: opaque:1\r'))
+      controller.enqueue(encoder.encode('\nid: bad\0id\rdata: {"seq":1}\r\rdata: tail'))
+      controller.close()
+    },
+  })
+  const messages = []
+  for await (const message of parseSSE(body)) messages.push(message)
+  expect(messages).toEqual([
+    { event: 'message', id: 'opaque:1', data: { seq: 1 } },
+    { event: 'message', data: 'tail' },
+  ])
 })
 
 test('parseSSE defaults the event name to message and resets fields between frames', async () => {

@@ -23,11 +23,16 @@
  */
 import { expect, expectTypeOf, test } from 'vitest'
 import {
+  decodeWebhookSecret,
   isKnownWebhookEventType,
   knownWebhookEvent,
   signWebhook,
   unwrapWebhook,
   verifyWebhookSignature,
+  webhookAgentId,
+  webhookRunId,
+  webhookScheduleId,
+  webhookSessionId,
   WEBHOOK_DEFAULT_MAX_BODY_BYTES,
   WEBHOOK_EVENT_TYPES,
   WEBHOOK_ID_HEADER,
@@ -656,6 +661,20 @@ test('knownWebhookEvent narrows a known type to its data shape', async () => {
   const data: WebhookRunFinishedData = known.data
   expect(data.status).toBe('succeeded')
   expect(data.org_id).toBe('org_1')
+})
+
+test('webhook accessors preserve opaque identifiers and the decoder returns the HMAC key', async () => {
+  const headers = await sealed()
+  const event = await unwrapWebhook({ headers, rawBody: ENVELOPE, secret: SECRET, now: NOW })
+  const extended = { ...event, data: { ...event.data, agent_id: 'agt_1', session_id: 'api:sess_1', schedule_id: 'heartbeat' } }
+  expect([webhookAgentId(extended), webhookSessionId(extended), webhookRunId(extended), webhookScheduleId(extended)])
+    .toEqual(['agt_1', 'api:sess_1', 'run_1', 'heartbeat'])
+  const missing = { ...event, data: { agent_id: null, session_id: 123 } }
+  expect([webhookAgentId(missing), webhookSessionId(missing), webhookRunId(missing), webhookScheduleId(missing)])
+    .toEqual([undefined, undefined, undefined, undefined])
+  expect(decodeWebhookSecret(SECRET)).toEqual(Uint8Array.from(Buffer.from(SECRET.slice(6), 'base64')))
+  expect(decodeWebhookSecret(SECRET.replace(/=+$/, ''))).toEqual(decodeWebhookSecret(SECRET))
+  expect(() => decodeWebhookSecret('not-a-secret')).toThrow(ZooworkWebhookError)
 })
 
 // ── type level ─────────────────────────────────────────────────────────────
