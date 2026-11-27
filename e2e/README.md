@@ -226,6 +226,36 @@ package or runner changes. Tests under `e2e/thinking.test.ts` are synthetic, off
 regressions and do not prove live availability. Changes confined to `e2e/` do not require an SDK
 version bump or registry publication; a runtime/API change follows the normal release process.
 
+## Custom tools (`end_turn`)
+
+The separate custom-tools runner verifies public gateway forwarding and terminal `end_turn`
+semantics on a single throwaway Agent across two Sessions:
+
+1. `rest_end_turn`: `resolveCustomToolCall` sends `endTurn: true` / `isError: false`.
+2. `session_event_end_turn_error`: `postEvents` sends `user.custom_tool_result` with
+   `is_error: true` and `end_turn: true`.
+
+Both cases require `customToolUse(ev)` to surface `phase: 'resolved'`, `outcome: 'completed'`,
+`endTurn: true`, the expected `isError`, `run.finished` with `status: 'succeeded'`,
+`outputType: 'not_required'`, and `turnEndReason: 'custom_tool'`, and zero subsequent
+`agent.assistant` or retry events after resolution.
+
+Build the current SDK checkout (or test from an isolated consumer with `custom-tools.ts`,
+`custom-tools-smoke.ts`, and `guard.ts`), then run the opt-in test:
+
+```sh
+pnpm build
+node e2e/custom-tools.ts --out-dir /absolute/private/new-custom-tools-result \
+  --confirm-staging --api-key-stdin
+```
+
+Default staging is `https://claw-interface.ecap.yesy.live/service/v1`; pass `--base-url` to
+override, or pass `--base-url HTTPS_SERVICE_V1 --confirm-production` with maintainer authorization
+for production. Requests are capped at 250 over ten minutes with an independent 40-request,
+90-second cleanup reserve (`stopAgent`, `deleteSession`, `deleteAgent`, 404 check). Offline
+regressions live in `e2e/custom-tools.test.ts`; changes confined to `e2e/` do not require an SDK
+version bump or npm publication.
+
 ## Vault public API compatibility acceptance (beta)
 
 `pnpm test:e2e:vault` is a separate, staging-only acceptance command. It uses the built SDK
@@ -298,7 +328,9 @@ to their own Vaults by this application code. **Engine does not authorize end us
 - Each Session binds only its mapped Vault/credential. Both model replies and fixture drafts
   contain only that account's private marker, which is never supplied in the user prompt.
   Fixture observations independently require the actual bearer fingerprint on successful
-  `whoami`/`create_draft` calls, with no activity in the other account.
+  `whoami`/`create_draft` calls, with no activity in the other account. The repeat turn in
+  B's Session after A's offboarding only requires `create_draft`: whoami already answered
+  in that Session, and the model may reuse the marker instead of calling it again.
 - Keys verified as another Project/same organization and another organization cannot read
   the main Vault or Session (404; a disabled beta is not accepted as tenant isolation).
 - Revoking A returns a revoked binding; subsequent drive returns the normalized
@@ -336,3 +368,36 @@ attestation, every authorization route, or production. Secret echo assertions co
 the public/fixture responses this runner reads. Run this acceptance separately for each
 SDK against fresh fixtures and keep the actual live records; passing offline CI or merging
 this implementation cannot establish staging acceptance.
+
+## Session model
+
+Obtain maintainer authorization for temporary writes in the target environment. Possession of an
+API key does not grant consent. Build the SDK, then supply the key through
+`ZOOWORK_API_KEY` or secure stdin (`--api-key-stdin`).
+
+```sh
+pnpm build
+pnpm test:e2e:session-model --out-dir /absolute/private/new-session-model-result \
+  --base-url https://your-staging-host/service/v1 --confirm-staging
+```
+
+Use `--model ID` to select the temporary Agent's initial catalog model. For an authorized
+production run, supply the production public URL and replace `--confirm-staging` with
+`--confirm-production`. The main phase has three minutes and at most 80 requests. Cleanup has
+an independent 90 seconds and 12 requests. Each request in this check has a 30-second timeout.
+
+The runner creates a temporary Agent and an idle Session. It reads the selection, picks a
+listed model with two thinking levels (preferring one other than the Agent default, and falling
+back to the default model when no other qualifies), sets the model and level, changes only the
+level, clears it, and restores the Agent default. Every write must advance
+`selection_version` by one. The record's `checks` say `model_switch` or
+`same_model_as_default` for the model that was picked. It checks that a stale version takes precedence
+over an unknown model (409), that a current version exposes the unknown model (400), and
+that archiving disables selection (409). Cleanup deletes the Session, stops and deletes the
+Agent, and confirms deletion. The private output directory holds `session-model-result.json`
+with the checks and cleanup outcome. No model turn is started.
+
+If cleanup is interrupted, recover the recorded IDs from `session-model-result.json`. For an
+uncertain Agent create, match the exact `sdk_e2e_run` label and generated Agent name. For an
+uncertain Session create, match `metadata.run_id` within that Agent. Finish recovery before
+starting another run.

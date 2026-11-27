@@ -14,12 +14,14 @@ const fixture: VaultFixture = { runId: 'a'.repeat(32), projectId: 'proj_test', a
 const fail = (kind: string) => new Error(kind)
 type Fault = 'tool_only_answer' | 'thinking_only_answer' | 'text_block_answer' | 'cross_binding' | 'cross_identity' | 'wrong_fingerprint' | 'truncated_fixture' | 'foreign_read'
   | 'unrelated_resources' | 'ambiguous_session' | 'ambiguous_vault' | 'ownership_changed' | 'beta_unavailable' | 'recover_create' | 'revoked_unauthorized_provider' | 'secret_id' | 'beta_disabled_cleanup' | 'session_route_missing_cleanup' | 'same_scope' | 'delete_noop' | 'revoke_accepted' | 'missing_audit' | 'cleanup_failure' | 'lost_create' | 'secret_echo' | 'stale_answer' | 'save_failure'
+  | 'repeat_reuses_marker' | 'first_turn_skips_whoami' | 'repeat_skips_draft'
 function setup(fault?: Fault) {
   const calls: string[] = []
   let cleanupDiscoveryFinished = false
   const vaults = new Map<string, sdk.VaultRecord>()
   const sessions = new Map<string, sdk.SessionRecord>()
   const revoked = new Set<string>()
+  const turns = new Map<string, number>()
   const observation: FixtureObservation = { runId: fixture.runId, pendingErrors: 0, droppedForBudget: 0,
     unauthorized: [], unauthorizedComplete: true, droppedUnattributed: 0,
     accounts: { a: { complete: true, requests: [] }, b: { complete: true, requests: [] } }, drafts: { a: [], b: [] } }
@@ -55,7 +57,11 @@ function setup(fault?: Fault) {
       const actual = fault === 'cross_identity' ? (user === 'a' ? 'b' : 'a') : user
       const account = fixture.accounts[actual]
       const title = String(events[0]!.content).match(/titled "([^"]+)"/)![1]!
-      observation.accounts[actual]!.requests.push(...['whoami', 'create_draft'].map(tool => ({ method: 'tools/call', tool,
+      const turn = turns.get(id) ?? 0; turns.set(id, turn + 1)
+      const tools = turn === 0
+        ? (fault === 'first_turn_skips_whoami' ? ['create_draft'] : ['whoami', 'create_draft'])
+        : fault === 'repeat_reuses_marker' ? ['create_draft'] : fault === 'repeat_skips_draft' ? ['whoami'] : ['whoami', 'create_draft']
+      observation.accounts[actual]!.requests.push(...tools.map(tool => ({ method: 'tools/call', tool,
         outcome: 'ok', credentialHeaders: { authorization: `Bearer ${fault === 'wrong_fingerprint' ? 'wrong' : account.fingerprint}` } })))
       observation.drafts[actual]!.push({ title, body: account.marker })
       value.run_status = 'succeeded'
@@ -150,6 +156,21 @@ test('visible text blocks prove all three replies and preserve cleanup', async (
   assert.equal(result.passed, true, JSON.stringify(result))
   for (const phase of ['a_identity', 'b_identity', 'b_survives_a_offboarding']) assert.ok(result.checks.includes(phase))
   assert.equal(result.cleanup.complete, true)
+})
+test('a repeat turn in the same Session may reuse the marker without calling whoami again', async () => {
+  const result = await setup('repeat_reuses_marker').run()
+  assert.equal(result.passed, true, JSON.stringify(result))
+  assert.ok(result.checks.includes('b_survives_a_offboarding'))
+})
+test('a first turn without whoami cannot prove the identity', async () => {
+  const result = await setup('first_turn_skips_whoami').run()
+  assert.equal(result.passed, false); assert.equal(result.failure?.kind, 'whoami_not_observed')
+  assert.ok(!result.checks.includes('a_identity'))
+})
+test('a repeat turn still needs its own create_draft call', async () => {
+  const result = await setup('repeat_skips_draft').run()
+  assert.equal(result.passed, false); assert.equal(result.failure?.kind, 'draft_call_not_observed')
+  assert.ok(!result.checks.includes('b_survives_a_offboarding'))
 })
 test('one failed Vault cleanup does not prevent cleaning the other; reports only safe errors', async () => {
   const { run, calls } = setup('cleanup_failure'); const result = await run()

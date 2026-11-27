@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build and use an Agent</title>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 2rem auto; max-width: 60rem; padding: 0 1rem; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 1rem; }
+  section { border: 1px solid #aaa; border-radius: .5rem; padding: 1rem; min-width: 0; }
+  textarea { display: block; width: 100%; margin: .75rem 0; box-sizing: border-box; }
+  ul { padding-left: 1.5rem; max-height: 26rem; overflow: auto; }
+  li { margin: .4rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #error { color: #9a2727; }
+</style>
+<h1>Build and use an Agent</h1>
+<form id="new-agent">
+  <label>Agent name <input id="agent-name" value="Quote Assistant" maxlength="128" required></label>
+  <button>Create Build Agent</button>
+</form>
+<p id="agent-id"></p>
+<p id="error" role="alert"></p>
+<main>
+  <section>
+    <h2>Build chat</h2>
+    <p id="build-status" aria-live="polite"></p>
+    <p id="apply-status" aria-live="polite"></p>
+    <button id="confirm-rebuild" hidden>Confirm Environment rebuild</button>
+    <ul id="build-log" aria-live="polite"></ul>
+    <form id="build-form">
+      <textarea aria-label="Build message" required></textarea><button disabled>Send</button>
+    </form>
+    <button id="refresh" disabled>Refresh Build results</button>
+  </section>
+  <section>
+    <h2>Use the same Agent</h2>
+    <button id="new-task" disabled>Open task</button>
+    <ul id="task-log" aria-live="polite"></ul>
+    <form id="task-form">
+      <textarea aria-label="Task message" required></textarea><button disabled>Send</button>
+    </form>
+  </section>
+</main>
+<script type="module">
+const $ = (id) => document.getElementById(id)
+const lanes = {}
+const results = new Map()
+const pendingWrites = new Map()
+let agent
+let buildSummary
+
+async function request(path, body) {
+  const response = await fetch(path, body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  })
+  const value = await response.json()
+  if (!response.ok) throw new Error(`HTTP ${response.status} · ${value.detail ?? 'Request failed'}`)
+  return value
+}
+
+async function write(path, fields = {}) {
+  const operation = JSON.stringify([path, fields])
+  const requestId = pendingWrites.get(operation) ?? crypto.randomUUID()
+  pendingWrites.set(operation, requestId)
+  const value = await request(path, { ...fields, request_id: requestId })
+  // A lost response may hide a successful write. Retain its key until a response confirms it.
+  pendingWrites.delete(operation)
+  return value
+}
+
+function path() { return '/api/agents/' + encodeURIComponent(agent) }
+
+function append(lane, text) {
+  const log = $(lane + '-log')
+  const line = document.createElement('li')
+  line.textContent = text
+  log.append(line)
+  log.scrollTop = log.scrollHeight
+  return line
+}
+
+function describe(result) {
+  if (result.change === 'none') return 'No changes this turn'
+  if (result.change === 'draft') return 'Uncommitted draft'
+  if (result.change === 'conflict') return 'Conflict · a newer revision exists'
+  if (result.change !== 'committed') return 'Unknown Build result'
+  switch (result.apply_state) {
+    case 'applied': return 'Saved · Applied'
+    case 'superseded': return 'Saved · Superseded'
+    case 'blocked': return 'Saved · Apply blocked'
+    case 'in_progress': return 'Saved · Applying'
+    default: return 'Saved · Pending apply'
+  }
+}
+
+async function refreshResult(run, line) {
+  try {
+    const result = await request(path() + '/runs/' + encodeURIComponent(run))
+    line.dataset.revision = result.revision_id ?? ''
+    line.textContent = describe(result)
+  } catch {
+    line.textContent = 'Result unavailable · refresh to retry'
+  }
+}
+
+async function refreshBuild() {
+  if (agent) {
+    const url = path() + '/build'
+    try {
+      const summary = await request(url)
+      if (url === path() + '/build') showApply(summary)
+    } catch (error) { showError(error) }
+  }
+}
+
+async function refreshResults() {
+  await Promise.all([...results].map(([run, line]) => refreshResult(run, line)))
+  await refreshBuild()
+}
+
+function showApply(summary) {
+  buildSummary = summary
+  const { apply } = summary
+  $('apply-status').textContent = apply.phase
+    ? 'Environment rebuild · ' + apply.phase
+    : apply.blockers.map((blocker) => blocker.code).join(', ') || apply.state
+  $('confirm-rebuild').hidden = apply.state !== 'blocked' || !apply.blockers.some(
+    (blocker) => blocker.acknowledgeable && blocker.code === 'agent_revision.environment_rebuild_required',
+  )
+}
+
+$('confirm-rebuild').onclick = async () => {
+  if (!buildSummary || !window.confirm('Rebuilding will interrupt tasks currently running on this Agent. Continue?')) return
+  const button = $('confirm-rebuild')
+  const url = path() + '/build'
+  const { working_revision_id, effective_revision_id, apply } = buildSummary
+  button.disabled = true
+  $('error').textContent = ''
+  try {
+    let result = await write(url, {
+      expected_revision_id: working_revision_id,
+      expected_config_version: apply.config_version,
+    })
+    for (let attempts = 0; url === path() + '/build'; attempts++) {
+      showApply({ working_revision_id, apply: result })
+      if (result.state !== 'in_progress') break
+      if (attempts === 180) throw new Error('Rebuild is still running. Refresh Build results for its current status.')
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const summary = await request(url)
+      result = summary.apply
+      if (summary.working_revision_id !== working_revision_id) break
+    }
+    if (url === path() + '/build') {
+      const affected = [working_revision_id, effective_revision_id]
+      await Promise.all([
+        refreshBuild(),
+        ...[...results]
+          .filter(([, line]) => line.dataset.revision && affected.includes(line.dataset.revision))
+          .map(([run, line]) => refreshResult(run, line)),
+      ])
+    }
+  } catch (error) { showError(error) }
+  finally { button.disabled = false }
+}
+
+function connect(lane, session) {
+  lanes[lane]?.stream.close()
+  const url = path() + '/sessions/' + encodeURIComponent(session)
+  // EventSource reconnects to the FDE server with Last-Event-ID.
+  const stream = new EventSource(url + '/stream')
+  lanes[lane] = { url, stream }
+  if (lane === 'build') stream.onopen = refreshResults
+  stream.onmessage = ({ data }) => {
+    const event = JSON.parse(data)
+    if (event.kind === 'run.started' && lane === 'build') $('build-status').textContent = 'Working…'
+    if (event.kind === 'agent.assistant') append(lane, 'Agent · ' + event.text)
+    if (event.kind === 'agent.tool') append(lane, 'Tool · ' + event.phase + ' ' + event.tool)
+    if (event.kind === 'run.finished') {
+      append(lane, 'Conversation ended · ' + (event.status ?? 'unknown'))
+      if (lane === 'build' && event.run_id) {
+        $('build-status').textContent = ''
+        const line = results.get(event.run_id) ?? append(lane, 'Reading saved result…')
+        line.dataset.run = event.run_id
+        results.set(event.run_id, line)
+        $('refresh').disabled = false
+        void refreshResult(event.run_id, line)
+        void refreshBuild()
+      }
+    }
+  }
+}
+
+function showError(error) { $('error').textContent = error.message }
+
+$('new-agent').onsubmit = async (event) => {
+  event.preventDefault()
+  $('error').textContent = ''
+  const button = event.currentTarget.querySelector('button')
+  button.disabled = true
+  try {
+    const result = await write('/api/agents', { name: $('agent-name').value })
+    for (const lane of Object.values(lanes)) lane.stream.close()
+    delete lanes.task
+    results.clear()
+    for (const id of ['build-log', 'task-log', 'build-status']) $(id).replaceChildren()
+    agent = result.agent_id
+    buildSummary = undefined
+    $('confirm-rebuild').hidden = true
+    $('apply-status').textContent = ''
+    $('agent-id').textContent = agent
+    $('build-form').querySelector('button').disabled = false
+    $('task-form').querySelector('button').disabled = true
+    $('new-task').disabled = false
+    $('refresh').disabled = true
+    connect('build', result.build_session_id)
+  } catch (error) { showError(error) }
+  finally { button.disabled = false }
+}
+
+$('new-task').onclick = async () => {
+  const button = $('new-task')
+  const url = path() + '/tasks'
+  button.disabled = true
+  $('error').textContent = ''
+  try {
+    const result = await write(url)
+    if (url !== path() + '/tasks') return
+    $('task-log').replaceChildren()
+    $('task-form').querySelector('button').disabled = false
+    connect('task', result.session_id)
+  } catch (error) { showError(error) }
+  finally { button.disabled = false }
+}
+$('refresh').onclick = refreshResults
+
+for (const lane of ['build', 'task']) {
+  $(lane + '-form').onsubmit = async (event) => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const input = form.querySelector('textarea')
+    const button = form.querySelector('button')
+    const text = input.value.trim()
+    if (!text) return
+    $('error').textContent = ''
+    button.disabled = true
+    const connection = lanes[lane]
+    try {
+      await write(connection.url + '/messages', { text })
+      if (lanes[lane] !== connection) return
+      append(lane, 'You · ' + text)
+      input.value = ''
+    } catch (error) { showError(error) }
+    finally { button.disabled = false }
+  }
+}
+</script>
+</html>

@@ -1,0 +1,6 @@
+# Read by pnpm 10 and 11 alike. pnpm 11 ignores the "pnpm" field in package.json,
+# so overrides kept there make a frozen install fail on a lockfile that records them.
+overrides:
+  vite: 7.3.7
+  source-map-js: ^1.2.2
+  nanoid: ^3.3.18

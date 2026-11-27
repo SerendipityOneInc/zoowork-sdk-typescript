@@ -1127,7 +1127,7 @@ const AGENT_RECORD_KEYS = [
   'ownership',
 ] as const satisfies readonly DeclaredKeys<AgentRecord>[]
 // Source-reviewed additions are tested separately with synthetic contract input.
-const _agentRecordCovered: Covered<AgentRecord, (typeof AGENT_RECORD_KEYS)[number] | 'sandbox_resource_class'> = undefined
+const _agentRecordCovered: Covered<AgentRecord, (typeof AGENT_RECORD_KEYS)[number] | 'sandbox_resource_class' | 'memory'> = undefined
 
 test('AgentRecord declares nothing the wire does not carry across BOTH projections', () => {
   // `config_version` only exists on the create receipt and `declared`/`status` only on the read,
@@ -1426,7 +1426,8 @@ const AGENT_CHANNEL_KEYS = [
   'status_code',
   'capabilities',
 ] as const satisfies readonly DeclaredKeys<AgentChannel>[]
-const _agentChannelCovered: Covered<AgentChannel, (typeof AGENT_CHANNEL_KEYS)[number]> = undefined
+// channel_id and interaction_settings are source-reviewed additions, tested with synthetic input in client.test.ts.
+const _agentChannelCovered: Covered<AgentChannel, (typeof AGENT_CHANNEL_KEYS)[number] | 'channel_id' | 'interaction_settings'> = undefined
 
 const RECORDED_AGENT_CHANNEL_KEYS = [
   'platform',

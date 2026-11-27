@@ -10,7 +10,7 @@ import {
   type AddChannelInput, type AgentChannelCapabilities, type McpServerDeclaration,
   type CustomToolDeclaration, type CustomToolResultEvent, type McpToolPermission,
   type SessionListPage, type SessionRecord, type SkillRecord, type SkillVersionRecord,
-  type AgentRecord, type SessionQueue,
+  type AgentRecord, type SessionQueue, type UsageSpend,
 } from './index.js'
 
 const BASE = 'https://sdk-contract.test/service/v1'
@@ -264,6 +264,7 @@ test('custom tools and filtered session pages preserve the source-reviewed publi
     custom_tool_use_id: 'ctc-test',
     content: [{ type: 'json', value: { price: 42 } }],
     is_error: false,
+    end_turn: true,
     idempotency_key: 'price-result-1',
   } satisfies CustomToolResultEvent
   const create = harness({ agent_id: 'agent-test' })
@@ -331,4 +332,22 @@ test('stream-open and stop HTTP failures preserve errors instead of resolving as
   })
   await expect(client.stopAgent('a')).rejects.toBeInstanceOf(ZooworkError)
   expect(calls).toHaveLength(2) // neither method silently retries or treats HTTP failure as success
+})
+
+test('Usage types spend as USD amount strings on totals, groups and records', async () => {
+  const { client } = harness({
+    currency: 'usd',
+    totals: { credits: '2486.8', amount: '12.434', requests: 3 },
+    groups: [{ id: 'session-1', attribution: 'exact', credits: '200', amount: '1.00' }],
+    records: [{ id: 'event-1', credits: '2.246', amount: '0.01123' }],
+  })
+  const usage = await client.getUsage({ range: '7d' })
+  expectTypeOf(usage.currency).toEqualTypeOf<'usd' | undefined>()
+  expectTypeOf(usage.totals).toEqualTypeOf<UsageSpend | undefined>()
+  expectTypeOf(usage.groups).toEqualTypeOf<UsageSpend[] | undefined>()
+  expectTypeOf(usage.records).toEqualTypeOf<UsageSpend[] | undefined>()
+  expectTypeOf(usage.totals?.amount).toEqualTypeOf<string | undefined>()
+  // Deprecated, still typed so editors and coding assistants show the notice on access.
+  expectTypeOf(usage.totals?.credits).toEqualTypeOf<string | undefined>()
+  expect([usage.totals?.amount, usage.groups?.[0]?.amount, usage.records?.[0]?.amount]).toEqual(['12.434', '1.00', '0.01123'])
 })

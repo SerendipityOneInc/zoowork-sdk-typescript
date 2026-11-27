@@ -64,9 +64,27 @@ export interface UsageOptions {
     snapshot?: string;
     cursor?: string;
 }
+/** Spend of one Usage scope: the totals, one group or one record. */
+export interface UsageSpend extends ApiObject {
+    /**
+     * Decimal USD string, not rounded to cents. An amount in whole cents has two places
+     * (`"1.00"`); any other amount keeps its exact digits (`"12.434"`, `"0.01123"`). Floats
+     * lose precision when summing these: use a decimal library or integer arithmetic.
+     * Use this field, with `UsageResult.currency`, for billing, cost display and reconciliation.
+     */
+    amount?: string;
+    /**
+     * @deprecated Use `amount`. `credits` is the same spend in an internal accounting unit, not
+     * a currency amount; do not bill, display or reconcile with it.
+     */
+    credits?: string;
+}
 export interface UsageResult extends ApiObject {
-    groups?: ApiObject[];
-    records?: ApiObject[];
+    /** Currency of every `amount` in this result. */
+    currency?: 'usd';
+    totals?: UsageSpend;
+    groups?: UsageSpend[];
+    records?: UsageSpend[];
 }
 /** The Organization's shared balance, as shown on the Platform Billing page. */
 export interface BalanceResult extends ApiObject {

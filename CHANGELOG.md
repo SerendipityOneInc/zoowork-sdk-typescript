@@ -3,6 +3,95 @@
 All notable changes to `@zoowork-ai/sdk` (formerly `@zooclaw-agents/sdk`). Dates are the
 day the behaviour was verified, not the day it was written.
 
+## 0.20.0 — 2026-11-26
+
+- Share a Platform Build Agent with `publishBuild`, `createShareLink`, `listShareLinks`,
+  and `revokeShareLink`. Install a shared Agent as a read-only copy with `previewInstall`
+  and `installSharedAgent`. Use `listInstalledAgents`, `getUpdateStatus`, and
+  `updateInstalledAgent` to inspect and update installed copies.
+  [Sharing example](examples/build-sharing.ts)
+- Document confirmed Environment rebuilds, introduced in 0.19.0. Pass `confirm_rebuild: true`,
+  `expected_revision_id`, and `expected_config_version` in the `retryBuildApply` options to
+  approve rebuilding the Environment for the saved Build revision.
+
+## 0.19.0 — 2026-11-26
+
+- Read and change the model and thinking level of one Session with `getSessionModel` and
+  `updateSessionModel`. `thinking: null` clears the Session's level and `model_id: null` follows
+  the Agent again. Omitting `model_id` keeps the model. Setting only a thinking level fixes
+  that model for the Session, except under inherited `auto` routing, which needs a `model_id`.
+  Omitting `thinking` keeps the Session's own level unless the model switches, which clears it.
+  Fixing the current model under `auto` routing also counts as a switch. A model fixed this way
+  no longer inherits the Agent's level and uses the model default if the Session has no level of
+  its own. Updates carry the last read `selection_version` and `config_version`. A mismatch
+  returns 409 `task_model_changed` and the SDK does not retry.
+  New exported types: `ModelThinking`, `SessionModel`, `SessionModelOption`, `SessionModelSelect`,
+  `SessionThinkingUpdate`, `SessionModelReset`, `SessionModelUpdate`.
+  Verified on staging on 2026-11-26 with `pnpm test:e2e:session-model`: read, set model and level,
+  stale version (409), change only the level, clear it, reset, unknown model (400), and archived
+  Session (409). Not verified live: the effect on a turn, and Vault, subscription and `auto`-routing
+  Agents. See the [Session model check](e2e/README.md#session-model).
+
+## 0.18.0 — 2026-11-25
+
+- Support Platform Agent Build with `createBuildAgent`, `getBuild`, `openBuildSession`,
+  `getBuildRun`, `retryBuildApply`, `listRevisions`, and `getRevisionDiff`.
+  Build creation and apply retries take an idempotency key. Turn results distinguish saved,
+  applied, superseded, and conflicting changes.
+- Add the `examples/build-chat.ts` server and browser demo. The Project Key stays on the
+  server. The example uses the existing message and SSE APIs to resume the Build chat and
+  open a regular task on the same Agent.
+
+- Correct the MCP JSDoc. `AgentResource.mcp` no longer says that only unauthenticated servers
+  work: a server that needs a credential gets it from a Vault (beta). The `McpServerDeclaration`
+  notes, which 0.15.0 left attached to `McpVaultAuth`, are back on `McpServerDeclaration`, and
+  they cover a key that every Session shares as well as each end user's own credential.
+  `VaultManagedRefreshInput` no longer says that the server keeps ZooWork-managed refresh off:
+  the Engine release that opened the public Vault API (v0.2.51-release) accepts
+  `refresh_owner: 'engine'`. Source-reviewed against the Engine deployment configuration.
+
+## 0.17.0 — 2026-11-20
+
+- Type the Agent Memory setting. `AgentResource.memory` accepts `{ dreaming: { enabled } }`, and
+  `AgentRecord.memory` reports the setting in force. Consolidation is on by default; send
+  `enabled: false` to stop the runtime from rewriting the Agent's Memory between turns. New
+  exported type: `AgentMemoryConfig`. Untyped `createAgent` calls already passed the field
+  through; typed ones no longer fail to compile.
+- Type the channel interaction settings. `addChannel`, `updateChannel` and `startChannelSetup`
+  accept `allow_from`, `group_allow_from`, `require_mention` and Feishu `topic_followup` (new
+  exported type `ChannelInteractionInput`); `updateChannel` also takes `expected_config_version`.
+  `AgentChannel` types `channel_id` and `interaction_settings` (`ChannelInteractionSettings`). The
+  `updateChannel` JSDoc no longer says `allow_from` is write-once.
+- Correct the Vault notes: a retried delete answers 204 again; archiving refuses only the MCP calls
+  that need the credential; an `mcp_oauth` token rotation needs `expires_at`. Correct the cron
+  JSDoc: the API does not reject macros or `CRON_TZ=`, they are just not the supported form.
+  Document the ZIP backslash rule on `uploadSkill`, and the `terminal_outcome` values on
+  `WebhookRunFinishedData`, including `approval_rejected`.
+- README: wait for `running` in the quickstart, state that Project keys upload Skills, and add the
+  custom tool limits, MCP `context`/`permission` notes and an Errors section.
+- Support terminal (`end_turn`) custom tool results. `resolveCustomToolCall` accepts optional
+  `endTurn`, `CustomToolResultEvent` (`user.custom_tool_result`) accepts optional `end_turn`,
+  `CustomToolUse` / `customToolUse()` surfaces `endTurn`, and `WebhookRunFinishedData` types
+  optional `turn_end_reason`. Passing `endTurn: true` / `end_turn: true` stops further LLM
+  turns once all tool calls in the current batch finish, timeout, or cancel (`isError: true`
+  remains orthogonal). On Session events, `run.finished` reports `status: 'succeeded'` and
+  `turnEndReason: 'custom_tool'` (or `'yielded'` when `sessions_yield` also fired); on
+  Webhooks, `run.finished` carries `data.turn_end_reason: 'custom_tool'`, while a turn where
+  `sessions_yield` takes precedence emits `run.yielded` instead of `run.finished`. Shipped on
+  Engine `v0.2.61-release`; the public custom-tool contract remains source-reviewed and awaits
+  live deployment verification.
+
+## 0.16.0 — 2026-11-16
+
+- Type Usage spend. `UsageResult.totals`, and each entry of `groups` and `records`, are now
+  `UsageSpend` with an optional `amount`: a USD decimal string that is not rounded to cents.
+  `UsageResult.currency` is `'usd'`. New exported type: `UsageSpend`. `UsageSpend.credits` is
+  typed and marked `@deprecated`: the service still returns it, but it is an internal accounting
+  unit, so bill, display and reconcile with `amount`. `totals` was untyped before, so
+  code that asserts it to an interface (`usage.totals as MyTotals`) may need an index signature
+  or an `unknown` step. Source-reviewed against the claw-interface Usage change; the fields are
+  optional because a deployment without that change does not return them.
+
 ## 0.15.0 — 2026-11-09
 
 Additive types, one new optional request filter, the beta Vault surface and documentation

@@ -175,6 +175,7 @@ export interface CustomToolUse {
   timeoutAt?: string
   outcome?: 'completed' | 'timeout' | 'cancelled'
   isError?: boolean
+  endTurn?: boolean
   resolvedBy?: string
   resolutionChannel?: string
 }
@@ -193,6 +194,7 @@ export function customToolUse(e: SessionEvent): CustomToolUse | undefined {
     ...(typeof p.timeoutAt === 'string' ? { timeoutAt: p.timeoutAt } : {}),
     ...(outcome ? { outcome } : {}),
     ...(typeof p.isError === 'boolean' ? { isError: p.isError } : {}),
+    ...(typeof p.endTurn === 'boolean' ? { endTurn: p.endTurn } : {}),
     ...(typeof p.resolvedBy === 'string' ? { resolvedBy: p.resolvedBy } : {}),
     ...(typeof p.resolutionChannel === 'string' ? { resolutionChannel: p.resolutionChannel } : {}),
   }

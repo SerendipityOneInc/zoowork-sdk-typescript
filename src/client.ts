@@ -8,6 +8,27 @@
  * that, never on the message text.
  */
 
+import type {
+  AgentRevisionDiff,
+  AgentRevisionList,
+  BuildAgentCreated,
+  BuildAgentInput,
+  BuildApply,
+  BuildApplyOptions,
+  BuildRun,
+  BuildSession,
+  BuildSummary,
+  AgentInstallPreview,
+  InstalledAgent,
+  InstalledAgentPage,
+  InstalledAgentQuery,
+  InstalledAgentUpdateStatus,
+  PublishBuildInput,
+  PublishedBuild,
+  ShareLink,
+  ShareLinkCreated,
+  UpdateInstalledAgentInput,
+} from './build.js'
 import { createDeveloperApi, type DeveloperApi } from './developer-api.js'
 import { parseSSE, isObj } from './sse.js'
 import { normalizeEvent, type SessionEvent } from './events.js'
@@ -25,6 +46,13 @@ import {
  * need to point at a different deployment.
  */
 export const DEFAULT_BASE_URL = 'https://clawapi.ecap.gsmo.ai/service/v1'
+
+function buildWriteHeaders(idempotencyKey: string): Record<string, string> {
+  if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
+    throw new TypeError('idempotencyKey is required and must be a non-empty string')
+  }
+  return { 'Idempotency-Key': idempotencyKey.trim() }
+}
 
 /**
  * Read an environment variable without assuming a Node runtime.
@@ -339,6 +367,16 @@ export interface Ownership {
  */
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'max'
 
+/**
+ * Thinking levels that take effect as named on this model, in ascending order. Any other
+ * {@link ThinkingLevel} resolves to the nearest listed one. `default` is the level the
+ * platform applies when no level is set.
+ */
+export type ModelThinking = {
+  default: ThinkingLevel
+  levels: ThinkingLevel[]
+}
+
 export interface ModelInfo {
   model: string
   display_name?: string
@@ -353,12 +391,8 @@ export interface ModelInfo {
   selectable?: boolean
   retire_not_before?: string | null
   default_for?: string[]
-  /**
-   * Thinking levels that take effect as named on this model, ascending; any other
-   * {@link ThinkingLevel} resolves to the nearest listed one. `default` is what the platform
-   * applies when an Agent sets none. Optional so older servers that omit it still type-check.
-   */
-  thinking?: { default: ThinkingLevel; levels: ThinkingLevel[] }
+  /** Older servers may omit this capability. */
+  thinking?: ModelThinking
   [k: string]: unknown
 }
 
@@ -380,20 +414,28 @@ export interface McpToolPermissionOverride {
   requireConfirmation?: boolean
 }
 
+/** @beta The `auth` of an MCP server whose credential comes from the Session's Vault binding. */
+export interface McpVaultAuth {
+  type: 'vault'
+}
+
 /**
  * One remote MCP server, declared as `resource.mcp[]` on create or update.
  *
- * Staging-verified 2026-08-07, end to end, for UNAUTHENTICATED public servers: the tools appear
- * in the model's manifest as `mcp__<server>__<tool>` and really execute. Two traps:
+ * Staging-verified 2026-08-07, end to end, for unauthenticated public servers: the tools appear
+ * in the model's manifest as `mcp__<server>__<tool>` and really execute. Servers that take a
+ * Vault credential (`auth`, beta) passed the two-user Vault acceptance on staging for 0.15.0.
+ * Two traps:
  *
  *  - `name` must not contain an underscore. The tool-name grammar is `mcp__<server>__<tool>`,
  *    so an underscore in the server name makes the split ambiguous and the server is rejected.
  *  - `credential` is a dead end for API-key callers. The slug is accepted and stored on the
  *    agent, but the endpoint that would hold the secret it points at
  *    (`PUT /agents/{id}/credentials/{app}`) is 404 through the gateway BY DESIGN. For a server
- *    that needs each end user's own credential, declare `auth: { type: 'vault' }` instead and
- *    attach the user's Vault when creating their Session (Vault, beta). A server that declares
- *    both `auth` and `credential` is disabled.
+ *    that needs a credential, declare `auth: { type: 'vault' }` instead and attach a Vault that
+ *    holds it when creating each Session (Vault, beta): each end user's own Vault, or one Vault
+ *    that every Session shares for a key your application owns. A server that declares both
+ *    `auth` and `credential` is disabled.
  *
  * Remote HTTP only; no stdio. Catalog failures emit `agent.error` with
  * `kind: 'mcp_connection_failed'` or `'mcp_authentication_failed'`, a server name,
@@ -402,10 +444,6 @@ export interface McpToolPermissionOverride {
  * a later catalog resolution may probe again, not a periodic retry or recovery guarantee.
  * These failure/recovery details are source-reviewed, not deployment-verified here.
  */
-export interface McpVaultAuth {
-  type: 'vault'
-}
-
 export interface McpServerDeclaration {
   /** Server slug. Appears in every tool name as `mcp__<name>__<tool>`. No underscores. */
   name: string
@@ -563,7 +601,11 @@ export interface AgentResource {
    * `permissions` keys remain exact. Kept open for forward-compatible policy fields.
    */
   tool_policy?: Record<string, unknown>
-  /** Remote MCP servers. Only unauthenticated ones work today — see {@link McpServerDeclaration}. */
+  /**
+   * Remote MCP servers. A server that needs a credential gets it from a Vault (beta): declare
+   * `auth: { type: 'vault' }` and create each Session with `vault_ids`. See
+   * {@link McpServerDeclaration}.
+   */
   mcp?: McpServerDeclaration[]
   /**
    * Tools executed by your application. At most 32. A model call emits
@@ -584,6 +626,19 @@ export interface AgentResource {
   sandbox?: { scope: 'agent' | 'session' }
   environment_id?: string
   environment_version?: number
+  /** Background Memory consolidation. See {@link AgentMemoryConfig}. */
+  memory?: AgentMemoryConfig
+}
+
+/**
+ * Agent Memory settings. `dreaming.enabled` (default `true`) lets the runtime consolidate the
+ * Agent's Memory between turns: it merges duplicates, replaces corrected facts and saves facts a
+ * finished conversation left unsaved, which changes Memory IDs and versions. Send
+ * `{ dreaming: { enabled: false } }` to turn it off. `memory` accepts only `dreaming`; another
+ * key is `400 invalid_request`.
+ */
+export interface AgentMemoryConfig {
+  dreaming?: { enabled: boolean }
 }
 
 /**
@@ -666,6 +721,8 @@ export interface AgentChannelCapabilities {
  * as the platform adapter sees it.
  */
 export interface AgentChannel {
+  /** Stable ID of the connection. */
+  channel_id?: string
   platform: string
   account: string
   display_name?: string | null
@@ -677,6 +734,8 @@ export interface AgentChannel {
   status_code?: string | null
   /** Source-reviewed capability state. Omitted when the platform reports none. */
   capabilities?: AgentChannelCapabilities | null
+  /** Saved interaction settings. Omitted when the channel service reports none. */
+  interaction_settings?: ChannelInteractionSettings | null
   [k: string]: unknown
 }
 
@@ -719,7 +778,50 @@ export type AddChannelPlatform = 'feishu' | 'slack' | 'wecom' | 'dingtalk-connec
  */
 export type GuidedSetupPlatform = 'feishu' | 'wecom' | 'weixin'
 
-export interface AddChannelInput {
+/**
+ * Who may reach the Agent through a channel, and when it answers in groups. Omit a field to keep the
+ * current setting; `null` is `400 service_api.invalid_body`. Lists hold platform sender or group IDs,
+ * at most 500; with an `'allowlist'` policy they must be explicit IDs, so `'*'` is rejected.
+ *
+ * Platforms support different settings: read `interaction_settings.supports_group_allowlist`,
+ * `supports_mention` and `supports_topic_followup` first. An unsupported setting is
+ * `400 channel.unsupported_setting` (staging, 2026-11-17: Slack has no group allowlist, WeCom no
+ * `require_mention`).
+ */
+export interface ChannelInteractionInput {
+  /** Sender IDs allowed to send direct messages when `dm_policy` is `'allowlist'`. */
+  allow_from?: string[]
+  /** Group IDs the Agent answers in when `group_policy` is `'allowlist'`. */
+  group_allow_from?: string[]
+  /** Whether a group message needs an @mention of the Agent. */
+  require_mention?: boolean
+  /**
+   * Feishu only. `'auto'` answers follow-ups in a topic the Agent already joined without a new
+   * @mention; `'require_mention'` needs one. On creation it also gives each group topic its own
+   * Session. Supported when `interaction_settings.supports_topic_followup` is true.
+   */
+  topic_followup?: 'auto' | 'require_mention'
+}
+
+/** The saved interaction settings a channel reports in `interaction_settings`. */
+export interface ChannelInteractionSettings {
+  /** Pass as `expected_config_version` on {@link ZooworkClient.updateChannel}. */
+  config_version: number
+  allow_from: string[]
+  group_allow_from: string[]
+  require_mention?: boolean | null
+  topic_followup?: 'auto' | 'require_mention'
+  supports_group_allowlist?: boolean
+  supports_mention?: boolean
+  supports_topic_followup: boolean
+  dm_policies?: ('open' | 'allowlist' | 'disabled')[]
+  group_policies?: ('open' | 'allowlist' | 'disabled')[]
+  /** `'pending'` until the platform adapter applies the saved settings. */
+  apply_state: 'pending' | 'applied' | 'paused'
+  [k: string]: unknown
+}
+
+export interface AddChannelInput extends ChannelInteractionInput {
   /**
    * See {@link AddChannelPlatform}. Typed loosely so a newly supported platform needs no SDK
    * release. `'weixin'`/`'wechat'` is refused here with `400 channel.weixin_setup_required` —
@@ -743,11 +845,6 @@ export interface AddChannelInput {
   /** Server default: `'open'`. */
   group_policy?: string
   /**
-   * Sender IDs allowed to send direct messages when `dm_policy` is `'allowlist'`; ignored for other
-   * policies. DingTalk requires explicit IDs, so `'*'` is rejected there.
-   */
-  allow_from?: string[]
-  /**
    * Platform credentials for the direct (non-QR) path. Keys are platform-specific and
    * **camelCase**; anything else is stored and ignored:
    *
@@ -756,13 +853,16 @@ export interface AddChannelInput {
    * - `wecom` — `{ botId, secret }`, both required
    * - `feishu` — `{ appId, appSecret, domain }`, only when skipping the QR flow
    * - `dingtalk-connector` — `{ clientId, clientSecret }`; no public guided QR route
+   *
+   * A new Feishu channel replies inside the originating topic by default; pass
+   * `{ replyInThread: 'disabled' }` here to reply in the main chat instead.
    */
   config?: Record<string, unknown>
   /** Feishu only. Enable document-permission administration; defaults to false. */
   permission_admin_enabled?: boolean
 }
 
-export interface UpdateChannelInput {
+export interface UpdateChannelInput extends ChannelInteractionInput {
   /** Which binding to touch — see {@link AddChannelInput.account}. Server default: `'default'`. */
   account?: string
   dm_policy?: string
@@ -770,6 +870,8 @@ export interface UpdateChannelInput {
   enabled?: boolean
   /** Feishu only. Other platforms reject this field when it is present. */
   permission_admin_enabled?: boolean
+  /** `interaction_settings.config_version` you last read; a stale one rejects the write. */
+  expected_config_version?: number
 }
 
 /**
@@ -778,7 +880,7 @@ export interface UpdateChannelInput {
  * is ignored rather than rejected: `weixin` accepts an `account` in the body and still binds
  * `'default'` (staging-verified 2026-08-28).
  */
-export interface ChannelSetupInput {
+export interface ChannelSetupInput extends ChannelInteractionInput {
   /** Feishu only: `'feishu'` (default) or `'lark'` — the international brand of the same platform. */
   brand?: 'feishu' | 'lark'
   /**
@@ -892,6 +994,8 @@ export interface AgentRecord {
   status?: AgentStatus
   ownership?: Ownership
   sandbox_resource_class?: string
+  /** The Memory settings in force, with defaults applied. Absent from the create receipt. */
+  memory?: { dreaming: { enabled: boolean } }
   [k: string]: unknown
 }
 
@@ -968,6 +1072,132 @@ export interface SessionQueue {
   effective_boundary: 'next_turn_config_load' | string
   [k: string]: unknown
 }
+
+/** One model a Session can be switched to; see {@link SessionModel.available_models}. */
+export interface SessionModelOption {
+  /** Pass as {@link SessionModelUpdate} `model_id`. Spelled without the `litellm/` prefix. */
+  id: string
+  display_name: string
+  /** Same meaning as `ModelInfo.thinking`. */
+  thinking: ModelThinking
+  [k: string]: unknown
+}
+
+/**
+ * The model and thinking level of one Session, separate from the Agent's `model` configuration.
+ * Returned by `getSessionModel` and `updateSessionModel`. Verified on staging on 2026-11-26,
+ * except the effect on a turn and Vault, subscription and `auto`-routing Agents.
+ */
+export interface SessionModel {
+  session_id: string
+  /** `override` when this Session has its own model, `agent_default` when it follows the Agent. */
+  mode: 'agent_default' | 'override' | string
+  /**
+   * The Session's own model in the catalog's full spelling (`litellm/…`, unlike
+   * {@link SessionModelOption.id}), or `null` when it follows the Agent. There is no runtime
+   * fallback: if the model cannot run, turns fail before any LLM call until another one is
+   * selected. A planned retirement instead moves the Session to the replacement model, clearing
+   * its level and advancing `selection_version`.
+   */
+  selected_model_id: string | null
+  /** The Agent's model, as configured on the Agent. */
+  default_model_id: string
+  /** `auto` when the Agent routes each turn to a model itself. */
+  default_mode: 'fixed' | 'auto' | string
+  /** The model the next turn uses; `null` when it is not fixed (Agent `auto`) or `available` is false. */
+  next_turn_model_id: string | null
+  /** Display names, `null` when the model is not a listed platform model. */
+  current_model_name: string | null
+  default_model_name: string | null
+  /** The thinking levels of the Session's current model (the Agent's one when it has no override). */
+  current_model_thinking: ModelThinking | null
+  /** Models an update can switch to. Empty while the Session is not writable. */
+  available_models: SessionModelOption[]
+  /** The Session's own thinking level, or `null` when it has none. */
+  thinking: ThinkingLevel | null
+  /**
+   * The inherited Agent level, or `null` when none applies. `null` while the model is one fixed
+   * with `updateSessionModel` (or the product UI), and when following an `auto` Agent with no
+   * selected model. A model the Agent switched to itself during a turn (`mode: 'override'` from
+   * an internal tool) still inherits the Agent level.
+   */
+  default_thinking: ThinkingLevel | null
+  /** Absent on servers too old to accept `thinking` here. */
+  thinking_supported?: boolean
+  /** Send back as `expected_selection_version`; increments on every change to the selection. */
+  selection_version: number
+  /** Send back as `expected_config_version`. The Agent's config version. */
+  config_version: number
+  applies_from: 'next_turn' | string
+  /** `true` when the Session is writable and its current model can run; always `false` when not writable. */
+  available: boolean
+  /** Whether `updateSessionModel` is accepted. */
+  writable: boolean
+  /**
+   * Why the Session is not writable, or `task_model_unavailable` when it is writable but the
+   * current model cannot run; `null` otherwise. The server checks archive, read-only, Vault,
+   * then subscription restrictions in that order. `task_model_read_only` covers subagent Sessions,
+   * Sessions whose `runtime_mode` is not `active`, and Sessions pinned to a config version
+   * (`createSession` with an explicit `runtime_mode: 'active'` pins one).
+   */
+  unavailable_reason:
+    | 'session_archived'
+    | 'task_model_read_only'
+    | 'vault_profile_restricted'
+    | 'task_model_subscription_bound'
+    | 'task_model_unavailable'
+    | string
+    | null
+  [k: string]: unknown
+}
+
+type SessionModelVersions = {
+  expected_selection_version: number
+  expected_config_version: number
+}
+
+/** Select a model for one Session, optionally with a thinking level (`null` uses the model default). */
+export type SessionModelSelect = SessionModelVersions & {
+  model_id: string
+  thinking?: ThinkingLevel | null
+}
+
+/**
+ * Set or clear (`null`) only the Session's thinking level; a level also fixes the current model.
+ * While following an `auto` Agent with no selected model a level alone is 400: use
+ * {@link SessionModelSelect}.
+ */
+export type SessionThinkingUpdate = SessionModelVersions & {
+  model_id?: undefined
+  thinking: ThinkingLevel | null
+}
+
+/** Follow the Agent's model and thinking level again. */
+export type SessionModelReset = SessionModelVersions & {
+  model_id: null
+  thinking?: null
+}
+
+/**
+ * A change to a Session's model, its thinking level, or both. An omitted field and `null` mean
+ * different things:
+ *
+ * - `model_id`: a string selects that model (with or without the `litellm/` prefix); `null`
+ *   restores the Agent's model AND thinking level, so it cannot be combined with a level;
+ *   omitted keeps the model.
+ * - `thinking`: a level sets it and also fixes the current model for this Session (except while
+ *   following an `auto` Agent with no selected model, which needs a `model_id`); `null` clears
+ *   the Session's level. Omitting `thinking` keeps the Session's own level unless the model
+ *   switches. A switch clears it, including fixing the current model under `auto` routing.
+ *
+ * Once a model is fixed with this call, the Session no longer inherits the Agent's level: without
+ * one of its own it uses the model's default. Clearing the level of a Session that follows the Agent is a no-op.
+ *
+ * Supply at least one of `model_id` and `thinking`. Omitting both or pairing `model_id: null`
+ * with a non-null level raises 400 `invalid_request` during body validation. Both expected
+ * versions come from the last {@link SessionModel} you read.
+ */
+export type SessionModelUpdate = SessionModelSelect | SessionThinkingUpdate | SessionModelReset
 
 export interface SessionRecord {
   session_id: string
@@ -1068,6 +1298,8 @@ export type CustomToolResultEvent = OutboundEvent & {
   type: 'user.custom_tool_result'
   content: CustomToolResultContent[]
   is_error?: boolean
+  /** When true, stops further LLM turns once all tool calls in the current batch finish, timeout, or cancel. */
+  end_turn?: boolean
   idempotency_key?: string
 } & (
     | { /** The `callId` from `agent.custom_tool_use`. */ custom_tool_use_id: string; call_id?: never }
@@ -1161,8 +1393,9 @@ export interface StreamEventsOptions {
  * previously misdeclared as every. Use everyMs explicitly: the SDK does not convert units
  * or rename the obsolete every field at runtime.
  *
- * Cron is a five-field expression. Macros and a `CRON_TZ=` prefix are rejected; overlap is
- * fixed to SKIP server-side, so a fire that lands on a still-running one is dropped, not queued.
+ * Cron is a five-field expression, with the timezone in `tz`. Do not use macros such as `@daily` or
+ * a `CRON_TZ=` prefix: the API does not reject them, but they are not the supported form. Overlap
+ * is fixed to SKIP server-side, so a fire that lands on a still-running one is dropped, not queued.
  */
 export type ScheduleSpec =
   | { kind: 'cron'; expr: string; tz?: string; [k: string]: unknown }
@@ -1672,6 +1905,29 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * Ownership is derived from the key. Omit caller-supplied ownership.
    */
   createAgent(input: { resource: AgentResource; ownership?: Ownership }, idempotencyKey?: string): Promise<AgentRecord>
+  /** Create a Build Agent and its Build session. Reuse the key for the same creation. */
+  createBuildAgent(input: BuildAgentInput, idempotencyKey: string): Promise<BuildAgentCreated>
+  /** Read the current working and effective revisions and their apply status. */
+  getBuild(agentId: string): Promise<BuildSummary>
+  /** Open or retrieve this Agent's single Build session. */
+  openBuildSession(agentId: string): Promise<BuildSession>
+  /** Read a Build turn's result using the run ID from the session events. */
+  getBuildRun(agentId: string, runId: string): Promise<BuildRun>
+  /** Retry applying the Working Revision, optionally confirming its Environment rebuild. */
+  retryBuildApply(agentId: string, idempotencyKey: string, options?: BuildApplyOptions): Promise<BuildApply>
+  publishBuild(agentId: string, input: PublishBuildInput): Promise<PublishedBuild>
+  createShareLink(agentId: string, idempotencyKey: string): Promise<ShareLinkCreated>
+  listShareLinks(agentId: string): Promise<ShareLink[]>
+  revokeShareLink(agentId: string, shareId: string): Promise<void>
+  previewInstall(token: string): Promise<AgentInstallPreview>
+  installSharedAgent(token: string, expectedSourceRevisionId: string, idempotencyKey: string): Promise<InstalledAgent>
+  listInstalledAgents(input?: InstalledAgentQuery): Promise<InstalledAgentPage>
+  updateInstalledAgent(agentId: string, input: UpdateInstalledAgentInput, idempotencyKey: string): Promise<InstalledAgentUpdateStatus>
+  getUpdateStatus(agentId: string): Promise<InstalledAgentUpdateStatus>
+  /** List the Build Agent's saved revisions. */
+  listRevisions(agentId: string): Promise<AgentRevisionList>
+  /** Read the unified diff between a saved revision and its parent. */
+  getRevisionDiff(agentId: string, revisionId: string): Promise<AgentRevisionDiff>
   /**
    * List Agents within the key's Project and applicable owner visibility. Labels filter
    * declared labels, and page size is 100. Reads by id still recheck authorization;
@@ -1790,9 +2046,10 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    */
   addChannel(agentId: string, input: AddChannelInput): Promise<AgentChannel>
   /**
-   * Change `dm_policy` / `group_policy` / `enabled` on one bound platform account, and get the
-   * channel back in its NEW state. `allow_from` is deliberately not editable — write-once at
-   * create.
+   * Change `dm_policy` / `group_policy` / `enabled` and the {@link ChannelInteractionInput} settings
+   * on one bound platform account, and get the channel back in its NEW state. Pass
+   * `expected_config_version` from `interaction_settings.config_version`; a concurrent settings
+   * write makes it `409 channel.settings_conflict`.
    *
    * `enabled: false` is not just a flag: it was observed moving `status` to `'disabled'` and
    * resetting `health` to `'unknown'`. Updating a platform with no binding answers
@@ -1917,7 +2174,8 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
    * So `zip -r skill.zip market-research/` where `market-research/SKILL.md` declares
    * `name: market-research`. A zip whose ROOT is the skill (SKILL.md at the top) is also
    * accepted. `SKILL.md` must be non-empty and declare both `name` and `description`.
-   * 50 MB expanded, zip only (store/deflate), encrypted zips rejected.
+   * 50 MB expanded, zip only (store/deflate), encrypted zips rejected. Entry paths must use `/`: a
+   * path containing a backslash is `400 invalid_zip`, which catches archives some Windows tools build.
    *
    * Platform keys on deployments with Project Skill registry support use project scope for a
    * named Project and org scope for the Default Project. Ownership is derived from the key;
@@ -2004,6 +2262,34 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
   /** Soft delete (204). An in-flight run is cancelled first; transcripts and events survive for audit. */
   deleteSession(agentId: string, sessionId: string): Promise<void>
   /**
+   * Read the current model, thinking level, available choices and versions for an update.
+   * No active Agent config raises 409 `task_model_unavailable` before a missing Session raises
+   * 404 `session_not_found`. A successful read can also return `task_model_unavailable` in
+   * `unavailable_reason` when the current model cannot run.
+   */
+  getSessionModel(agentId: string, sessionId: string): Promise<SessionModel>
+  /**
+   * Set the model and/or thinking level of ONE Session from its next turn; the Agent and its other
+   * Sessions do not change. See {@link SessionModelUpdate} for omitted vs `null`.
+   *
+   * Optimistic concurrency: `409 task_model_changed` means the selection or the Agent
+   * configuration changed since you read it, and nothing was written. The SDK never retries this
+   * call. Read again and decide before sending another update. There is no idempotency key, so a
+   * retry after a lost response may get this 409 for your own earlier write; compare the re-read
+   * state first. A write that changes nothing succeeds without a new `selection_version`.
+   *
+   * The server validates the body (400 `invalid_request`), checks for active Agent config
+   * (409 `task_model_unavailable`), then looks up the Session (404 `session_not_found`).
+   * Vault (403 `vault_profile_restricted`) precedes all remaining 409 checks, so an archived
+   * Vault Session reads as `session_archived` but raises 403 on update.
+   * Writability failures return 409 `session_archived`, `task_model_read_only` or
+   * `task_model_subscription_bound`. Version checks follow, then model resolution (400
+   * `invalid_request` for an unknown model, 409 `task_model_unavailable` for an unavailable
+   * model). A thinking level alone while following an `auto` Agent also raises 400
+   * `invalid_request`: supply a model with the level.
+   */
+  updateSessionModel(agentId: string, sessionId: string, update: SessionModelUpdate): Promise<SessionModel>
+  /**
    * 202; `user.interrupt` with no in-flight run returns `accepted:false` — not an error.
    * Accepted events come back as full event objects (with `seq`) where the server supports the
    * unified history; give each event an `idempotency_key` to make timeout retries safe.
@@ -2077,6 +2363,7 @@ export interface ZooworkClient extends DeveloperApi, VaultApi {
     input: {
       content: CustomToolResultContent[]
       isError?: boolean
+      endTurn?: boolean
       resolvedBy?: string
       is_error?: boolean
       resolved_by?: string
@@ -2537,6 +2824,75 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
         ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
       })
     },
+    createBuildAgent: async ({ name, intent, model }, idempotencyKey) =>
+      json('/agents', {
+        method: 'POST',
+        headers: buildWriteHeaders(idempotencyKey),
+        body: JSON.stringify({ mode: 'build', name, intent, model }),
+      }),
+    getBuild: (agentId) => json(`${agents(agentId)}/build`),
+    openBuildSession: (agentId) => json(`${agents(agentId)}/build-session`, { method: 'POST' }),
+    getBuildRun: (agentId, runId) =>
+      json(`${agents(agentId)}/build-session/runs/${encodeURIComponent(runId)}`),
+    retryBuildApply: async (agentId, idempotencyKey, options) => {
+      const confirmRebuild = options?.confirm_rebuild
+      if (confirmRebuild !== undefined && typeof confirmRebuild !== 'boolean') {
+        throw new TypeError('confirm_rebuild must be a boolean')
+      }
+      return json(`${agents(agentId)}/build/apply`, {
+        method: 'POST',
+        headers: buildWriteHeaders(idempotencyKey),
+        ...(confirmRebuild && {
+          body: JSON.stringify({
+            confirm_rebuild: true,
+            expected_revision_id: options?.expected_revision_id,
+            expected_config_version: options?.expected_config_version,
+          }),
+        }),
+      })
+    },
+    publishBuild: (agentId, { revision_id, expected_shared_revision_id }) =>
+      json(`${agents(agentId)}/build/publish`, {
+        method: 'POST', body: JSON.stringify({ revision_id, expected_shared_revision_id }),
+      }),
+    createShareLink: (agentId, idempotencyKey) =>
+      json(`${agents(agentId)}/share-links`, { method: 'POST', headers: buildWriteHeaders(idempotencyKey) }),
+    listShareLinks: (agentId) => json(`${agents(agentId)}/share-links`),
+    revokeShareLink: async (agentId, shareId) => {
+      await json(`${agents(agentId)}/share-links/${encodeURIComponent(shareId)}/revoke`, { method: 'POST' })
+    },
+    previewInstall: (token) =>
+      json('/agent-installs/preview', { headers: { 'X-Agent-Install-Token': token } }),
+    installSharedAgent: (token, expectedSourceRevisionId, idempotencyKey) =>
+      json('/agent-installs', {
+        method: 'POST',
+        headers: { ...buildWriteHeaders(idempotencyKey), 'X-Agent-Install-Token': token },
+        body: JSON.stringify({ expected_source_revision_id: expectedSourceRevisionId }),
+      }),
+    listInstalledAgents: ({ update_available, cursor, limit } = {}) =>
+      json(`/agent-installs${query({
+        update_available: update_available === undefined ? undefined : String(update_available),
+        cursor, limit,
+      })}`),
+    updateInstalledAgent: async (agentId, input, idempotencyKey) => {
+      const { target_source_revision_id, expected_local_revision_id, confirm_rebuild, expected_config_version } = input
+      if (confirm_rebuild !== undefined && typeof confirm_rebuild !== 'boolean') {
+        throw new TypeError('confirm_rebuild must be a boolean')
+      }
+      return json(`${agents(agentId)}/build/update`, {
+        method: 'POST',
+        headers: buildWriteHeaders(idempotencyKey),
+        body: JSON.stringify({
+          target_source_revision_id,
+          expected_local_revision_id,
+          ...(confirm_rebuild && { confirm_rebuild: true, expected_config_version }),
+        }),
+      })
+    },
+    getUpdateStatus: (agentId) => json(`${agents(agentId)}/build/update-status`),
+    listRevisions: (agentId) => json(`${agents(agentId)}/revisions`),
+    getRevisionDiff: (agentId, revisionId) =>
+      json(`${agents(agentId)}/revisions/${encodeURIComponent(revisionId)}/diff`),
     listAgents: (opts = {}) => {
       // Capture the filters once so caller mutations cannot change the scope mid-walk.
       const labels = { ...opts.labels }
@@ -2838,6 +3194,12 @@ export function createZooworkClient(cfg: ZooworkConfig = {}): ZooworkClient {
     deleteSession: async (agentId, sessionId) => {
       await json(`${sessions(agentId)}/${encodeURIComponent(sessionId)}`, { method: 'DELETE' })
     },
+    getSessionModel: (agentId, sessionId) => json(`${sessions(agentId)}/${encodeURIComponent(sessionId)}/model`),
+    updateSessionModel: (agentId, sessionId, update) =>
+      json(`${sessions(agentId)}/${encodeURIComponent(sessionId)}/model`, {
+        method: 'PUT',
+        body: JSON.stringify(update),
+      }),
     postEvents: async (agentId, sessionId, events) => {
       const data = await json<{ events?: { id?: string; type?: string; accepted?: boolean }[] }>(
         `${sessions(agentId)}/${encodeURIComponent(sessionId)}/events`,

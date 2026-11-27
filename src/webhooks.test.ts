@@ -691,6 +691,7 @@ test('the envelope and its per-type narrowing are pinned at the type level', () 
   expectTypeOf<WebhookEventFor<'schedule.dispatched'>['data']['fired_at']>().toEqualTypeOf<string>()
 
   // A field a later Engine release adds reads back as `unknown`, so it compiles.
+  expectTypeOf<WebhookEventFor<'run.finished'>['data']['turn_end_reason']>().toEqualTypeOf<string | undefined>()
   expectTypeOf<WebhookEventFor<'run.finished'>['data']['field_added_next_quarter']>().toEqualTypeOf<unknown>()
 
   // An unknown type is a string, not a compile error — a receiver can hold one.

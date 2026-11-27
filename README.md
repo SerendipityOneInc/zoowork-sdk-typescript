@@ -43,6 +43,7 @@ const agent = await zc.createAgent({
 
 // 2. Start it. Without this, createSession() returns 409 agent_not_running.
 await zc.startAgent(agent.agent_id)
+await zc.waitUntilRunning(agent.agent_id)
 
 // 3. Open a session with the first message already in it.
 const session = await zc.createSession(agent.agent_id, {
@@ -80,7 +81,8 @@ await zc.updateAgent(tuned.agent_id, { model: { thinking: null } } satisfies Age
 Agent resources also accept `userTimezone`, a named IANA timezone used for prompt and message
 time context, and `include_global_skills: false` to disable automatic global Skills while keeping
 explicitly listed Skills. `skills: []` also opts out. Schedule timezones are configured
-separately.
+separately. `memory: { dreaming: { enabled: false } }` stops the runtime from consolidating the
+Agent's Memory between turns; it is on by default, and the Agent read reports it as `memory`.
 
 ## Configuration
 
@@ -100,6 +102,34 @@ An explicit option always beats the environment variable.
 > Use `await zc.waitUntilRunning(agentId)`; it correctly polls `desired_state`.
 > `status.agent_desired_state` and `status.computer_desired_state`, when present, show the
 > agent's own switch and its Computer's state, which `desired_state` combines.
+
+## Platform Agent Build
+
+[Run the TypeScript Build chat example](examples/build-chat.ts) with a Project Key.
+Deploy the Engine changes before the Platform API changes. Set `ZOOWORK_API_KEY` in the server
+environment. Keep the Project Key on the backend so the browser only calls your backend.
+Build messages support text only.
+
+From this checkout, install dependencies and start the demo.
+
+```bash
+corepack pnpm@10 install --frozen-lockfile
+corepack pnpm@10 exec tsx examples/build-chat.ts
+```
+
+Open `http://127.0.0.1:18082`. Create a Build Agent and ask it to configure itself. After each turn
+the page reads `getBuildRun` with the event's run ID. It shows saved, applied, superseded, and
+conflict states independently of the model's reply. Refresh results to recheck an earlier turn.
+Open a normal task with the same Agent to use its applied revision. The browser resumes disconnected
+streams via the backend using the last SSE cursor.
+
+Use `createBuildAgent` and `retryBuildApply` with an explicit `idempotencyKey`. You can read the
+current state with `getBuild`, reopen the Build chat with `openBuildSession`, and inspect saved
+changes with `listRevisions` and `getRevisionDiff`.
+Quick commands in `getBuild` have `name` and `prompt`. Each revision in `listRevisions` has
+`revision_id`, a nullable `parent_revision_id`, `commit_message`, `created_at`, and
+`validation_passed`. The example creates real Agents and runs on a live deployment. Delete the
+demo Agent when finished.
 
 ## Listing agents and pagination
 
@@ -175,7 +205,7 @@ to use the owner; IM sessions reject it. See the field's SDK comment for input c
 
 ## Agent Skills
 
-New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, each `resource.skills` entry needs a `skill_id` and stays on the version resolved at creation, including `'latest'`; to keep a Skill on the newest version, assign it after creation with no `versionPin`. `include_global_skills: false` or an empty list opts out of automatic global Skills. An entry with `name` makes the list the Agent's exact Skill set, drops global Skills, and makes later assignment calls return `409 source_owned_skills`. Root Skill uploads are unavailable to Project keys. Keep source changes in your application; use persona documents for standing instructions and Session messages for text task data.
+New Agents receive global Skills by default. Use `listAgentSkills(agentId)` to inspect attached Skills. At create time, each `resource.skills` entry needs a `skill_id` and stays on the version resolved at creation, including `'latest'`; to keep a Skill on the newest version, assign it after creation with no `versionPin`. `include_global_skills: false` or an empty list opts out of automatic global Skills. An entry with `name` makes the list the Agent's exact Skill set, drops global Skills, and makes later assignment calls return `409 source_owned_skills`. A named Project key uploads Skills to its Project scope; a Default Project key uploads at organization scope. Keep source changes in your application; use persona documents for standing instructions and Session messages for text task data.
 
 ## Schedules, wake and exec
 
@@ -242,12 +272,63 @@ scope, so do not reuse a cursor created without it.
 `patchSession`: the gateway does not proxy `PATCH` at all (405), so session `metadata` is fixed at
 creation time.
 
+`getSessionModel` and `updateSessionModel` read and change the model and thinking level of one
+Session from its next turn, without changing the Agent. Verified on staging on 2026-11-26 with
+`pnpm test:e2e:session-model`: read, set model and level, stale version (409), change only the
+level, clear it, reset, unknown model (400), and archived Session (409). Not verified live: the
+effect on a turn, and Vault, subscription and `auto`-routing Agents.
+
+```ts
+const state = await zc.getSessionModel(agentId, sessionId)
+if (state.writable) {
+  const target = state.available_models.find(model => model.thinking.levels.length > 0)
+  const level = target?.thinking.levels[0]
+  if (target && level) {
+    try {
+      await zc.updateSessionModel(agentId, sessionId, {
+        expected_selection_version: state.selection_version,
+        expected_config_version: state.config_version,
+        model_id: target.id,
+        thinking: level,
+      })
+    } catch (err) {
+      if (!(err instanceof ZooworkError) || err.type !== 'task_model_changed') throw err
+      // Read again and decide whether to apply the change with the new versions.
+    }
+  }
+}
+```
+
+When writes are disabled, `available_models` is empty and `unavailable_reason` explains why.
+`state.thinking` is the Session's own level. `state.default_thinking` is the inherited Agent level,
+or `null` while the model is one fixed with `updateSessionModel` and when following an `auto` Agent
+with no selected model. Once a model is fixed this way, the Session no longer inherits the Agent's
+level. Without a level of its own it uses the model's default. A model the Agent switched to itself
+during a turn also reads as `mode: 'override'` but keeps inheriting the Agent level. For example, when following the Agent, sending only its current
+`model_id` fixes that model with `thinking: null`. Clearing only the level while following the
+Agent is a no-op. Use `model_id: null` to follow the Agent's model and level again.
+
 An application-executed tool is declared in `resource.custom_tools`. When
 `customToolUse(ev)?.phase === 'requested'`, execute the named operation and call
 `resolveCustomToolCall`; `listCustomToolCalls` recovers pending work after a restart. You may also
 post a typed `user.custom_tool_result` event to the owning session. The run reports
 `awaiting_approval` while paused, so use `pending_custom_tool_calls` to distinguish this wait from
 a normal approval. These contracts are source-reviewed and need deployment verification.
+
+At most 32 custom tools are accepted. `timeoutMs` defaults to 600,000 ms and is at most
+86,400,000 ms. A result carries 1 to 16 text, JSON or base64 image blocks; pass `endTurn: true`
+(or `end_turn: true` on `user.custom_tool_result`) to stop further LLM turns once all tool calls
+in the current batch finish, timeout, or cancel (`isError: true` remains orthogonal and can be
+combined without triggering an LLM retry). On Session events, `run.finished` carries
+`status: 'succeeded'` and `turnEndReason: 'custom_tool'` (or `'yielded'` if `sessions_yield`
+also fired in the same turn); on Webhooks, a custom-tool-ended turn emits `run.finished` with
+`data.turn_end_reason: 'custom_tool'`, whereas a turn where `sessions_yield` takes precedence
+emits `run.yielded` instead of `run.finished` (so webhook consumers subscribed only to
+`run.finished` will not receive a yielded turn).
+
+An MCP server declaration's `context` is opt-in and is not authentication: it passes runtime
+coordinates such as the Agent and Session IDs to the server. `permission` sets the server's default
+approval; `tools` overrides it per exact tool name.
 
 ```ts
 const call = customToolUse(ev)
@@ -454,7 +535,9 @@ Rules:
 - Update, archive, delete and revoke take `revision` (sent as `If-Match`). A stale one is 412
   `vault.revision_conflict`: read the resource again. `validateVaultCredential` takes neither key
   nor revision.
-- A retried delete that answers 404 `vault.not_found` already succeeded.
+- A retried delete answers 204 again; reads of a deleted resource answer 404 `vault.not_found`.
+- Rotating an `mcp_oauth` credential's token needs `expires_at` (`null` when the provider gave no
+  expiry).
 - With Vault fields, `createSession` needs `isolation`. Omit the Vault fields you do not use; one
   that is present, even `null` or `[]`, makes the request a Vault request.
 - Read `credential.health` through `vaultCredentialHealthState(credential)`. Only `ok` is healthy.
@@ -471,8 +554,9 @@ Rules:
   a Node.js system error code. `isVaultBetaUnavailable(err)` matches
   `vault.session_fields_unavailable` in either `err.code` or `err.type`.
 
-When a user leaves, either archive or delete that user's dedicated Vault or credential (every
-Session using it is refused at its next call), or revoke that user's Sessions. ZooWork does not
+When a user leaves, either archive or delete that user's dedicated Vault or credential (MCP calls
+that need it are refused from then on; the Sessions and their other tools keep working), or revoke
+that user's Sessions. ZooWork does not
 model end users, so your application keeps the user → Session mapping:
 
 ```ts
@@ -495,6 +579,14 @@ while (current.status === 'in_progress' && Date.now() < deadline) {
 directly. Its 404 `service_api.not_found` can mean an unknown Agent or Session as well as Vault
 not being enabled, so it is not reported as `VaultBetaUnavailableError`. See
 [`examples/vault.ts`](examples/vault.ts).
+
+## Errors
+
+Every non-successful response throws `ZooworkError`. Match `err.type` or `err.status`, never the
+message. `err.code` holds the body's top-level dotted code when it differs from `type`. Diagnostic
+fields are `contentType`, `bodySnippet` (the first 600 characters of the body), `cfRay`,
+`requestId` and `retryable` (`true` for 408, 429, 502, 503 and 504; a retry still needs an
+idempotency key to be safe).
 
 ## Two helpers
 
@@ -560,7 +652,7 @@ MIT
 These helpers require an SDK release that includes them. Check the installed declarations before using an example; use the documented HTTP endpoint if the installed release lacks the method.
 
 ```ts
-const usage = await zc.getUsage({ range: '7d', view: 'both' })
+const usage = await zc.getUsage({ range: '7d', view: 'both' }) // usage.totals?.amount: USD decimal string
 const balance = await zc.getBalance() // { object: 'balance', available_amount: '11.34', currency: 'usd' }
 const endpoint = await zc.createAgentWebhook(agentId, {
   url: 'https://receiver.example/webhook', event_types: ['run.finished'],
@@ -576,7 +668,9 @@ The workspace Files methods (`getWorkspaceFile`, `writeWorkspaceFile`,
 Send a file to an Agent with `uploadFile`, and retrieve results by asking the Agent to publish
 Artifacts and downloading those through the Artifact API. The database viewer is not a
 supported production workflow. The Agent can use `agent_db` and return query results in its
-reply. Method presence is not production availability. Usage stays within the current key scope.
+reply. Method presence is not production availability. Usage stays within the current key scope
+and reports spend as `amount`, a USD decimal string, on `totals`, each group and each record;
+`currency` is `usd`. Bill and reconcile with `amount`: `credits` in the same response is deprecated.
 `getBalance` returns the Organization balance shared by all Projects, in USD, to any Platform
 key in the Organization. Page helpers retain `next_cursor` and `has_more`; replay cursors
 verbatim. `getApproval` and `getCustomToolCall` read terminal as well as pending actions.
